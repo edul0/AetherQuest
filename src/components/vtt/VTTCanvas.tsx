@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Circle, Line } from 'react-konva';
 import useImage from 'use-image';
-import { supabase } from '@/lib/supabase';
-
+import { supabase } from '../../lib/supabase';
 const GRID_SIZE = 50;
 
 export default function VTTCanvas({ salaId }: { salaId: string }) {
