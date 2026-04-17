@@ -22,6 +22,7 @@ export default function FichaPersonagemPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // Estados dos formulários de adição
   const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [newSkill, setNewSkill] = useState({ nome: "", dado: "", desc: "" });
   const [isAddingWeapon, setIsAddingWeapon] = useState(false);
@@ -32,35 +33,32 @@ export default function FichaPersonagemPage() {
   const carregarFicha = async () => {
     const { data } = await supabase.from('fichas').select('*').eq('id', id).single();
     if (data) {
-      // Blindagem contra personagens antigos que não têm os arrays criados
       if (!data.dados.habilidades) data.dados.habilidades = [];
       if (!data.dados.armas) data.dados.armas = [];
-      if (!data.dados.atributos) data.dados.atributos = { forca: 10, destreza: 10, vigor: 10, intelecto: 10, sabedoria: 10, carisma: 10 };
-      
       setFicha(data);
       const sys = PRESETS[data.sistema_preset as keyof typeof PRESETS];
-      if (sys && sys.categorias_hab) setActiveTab(sys.categorias_hab[0].id);
+      if (sys) setActiveTab(sys.categorias_hab[0].id);
     }
     setLoading(false);
   };
 
   const recalcularMaximos = (dadosAtuais: any, sistema: string) => {
-    const atr = dadosAtuais.atributos || {};
+    const atr = dadosAtuais.atributos || { forca:10, destreza:10, vigor:10, intelecto:10, sabedoria:10, carisma:10 };
     const lv = sistema === 'ordem_paranormal' ? Math.max(1, Math.floor((dadosAtuais.nex || 5) / 5)) : (dadosAtuais.nivel || 1);
-    const modVig = Math.floor(((atr.vigor || 10) - 10) / 2);
-    const modSab = Math.floor(((atr.sabedoria || 10) - 10) / 2);
-    const modInt = Math.floor(((atr.intelecto || 10) - 10) / 2);
+    const modVig = Math.floor((atr.vigor - 10) / 2);
+    const modSab = Math.floor((atr.sabedoria - 10) / 2);
+    const modInt = Math.floor((atr.intelecto - 10) / 2);
 
     if (sistema === 'ordem_paranormal') return {
-      vida: { ...dadosAtuais.status.vida, max: Math.max(1, 16 + modVig + (lv - 1) * (4 + modVig)) },
-      sanidade: { ...dadosAtuais.status.sanidade, max: Math.max(0, 12 + modSab + (lv - 1) * (3 + modSab)) },
-      estamina: { ...dadosAtuais.status.estamina, max: Math.max(0, 10 + modInt + (lv - 1) * (2 + modInt)) }
+      vida: { ...dadosAtuais.status?.vida, max: Math.max(1, 16 + modVig + (lv - 1) * (4 + modVig)) },
+      sanidade: { ...dadosAtuais.status?.sanidade, max: Math.max(0, 12 + modSab + (lv - 1) * (3 + modSab)) },
+      estamina: { ...dadosAtuais.status?.estamina, max: Math.max(0, 10 + modInt + (lv - 1) * (2 + modInt)) }
     };
     
     return {
-      vida: { ...dadosAtuais.status.vida, max: Math.max(1, 20 + modVig + (lv - 1) * (6 + modVig)) },
-      sanidade: { ...dadosAtuais.status.sanidade, max: 0 },
-      estamina: { ...dadosAtuais.status.estamina, max: Math.max(0, 12 + modInt + (lv - 1) * (3 + modInt)) }
+      vida: { ...dadosAtuais.status?.vida, max: Math.max(1, 20 + modVig + (lv - 1) * (6 + modVig)) },
+      sanidade: { ...dadosAtuais.status?.sanidade, max: 0 },
+      estamina: { ...dadosAtuais.status?.estamina, max: Math.max(0, 12 + modInt + (lv - 1) * (3 + modInt)) }
     };
   };
 
@@ -78,27 +76,36 @@ export default function FichaPersonagemPage() {
   const handleSelecionarOrigem = (nomeOrigem: string) => {
     const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
     const origemData = sys?.origens?.find((o: any) => o.nome === nomeOrigem);
-    
     atualizarFicha('origem', nomeOrigem);
     
     if (origemData && origemData.poder) {
       const nomePoder = `[Origem] ${nomeOrigem}`;
-      const jaTem = ficha.dados.habilidades.find((h:any) => h.nome === nomePoder);
-      if (!jaTem) {
-         const habs = [...ficha.dados.habilidades, { id: Date.now(), nome: nomePoder, desc: origemData.poder, cat: 'comum' }];
-         setFicha(prev => ({ ...prev, dados: { ...prev.dados, habilidades: habs } }));
+      if (!ficha.dados.habilidades.find((h:any) => h.nome === nomePoder)) {
+         atualizarFicha('habilidades', [...ficha.dados.habilidades, { id: Date.now(), nome: nomePoder, desc: origemData.poder, cat: 'comum' }]);
       }
     }
   };
 
+  // MOTOR DE AUTO-PREENCHIMENTO DE HABILIDADES/RITUAIS (O que havia quebrado)
+  const handleSelecionarHabilidadePreset = (nomeHab: string) => {
+    if (!nomeHab) return;
+    const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS] as any;
+    const listaCompendio = sys[activeTab] || []; 
+    const habData = listaCompendio.find((h: any) => h.nome === nomeHab);
+    
+    if (habData) {
+      setNewSkill({ nome: habData.nome, dado: habData.dado || "", desc: habData.desc || "" });
+    } else {
+      setNewSkill({ ...newSkill, nome: nomeHab });
+    }
+  };
+
   const handleSelecionarArmaPreset = (nomeArma: string) => {
-    const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
-    const armaData = sys?.armas?.find((a: any) => a.nome === nomeArma);
+    if (!nomeArma) return;
+    const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS] as any;
+    const armaData = sys.armas?.find((a: any) => a.nome === nomeArma);
     if (armaData) {
-      setNewWeapon({ 
-        nome: armaData.nome, dano: armaData.dano, critico: armaData.critico, 
-        alcance: armaData.alcance, habilidade: armaData.habilidade, desc: armaData.desc 
-      });
+      setNewWeapon({ nome: armaData.nome, dano: armaData.dano, critico: armaData.critico, alcance: armaData.alcance, habilidade: armaData.habilidade, desc: armaData.desc });
     } else {
       setNewWeapon({ ...newWeapon, nome: nomeArma });
     }
@@ -106,16 +113,14 @@ export default function FichaPersonagemPage() {
 
   const adicionarHabilidade = () => {
     if (!newSkill.nome) return;
-    const habs = [...ficha.dados.habilidades, { ...newSkill, id: Date.now(), cat: activeTab }];
-    atualizarFicha('habilidades', habs);
+    atualizarFicha('habilidades', [...ficha.dados.habilidades, { ...newSkill, id: Date.now(), cat: activeTab }]);
     setNewSkill({ nome: "", dado: "", desc: "" });
     setIsAddingSkill(false);
   };
 
   const adicionarArma = () => {
     if (!newWeapon.nome) return;
-    const armasList = [...(ficha.dados.armas || []), { ...newWeapon, id: Date.now() }];
-    atualizarFicha('armas', armasList);
+    atualizarFicha('armas', [...ficha.dados.armas, { ...newWeapon, id: Date.now() }]);
     setNewWeapon({ nome: "", dano: "", critico: "", alcance: "", habilidade: "", desc: "" });
     setIsAddingWeapon(false);
   };
@@ -138,17 +143,15 @@ export default function FichaPersonagemPage() {
 
   if (loading) return <div className="min-h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9] font-mono tracking-widest animate-pulse">Sincronizando...</div>;
 
-  const currentSys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
+  const currentSys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS] as any;
   const isOP = ficha.sistema_preset === 'ordem_paranormal';
   const noArrows = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
   return (
     <main className="min-h-screen w-full bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative pb-32">
-      <div className="fixed top-0 left-0 w-full h-[100vh] bg-[radial-gradient(circle_at_50%_0%,_#1a2b4c22_0%,_transparent_70%)] pointer-events-none z-0" />
-
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090e17]/90 backdrop-blur-sm px-4">
-          <div className="bg-[#131b26] border border-red-900/50 rounded-2xl p-8 max-w-sm w-full shadow-2xl">
+          <div className="bg-[#131b26] border border-red-900/50 rounded-2xl p-8 max-w-sm w-full">
             <h2 className={`${cinzel.className} text-red-400 text-2xl mb-4 font-bold`}>Apagar Personagem?</h2>
             <div className="flex gap-4">
               <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 border border-[#2a3b52] py-2 rounded-lg text-white">Cancelar</button>
@@ -159,7 +162,6 @@ export default function FichaPersonagemPage() {
       )}
 
       <div className="max-w-6xl mx-auto relative z-10">
-        
         <header className="flex flex-col gap-6 mb-12 border-b border-[#2a3b52] pb-6">
           <div className="flex justify-between items-center">
             <button onClick={() => router.push('/fichas')} className="text-xs uppercase tracking-[0.2em] text-[#6b7b94] hover:text-[#4ad9d9] transition-colors flex items-center gap-2">
@@ -174,14 +176,10 @@ export default function FichaPersonagemPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <select 
-              value={ficha.sistema_preset} 
-              onChange={(e) => {
+            <select value={ficha.sistema_preset} onChange={(e) => {
                  const novosStatus = recalcularMaximos(ficha.dados, e.target.value);
                  setFicha({ ...ficha, sistema_preset: e.target.value, dados: { ...ficha.dados, status: novosStatus } });
-              }} 
-              className="w-fit bg-transparent text-[#4ad9d9] text-[10px] uppercase tracking-widest font-bold outline-none cursor-pointer border-b border-[#2a3b52] pb-1"
-            >
+              }} className="w-fit bg-transparent text-[#4ad9d9] text-[10px] uppercase tracking-widest font-bold outline-none cursor-pointer border-b border-[#2a3b52] pb-1">
               <option value="ordem_paranormal">Sistema: Ordem Paranormal</option>
               <option value="dnd5e">Sistema: D&D 5e</option>
               <option value="memorias_postumas">Sistema: Memórias Póstumas</option>
@@ -191,7 +189,6 @@ export default function FichaPersonagemPage() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
           <div className="lg:col-span-4 space-y-6">
             <div onClick={() => fileInputRef.current?.click()} className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-[#131b26]/80 border border-[#2a3b52] rounded-3xl overflow-hidden cursor-pointer shadow-lg">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
@@ -229,7 +226,6 @@ export default function FichaPersonagemPage() {
           </div>
 
           <div className="lg:col-span-8 space-y-8">
-            
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {['vida', 'sanidade', 'estamina'].map(s => {
                 const stat = ficha.dados.status[s];
@@ -262,7 +258,6 @@ export default function FichaPersonagemPage() {
             </section>
 
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl p-6 shadow-lg">
-               <h3 className={`${cinzel.className} text-white text-xs tracking-[0.4em] mb-6 opacity-50 uppercase`}>Matriz de Atributos</h3>
                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                  {Object.entries(ficha.dados.atributos || {}).map(([k, v]: any) => {
                    const mod = Math.floor((v - 10) / 2);
@@ -281,7 +276,6 @@ export default function FichaPersonagemPage() {
                </div>
             </section>
 
-            {/* ABAS INTELIGENTES (Sem Ícones Fantasmas) */}
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl overflow-hidden shadow-lg">
                <div className="flex border-b border-[#2a3b52] overflow-x-auto scrollbar-hide">
                  {currentSys?.categorias_hab?.map((cat:any) => (
@@ -296,7 +290,6 @@ export default function FichaPersonagemPage() {
                </div>
 
                <div className="p-6">
-                 
                  {activeTab === 'armas' ? (
                    <>
                      <div className="flex justify-between items-center mb-6">
@@ -307,9 +300,9 @@ export default function FichaPersonagemPage() {
                      {isAddingWeapon && (
                        <div className="mb-6 p-4 bg-[#0a0f18] border border-[#4ad9d9]/30 rounded-xl space-y-4">
                          <div className="flex items-center gap-2 mb-2">
-                           <span className="text-xs text-[#4ad9d9] font-bold uppercase">Preset:</span>
+                           <span className="text-xs text-[#4ad9d9] font-bold uppercase">Compêndio:</span>
                            <select onChange={(e) => handleSelecionarArmaPreset(e.target.value)} className="bg-[#131b26] border border-[#2a3b52] text-white text-xs px-2 py-1 outline-none cursor-pointer">
-                             <option value="">Manual...</option>
+                             <option value="">Digitar Manualmente...</option>
                              {currentSys?.armas?.map((a:any) => <option key={a.nome} value={a.nome}>{a.nome}</option>)}
                            </select>
                          </div>
@@ -325,10 +318,9 @@ export default function FichaPersonagemPage() {
                      )}
 
                      <div className="space-y-4">
-                       {ficha.dados.armas?.length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase tracking-widest">Arsenal vazio.</p>}
                        {ficha.dados.armas?.map((a: any) => (
-                         <div key={a.id} className="bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl relative group hover:border-[#4ad9d9]/50 transition-colors">
-                           <button onClick={() => atualizarFicha('armas', ficha.dados.armas.filter((x:any) => x.id !== a.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
+                         <div key={a.id} className="bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl relative group">
+                           <button onClick={() => atualizarFicha('armas', ficha.dados.armas.filter((x:any) => x.id !== a.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500"><Trash2 size={16}/></button>
                            <div className="flex items-end gap-4 mb-2">
                              <h5 className="text-[#f0ebd8] font-black text-lg">{a.nome}</h5>
                              <span className="text-[10px] text-[#4ad9d9] font-bold uppercase mb-1">{a.habilidade}</span>
@@ -351,15 +343,22 @@ export default function FichaPersonagemPage() {
 
                      {isAddingSkill && (
                        <div className="mb-6 p-4 bg-[#0a0f18] border border-[#4ad9d9]/30 rounded-xl space-y-3">
-                         <input type="text" placeholder="Nome (Ex: Furtividade)" value={newSkill.nome} onChange={(e) => setNewSkill({...newSkill, nome: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
-                         <input type="text" placeholder="Dado/Custo Opcional (Ex: 1d20+2 ou 2 PE)" value={newSkill.dado} onChange={(e) => setNewSkill({...newSkill, dado: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                         {/* O SELECT QUE FALTAVA NA SUA TELA PARA PUXAR RITUAIS/PODERES! */}
+                         <div className="flex items-center gap-2 mb-2">
+                           <span className="text-xs text-[#4ad9d9] font-bold uppercase">Compêndio:</span>
+                           <select onChange={(e) => handleSelecionarHabilidadePreset(e.target.value)} className="bg-[#131b26] border border-[#2a3b52] text-white text-xs px-2 py-1 outline-none cursor-pointer w-full max-w-xs">
+                             <option value="">Digitar Manualmente...</option>
+                             {currentSys?.[activeTab]?.map((h:any) => <option key={h.nome} value={h.nome}>{h.nome}</option>)}
+                           </select>
+                         </div>
+                         <input type="text" placeholder="Nome (Ex: Decadência)" value={newSkill.nome} onChange={(e) => setNewSkill({...newSkill, nome: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                         <input type="text" placeholder="Dado/Custo (Ex: 1 PE)" value={newSkill.dado} onChange={(e) => setNewSkill({...newSkill, dado: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
                          <textarea placeholder="Descrição (O que faz?)" value={newSkill.desc} onChange={(e) => setNewSkill({...newSkill, desc: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-[#6b7b94] px-2 py-1 outline-none focus:border-[#4ad9d9] resize-none" rows={2}/>
                          <button onClick={adicionarHabilidade} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-white transition-colors">Incluir</button>
                        </div>
                      )}
 
                      <div className="space-y-3">
-                       {ficha.dados.habilidades?.filter((h: any) => h.cat === activeTab).length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase tracking-widest">Nenhum registro.</p>}
                        {ficha.dados.habilidades?.filter((h: any) => h.cat === activeTab).map((h: any) => (
                          <div key={h.id} className="group bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl hover:border-[#4ad9d9]/40 transition-all relative">
                            <button onClick={() => atualizarFicha('habilidades', ficha.dados.habilidades.filter((x:any) => x.id !== h.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
