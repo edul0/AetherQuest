@@ -2,12 +2,15 @@
 const nextConfig = {
   reactStrictMode: false,
   eslint: {
-    // Ignora erros de linting durante o build na Vercel
     ignoreDuringBuilds: true,
   },
   typescript: {
-    // Ignora erros de tipagem do TypeScript durante o build
     ignoreBuildErrors: true,
+  },
+  // O TIRO DE MISERICÓRDIA NO ERRO DO CANVAS:
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    return config;
   },
 };
 
