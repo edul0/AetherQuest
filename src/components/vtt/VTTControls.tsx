@@ -1,5 +1,5 @@
 "use client";
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../../lib/supabase';
 import { Upload, Dice5, Users } from 'lucide-react';
 
 export default function VTTControls({ salaId }: { salaId: string }) {
