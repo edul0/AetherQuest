@@ -18,8 +18,8 @@
 
   <script>
     // 1. Configurações do Supabase (Pegue no painel do seu projeto)
-    const SB_URL = "SUA_URL_AQUI";
-    const SB_KEY = "SUA_ANON_KEY_AQUI";
+    const SB_URL = https://bekjfcjlywgrsfqkakfn.supabase.co
+    const SB_KEY = sb_publishable_GdYDi1FKgtsdbb3HIHxpIA_Jm2y1HFA;
     const supabase = lib.createClient(SB_URL, SB_KEY);
 
     // 2. Setup do Canvas (Konva)
