@@ -35,13 +35,58 @@ export const ORDEM_PARANORMAL = {
     { id: 'rituais', nome: 'Rituais' },
     { id: 'armas', nome: 'Arsenal' }
   ],
+  pericias: [
+    { nome: "Acrobacia", atributo: "agilidade" },
+    { nome: "Adestramento", atributo: "presenca" },
+    { nome: "Artes", atributo: "presenca" },
+    { nome: "Atletismo", atributo: "forca" },
+    { nome: "Atualidades", atributo: "intelecto" },
+    { nome: "Ciências", atributo: "intelecto" },
+    { nome: "Crime", atributo: "agilidade" },
+    { nome: "Diplomacia", atributo: "presenca" },
+    { nome: "Enganação", atributo: "presenca" },
+    { nome: "Fortitude", atributo: "vigor" },
+    { nome: "Furtividade", atributo: "agilidade" },
+    { nome: "Iniciativa", atributo: "agilidade" },
+    { nome: "Intimidação", atributo: "presenca" },
+    { nome: "Intuição", atributo: "presenca" },
+    { nome: "Investigação", atributo: "intelecto" },
+    { nome: "Luta", atributo: "forca" },
+    { nome: "Medicina", atributo: "intelecto" },
+    { nome: "Ocultismo", atributo: "intelecto" },
+    { nome: "Percepção", atributo: "presenca" },
+    { nome: "Pilotagem", atributo: "agilidade" },
+    { nome: "Pontaria", atributo: "agilidade" },
+    { nome: "Profissão", atributo: "intelecto" },
+    { nome: "Reflexos", atributo: "agilidade" },
+    { nome: "Religião", atributo: "presenca" },
+    { nome: "Sobrevivência", atributo: "intelecto" },
+    { nome: "Tática", atributo: "intelecto" },
+    { nome: "Tecnologia", atributo: "intelecto" },
+    { nome: "Vontade", atributo: "presenca" }
+  ],
   
   comum: [
-    { nome: "Ataque Especial", dado: "2 PE", desc: "Recebe +5 no teste de ataque ou na rolagem de dano. (Combatente)" },
-    { nome: "Perito", dado: "2 PE", desc: "Adiciona +1d6 num teste de perícia que seja treinado. (Especialista)" },
-    { nome: "Escolhido pelo Outro Lado", dado: "-", desc: "Permite aprender e conjurar rituais. (Ocultista)" },
-    { nome: "Sentido Aguçado", dado: "1 PE", desc: "Recebe +5 em Percepção até o fim da cena." },
-    { nome: "Reflexos Defensivos", dado: "-", desc: "Recebe +2 em Defesa e Reflexos." }
+    // COMBATENTE
+    { nome: "Ataque Especial", dado: "2 PE", desc: "Recebe +5 no teste de ataque ou na rolagem de dano.", subcat: "Combatente", fonte: "Ordem Paranormal" },
+    { nome: "Armamento Pesado", dado: "-", desc: "Você recebe proficiência com armas pesadas.", subcat: "Combatente", fonte: "Ordem Paranormal" },
+    { nome: "Artista Marcial", dado: "-", desc: "Seus ataques desarmados causam 1d6 de dano e você pode usar Agilidade em vez de Força.", subcat: "Combatente", fonte: "Ordem Paranormal" },
+    { nome: "Tropa de Choque", dado: "-", desc: "Você recebe +1 PV por NEX e +2 em Fortitude.", subcat: "Tropa de Choque", fonte: "Ordem Paranormal" },
+    { nome: "Aniquilador", dado: "-", desc: "Aumenta a categoria de uma arma em 1 e reduz o custo de PE de Ataque Especial.", subcat: "Aniquilador", fonte: "Ordem Paranormal" },
+    
+    // ESPECIALISTA
+    { nome: "Perito", dado: "2 PE", desc: "Adiciona +1d6 num teste de perícia que seja treinado.", subcat: "Especialista", fonte: "Ordem Paranormal" },
+    { nome: "Estrategista", dado: "2 PE", desc: "Como ação de movimento, você pode dar uma ordem a um aliado, concedendo +2 em um teste.", subcat: "Estrategista", fonte: "Ordem Paranormal" },
+    { nome: "Infiltrador", dado: "-", desc: "Você recebe +1d6 de dano em ataques furtivos.", subcat: "Infiltrador", fonte: "Ordem Paranormal" },
+    
+    // OCULTISTA
+    { nome: "Escolhido pelo Outro Lado", dado: "-", desc: "Permite aprender e conjurar rituais.", subcat: "Ocultista", fonte: "Ordem Paranormal" },
+    { nome: "Graduado", dado: "-", desc: "Você aprende um ritual adicional de cada círculo que pode conjurar.", subcat: "Graduado", fonte: "Ordem Paranormal" },
+    { nome: "Conduíte", dado: "1 PE", desc: "Aumenta o alcance de um ritual em um passo.", subcat: "Conduíte", fonte: "Ordem Paranormal" },
+
+    // GERAIS
+    { nome: "Sentido Aguçado", dado: "1 PE", desc: "Recebe +5 em Percepção até o fim da cena.", subcat: "Geral", fonte: "Ordem Paranormal" },
+    { nome: "Reflexos Defensivos", dado: "-", desc: "Recebe +2 em Defesa e Reflexos.", subcat: "Geral", fonte: "Ordem Paranormal" }
   ],
 
   paranormal: [
