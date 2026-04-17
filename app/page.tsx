@@ -1,11 +1,11 @@
 "use client";
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Sword, Scroll, Compass, BookOpen } from 'lucide-react';
-import { Cinzel, Lora } from 'next/font/google';
+import { Play, Map, BookOpen, Settings2 } from 'lucide-react';
+import { Cinzel, Inter } from 'next/font/google';
 
-const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700'] });
-const lora = Lora({ subsets: ['latin'], style: ['italic'] });
+const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
+const inter = Inter({ subsets: ['latin'], weight: ['300', '400', '600'] });
 
 const VTTCanvas = dynamic(() => import('../src/components/vtt/VTTCanvas'), { 
   ssr: false 
@@ -18,7 +18,7 @@ export default function Home() {
 
   if (inGame) {
     return (
-      <main className="h-screen w-full bg-[#0a0f12]">
+      <main className="h-screen w-full bg-[#0d131f]">
         <VTTCanvas salaId={salaId} />
         <VTTControls salaId={salaId} />
       </main>
@@ -26,60 +26,86 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0d1317] flex flex-col items-center justify-center p-4 sm:p-6 text-center relative overflow-hidden">
+    <main className="min-h-screen bg-[#090e17] text-white flex flex-col justify-center px-6 md:px-16 lg:px-32 relative overflow-hidden">
       
-      {/* Background Sutil - Efeito Atmosférico */}
+      {/* Background - Estilo Sheikah Slate (Azul Marinho com Glow) */}
       <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#1c2e26] rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-[#2d1b19] rounded-full blur-[120px]" />
+        {/* Glow Superior */}
+        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-[#1a2b4c] rounded-full blur-[130px]" />
+        {/* Glow Inferior (Toque de magia/Zonai) */}
+        <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-[#0f2c25] rounded-full blur-[120px]" />
       </div>
 
-      {/* Painel Principal - Vidro Fosco/Fantasia Moderna */}
-      <div className="z-10 bg-[#161d22]/70 backdrop-blur-xl px-6 py-12 md:p-16 rounded-2xl border border-[#2a363d] shadow-[0_0_50px_rgba(0,0,0,0.5)] max-w-2xl w-full relative">
+      {/* Hero Section */}
+      <div className="z-10 max-w-5xl mt-8">
         
-        {/* Detalhe de Linha Dourada Acima do Título */}
-        <div className="w-12 h-[1px] bg-[#cda462] mx-auto mb-6 opacity-60 rounded-full"></div>
+        {/* Linha Fina Decorativa (Estilo UI BotW) */}
+        <div className="w-16 h-[2px] bg-gradient-to-r from-[#4ad9d9] to-transparent mb-6 opacity-70"></div>
 
-        <h1 className={`${cinzel.className} text-4xl md:text-6xl font-bold mb-4 tracking-widest text-[#f4ecd8] drop-shadow-md`}>
-          AETHER<span className="text-[#3b82f6]">QUEST</span>
+        <h1 className={`${cinzel.className} text-[#f0ebd8] text-5xl md:text-8xl font-black tracking-widest leading-tight mb-4 drop-shadow-[0_0_15px_rgba(74,217,217,0.2)]`}>
+          AETHER<span className="text-[#4ad9d9] font-light">QUEST</span>
         </h1>
         
-        <p className={`${lora.className} text-[#8b9ba5] text-lg md:text-xl mb-12 tracking-wide font-light`}>
-          "As lendas não se contam sozinhas, Mestre."
+        <p className={`${inter.className} text-[#8b9bb4] text-lg md:text-2xl max-w-2xl mb-12 leading-relaxed font-light tracking-wide`}>
+          O Tabletop Virtual focado no essencial. Explore masmorras, role dados e guie seus jogadores em tempo real, de qualquer dispositivo.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center mt-6">
-          
-          {/* Botão Principal - Verde Profundo */}
+        <div className="flex flex-col sm:flex-row gap-6 mb-24">
+          {/* Botão Principal - Azul Claro BotW/Sheikah */}
           <button 
             onClick={() => setInGame(true)}
-            className={`${cinzel.className} group relative flex items-center justify-center gap-3 bg-gradient-to-b from-[#185238] to-[#0f3624] border border-[#2d855f] text-[#f4ecd8] font-bold tracking-widest py-3 px-8 rounded-lg hover:from-[#1e6646] hover:to-[#13452e] transition-all shadow-lg hover:shadow-[#185238]/40 duration-300 w-full sm:w-auto text-sm`}
+            className={`${inter.className} group flex items-center justify-center gap-3 bg-gradient-to-r from-[#218b8b] to-[#1a6666] hover:from-[#2aabab] hover:to-[#218b8b] text-white font-semibold py-4 px-10 rounded-full transition-all duration-300 shadow-[0_0_20px_rgba(33,139,139,0.3)] hover:shadow-[0_0_30px_rgba(74,217,217,0.5)] border border-[#4ad9d9]/30 tracking-widest text-sm uppercase`}
           >
-            <Sword size={18} className="opacity-80 group-hover:opacity-100 transition-opacity" />
-            INICIAR JORNADA
+            <Play size={18} fill="currentColor" className="opacity-90 group-hover:scale-110 transition-transform" />
+            Iniciar Jornada
           </button>
           
-          {/* Botão Secundário - Escuro/Couro */}
-          <button className={`${cinzel.className} group flex items-center justify-center gap-3 bg-gradient-to-b from-[#212a30] to-[#151c20] border border-[#374650] text-[#c3ced5] font-bold tracking-widest py-3 px-8 rounded-lg hover:from-[#29343c] hover:to-[#1a2328] transition-all shadow-lg duration-300 w-full sm:w-auto text-sm`}>
-            <Scroll size={18} className="opacity-70 group-hover:opacity-100 transition-opacity"/>
-            PERGAMINHOS
+          {/* Botão Secundário - Minimalista */}
+          <button className={`${inter.className} flex items-center justify-center gap-3 bg-[#131b26]/50 backdrop-blur-md border border-[#2a3b52] hover:border-[#4ad9d9]/50 text-[#8b9bb4] hover:text-[#f0ebd8] font-semibold py-4 px-10 rounded-full transition-all duration-300 tracking-widest text-sm uppercase`}>
+            Campanhas
           </button>
         </div>
 
-        {/* Menu Inferior - Ícones Orgânicos */}
-        <div className={`${cinzel.className} mt-14 flex justify-center gap-12 text-[#5c6e7a] text-xs tracking-widest uppercase`}>
-          <div className="flex flex-col items-center gap-2 hover:text-[#cda462] transition-colors cursor-pointer group">
-            <BookOpen size={20} strokeWidth={1.5} className="group-hover:scale-110 transition-transform"/>
-            <span>Compêndio</span>
+        {/* Features Minimalistas */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 border-t border-[#1a2b4c]/50 pt-12">
+          
+          <div className="group">
+            <div className="mb-4 text-[#4ad9d9] opacity-80 group-hover:opacity-100 transition-opacity">
+              <Map size={32} strokeWidth={1.5} />
+            </div>
+            <h3 className={`${cinzel.className} text-xl text-[#f0ebd8] font-bold tracking-widest uppercase mb-3`}>
+              Mundo Compartilhado
+            </h3>
+            <p className={`${inter.className} text-[#6b7b94] text-sm leading-relaxed font-light`}>
+              Grid dinâmico e movimentação de tokens em tempo real. O que o Mestre vê, o grupo vê.
+            </p>
           </div>
-          <div className="flex flex-col items-center gap-2 hover:text-[#cda462] transition-colors cursor-pointer group">
-            <Compass size={20} strokeWidth={1.5} className="group-hover:scale-110 transition-transform"/>
-            <span>Bússola</span>
+
+          <div className="group">
+            <div className="mb-4 text-[#4ad9d9] opacity-80 group-hover:opacity-100 transition-opacity">
+              <BookOpen size={32} strokeWidth={1.5} />
+            </div>
+            <h3 className={`${cinzel.className} text-xl text-[#f0ebd8] font-bold tracking-widest uppercase mb-3`}>
+              Compêndio Veloz
+            </h3>
+            <p className={`${inter.className} text-[#6b7b94] text-sm leading-relaxed font-light`}>
+              Acesse fichas e anotações sem perder a visão do tabuleiro. Interface desenhada para fluidez.
+            </p>
           </div>
+
+          <div className="group">
+            <div className="mb-4 text-[#4ad9d9] opacity-80 group-hover:opacity-100 transition-opacity">
+              <Settings2 size={32} strokeWidth={1.5} />
+            </div>
+            <h3 className={`${cinzel.className} text-xl text-[#f0ebd8] font-bold tracking-widest uppercase mb-3`}>
+              Mestre no Controle
+            </h3>
+            <p className={`${inter.className} text-[#6b7b94] text-sm leading-relaxed font-light`}>
+              Ferramentas de upload de mapas e rolagem de dados acessíveis com apenas um toque na tela.
+            </p>
+          </div>
+
         </div>
-        
-        {/* Detalhe de Linha Dourada Abaixo */}
-        <div className="w-12 h-[1px] bg-[#cda462] mx-auto mt-10 opacity-30 rounded-full"></div>
       </div>
       
     </main>
