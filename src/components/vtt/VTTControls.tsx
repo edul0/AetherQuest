@@ -1,6 +1,6 @@
 "use client";
-import { supabase } from '../../lib/supabase'; // <-- CAMINHO CORRIGIDO
-import { Upload, Dice5, Users } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { Upload, Dice5, Users, Map as MapIcon, Heart } from 'lucide-react';
 
 export default function VTTControls({ salaId }: { salaId: string }) {
   
@@ -20,27 +20,52 @@ export default function VTTControls({ salaId }: { salaId: string }) {
   const addToken = async () => {
     await supabase.from('tokens').insert([{
       sala_id: salaId,
-      nome: 'Novo Monstro',
+      nome: 'Monstro',
       x: 0,
       y: 0,
-      cor: '#ef4444'
+      cor: '#ef4444' // Vermelho Monstro clássico
     }]);
   };
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-50">
-      <button onClick={addToken} className="bg-blue-600 p-4 rounded-full text-white shadow-xl active:scale-90 transition">
-        <Users size={24} />
-      </button>
+    <>
+      {/* HUD Superior (Estilo Zelda Corações) */}
+      <div className="fixed top-4 left-4 z-50 flex gap-1">
+         <Heart fill="#ef4444" color="#7f1d1d" size={28} className="drop-shadow-[2px_2px_0_#000]" />
+         <Heart fill="#ef4444" color="#7f1d1d" size={28} className="drop-shadow-[2px_2px_0_#000]" />
+         <Heart fill="#ef4444" color="#7f1d1d" size={28} className="drop-shadow-[2px_2px_0_#000]" />
+      </div>
 
-      <label className="bg-emerald-600 p-4 rounded-full text-white shadow-xl active:scale-90 transition cursor-pointer">
-        <Upload size={24} />
-        <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
-      </label>
+      {/* Controles Inferiores (Estilo Inventário/Ação Boxy) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-50 bg-[#2a2d30] border-4 border-[#8b7355] p-2 shadow-[6px_6px_0_#000]">
+        
+        {/* Adicionar Inimigo/Token */}
+        <button 
+          onClick={addToken} 
+          className="bg-[#b91c1c] border-2 border-[#7f1d1d] p-3 text-white hover:bg-[#ef4444] active:scale-95 transition"
+          title="Adicionar Inimigo"
+        >
+          <Users size={28} className="drop-shadow-[2px_2px_0_#000]" />
+        </button>
 
-      <button onClick={() => alert("D20: " + (Math.floor(Math.random()*20)+1))} className="bg-red-600 p-4 rounded-full text-white shadow-xl active:scale-90 transition">
-        <Dice5 size={24} />
-      </button>
-    </div>
+        {/* Upload de Mapa */}
+        <label 
+          className="bg-[#047857] border-2 border-[#064e3b] p-3 text-white hover:bg-[#10b981] active:scale-95 transition cursor-pointer"
+          title="Trocar Mapa"
+        >
+          <MapIcon size={28} className="drop-shadow-[2px_2px_0_#000]" />
+          <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+        </label>
+
+        {/* Rolagem de Dado Clássica */}
+        <button 
+          onClick={() => alert("D20: " + (Math.floor(Math.random()*20)+1))} 
+          className="bg-[#d97706] border-2 border-[#92400e] p-3 text-white hover:bg-[#f59e0b] active:scale-95 transition"
+          title="Rolar D20"
+        >
+          <Dice5 size={28} className="drop-shadow-[2px_2px_0_#000]" />
+        </button>
+      </div>
+    </>
   );
 }
