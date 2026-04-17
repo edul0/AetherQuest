@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../src/lib/supabase';
 import { Cinzel, Inter } from 'next/font/google';
-import { Camera, Plus, Swords, Save, ArrowLeft, Trash2, Minus } from 'lucide-react';
+import { Camera, Plus, Save, ArrowLeft, Trash2, Minus, ChevronDown } from 'lucide-react';
 import { PRESETS } from '../../../src/lib/constants';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
@@ -20,10 +20,13 @@ export default function FichaPersonagemPage() {
   const [activeTab, setActiveTab] = useState('comum');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-
-  const [isAddingSkill, setIsAddingSkill] = useState(false);
-  const [newSkill, setNewSkill] = useState({ nome: "", dado: "", cat: "comum" });
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // Estados dos Formulários
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
+  const [newSkill, setNewSkill] = useState({ nome: "", dado: "", desc: "" });
+  const [isAddingWeapon, setIsAddingWeapon] = useState(false);
+  const [newWeapon, setNewWeapon] = useState({ nome: "", dano: "", critico: "", alcance: "", habilidade: "", desc: "" });
 
   useEffect(() => { carregarFicha(); }, [id]);
 
@@ -31,6 +34,7 @@ export default function FichaPersonagemPage() {
     const { data } = await supabase.from('fichas').select('*').eq('id', id).single();
     if (data) {
       if (!data.dados.habilidades) data.dados.habilidades = [];
+      if (!data.dados.armas) data.dados.armas = [];
       setFicha(data);
       const sys = PRESETS[data.sistema_preset as keyof typeof PRESETS];
       if (sys) setActiveTab(sys.categorias_hab[0].id);
@@ -51,10 +55,9 @@ export default function FichaPersonagemPage() {
       estamina: { ...dadosAtuais.status.estamina, max: 10 + modInt + (lv - 1) * (2 + modInt) }
     };
     
-    const vBase = sistema === 'dnd5e' ? 10 : 20;
     return {
-      vida: { ...dadosAtuais.status.vida, max: vBase + modVig + (lv - 1) * (6 + modVig) },
-      sanidade: { ...dadosAtuais.status.sanidade, max: sistema === 'dnd5e' ? 0 : 15 + modSab + (lv - 1) * (4 + modSab) },
+      vida: { ...dadosAtuais.status.vida, max: 20 + modVig + (lv - 1) * (6 + modVig) },
+      sanidade: { ...dadosAtuais.status.sanidade, max: 0 },
       estamina: { ...dadosAtuais.status.estamina, max: 12 + modInt + (lv - 1) * (3 + modInt) }
     };
   };
@@ -70,25 +73,52 @@ export default function FichaPersonagemPage() {
     setFicha({ ...ficha, dados: dadosComStatus });
   };
 
+  // --- INTELIGÊNCIA: AUTO-PREENCHER ORIGEM ---
+  const handleSelecionarOrigem = (nomeOrigem: string) => {
+    const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
+    const origemData = sys?.origens?.find((o: any) => o.nome === nomeOrigem);
+    
+    atualizarFicha('origem', nomeOrigem);
+    
+    // Se a origem tiver um poder associado, adiciona automaticamente nas habilidades
+    if (origemData && origemData.poder) {
+      const nomePoder = `[Origem] ${nomeOrigem}`;
+      const jaTem = ficha.dados.habilidades.find((h:any) => h.nome === nomePoder);
+      if (!jaTem) {
+         const habs = [...ficha.dados.habilidades, { id: Date.now(), nome: nomePoder, desc: origemData.poder, cat: 'comum' }];
+         setFicha(prev => ({ ...prev, dados: { ...prev.dados, habilidades: habs } }));
+      }
+    }
+  };
+
+  // --- INTELIGÊNCIA: AUTO-PREENCHER ARMA ---
+  const handleSelecionarArmaPreset = (nomeArma: string) => {
+    const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
+    const armaData = sys?.armas?.find((a: any) => a.nome === nomeArma);
+    if (armaData) {
+      setNewWeapon({ 
+        nome: armaData.nome, dano: armaData.dano, critico: armaData.critico, 
+        alcance: armaData.alcance, habilidade: armaData.habilidade, desc: armaData.desc 
+      });
+    } else {
+      setNewWeapon({ ...newWeapon, nome: nomeArma });
+    }
+  };
+
   const adicionarHabilidade = () => {
     if (!newSkill.nome) return;
     const habs = [...ficha.dados.habilidades, { ...newSkill, id: Date.now(), cat: activeTab }];
     atualizarFicha('habilidades', habs);
-    setNewSkill({ nome: "", dado: "", cat: activeTab });
+    setNewSkill({ nome: "", dado: "", desc: "" });
     setIsAddingSkill(false);
   };
 
-  const handleFileUpload = async (e: any) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setIsUploading(true);
-    const path = `retratos/${id}-${Date.now()}.png`;
-    const { data } = await supabase.storage.from('avatares').upload(path, file);
-    if (data) {
-      const { data: { publicUrl } } = supabase.storage.from('avatares').getPublicUrl(path);
-      atualizarFicha('avatar_url', publicUrl);
-    }
-    setIsUploading(false);
+  const adicionarArma = () => {
+    if (!newWeapon.nome) return;
+    const armasList = [...(ficha.dados.armas || []), { ...newWeapon, id: Date.now() }];
+    atualizarFicha('armas', armasList);
+    setNewWeapon({ nome: "", dano: "", critico: "", alcance: "", habilidade: "", desc: "" });
+    setIsAddingWeapon(false);
   };
 
   const salvarNoBanco = async () => {
@@ -97,48 +127,35 @@ export default function FichaPersonagemPage() {
     setIsSaving(false);
   };
 
-  const mudarSistema = (s: string) => {
-    const novosStatus = recalcularMaximos(ficha.dados, s);
-    setFicha({ ...ficha, sistema_preset: s, dados: { ...ficha.dados, status: novosStatus } });
+  const handleFileUpload = async (e: any) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setIsUploading(true);
+    const path = `retratos/${id}-${Date.now()}.png`;
+    const { data } = await supabase.storage.from('avatares').upload(path, file);
+    if (data) atualizarFicha('avatar_url', supabase.storage.from('avatares').getPublicUrl(path).data.publicUrl);
+    setIsUploading(false);
   };
 
-  const atualizarProgressao = (val: number, tipo: 'nex' | 'nivel') => {
-    const novosDados = { ...ficha.dados, [tipo]: Math.max(tipo === 'nivel' ? 1 : 0, val) };
-    setFicha({ ...ficha, dados: { ...novosDados, status: recalcularMaximos(novosDados, ficha.sistema_preset) } });
-  };
-
-  const atualizarAtributo = (key: string, val: number) => {
-    const novosDados = { ...ficha.dados, atributos: { ...ficha.dados.atributos, [key]: val } };
-    setFicha({ ...ficha, dados: { ...novosDados, status: recalcularMaximos(novosDados, ficha.sistema_preset) } });
-  };
-
-  const atualizarStatusAtual = (stat: string, val: string, inc = false) => {
-    const v = parseInt(val) || 0;
-    const s = ficha.dados.status[stat];
-    let novo = inc ? s.atual + v : v;
-    novo = Math.max(0, Math.min(s.max, novo));
-    setFicha({ ...ficha, dados: { ...ficha.dados, status: { ...ficha.dados.status, [stat]: { ...s, atual: novo } } } });
-  };
-
-  if (loading) return <div className="h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9] font-mono tracking-widest animate-pulse">Sincronizando...</div>;
+  if (loading) return <div className="min-h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9] font-mono tracking-widest animate-pulse">Sincronizando...</div>;
 
   const currentSys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
   const isOP = ficha.sistema_preset === 'ordem_paranormal';
-
   const noArrows = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
   return (
-    // AQUI ESTÁ A CORREÇÃO: h-[100dvh] força a tela ao tamanho do monitor e overflow-y-auto faz a rolagem ocorrer por dentro dela.
-    <main className="h-[100dvh] w-full bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative overflow-y-auto pb-32">
-      <div className="absolute top-0 left-0 w-full h-[120%] bg-[radial-gradient(circle_at_50%_0%,_#1a2b4c22_0%,_transparent_70%)] pointer-events-none z-0" />
+    // CORREÇÃO DO SCROLL: min-h-screen permite que a página cresça e o scroll do navegador funcione nativamente
+    <main className="min-h-screen w-full bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative pb-32">
+      <div className="fixed top-0 left-0 w-full h-[100vh] bg-[radial-gradient(circle_at_50%_0%,_#1a2b4c22_0%,_transparent_70%)] pointer-events-none z-0" />
 
+      {/* Modal Apagar */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090e17]/90 backdrop-blur-sm px-4">
           <div className="bg-[#131b26] border border-red-900/50 rounded-2xl p-8 max-w-sm w-full shadow-2xl">
             <h2 className={`${cinzel.className} text-red-400 text-2xl mb-4 font-bold`}>Apagar Personagem?</h2>
             <div className="flex gap-4">
-              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 border border-[#2a3b52] py-2 rounded-lg text-white text-xs uppercase tracking-widest hover:bg-white/5 transition-colors">Cancelar</button>
-              <button onClick={async () => { await supabase.from('fichas').delete().eq('id', id); router.push('/fichas'); }} className="flex-1 bg-red-900/50 text-red-300 border border-red-900 py-2 rounded-lg font-bold text-xs uppercase tracking-widest hover:bg-red-600 hover:text-white transition-colors">Apagar</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 border border-[#2a3b52] py-2 rounded-lg text-white">Cancelar</button>
+              <button onClick={async () => { await supabase.from('fichas').delete().eq('id', id); router.push('/fichas'); }} className="flex-1 bg-red-900 text-white py-2 rounded-lg font-bold">Apagar</button>
             </div>
           </div>
         </div>
@@ -152,9 +169,9 @@ export default function FichaPersonagemPage() {
               <ArrowLeft size={14}/> Voltar ao Hub
             </button>
             <div className="flex gap-3">
-              <button onClick={() => setIsDeleteModalOpen(true)} className="p-2 border border-red-900/30 text-red-400 rounded-lg hover:bg-red-900/20 transition-all"><Trash2 size={16}/></button>
+              <button onClick={() => setIsDeleteModalOpen(true)} className="p-2 border border-red-900/30 text-red-400 rounded-lg"><Trash2 size={16}/></button>
               <button onClick={salvarNoBanco} disabled={isSaving} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-xs uppercase tracking-widest hover:bg-white transition-all">
-                {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                {isSaving ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </div>
@@ -162,73 +179,64 @@ export default function FichaPersonagemPage() {
           <div className="flex flex-col gap-2">
             <select 
               value={ficha.sistema_preset} 
-              onChange={(e) => mudarSistema(e.target.value)} 
-              className="w-fit bg-transparent text-[#4ad9d9] text-[10px] uppercase tracking-widest font-bold outline-none cursor-pointer border-b border-[#2a3b52] pb-1 hover:border-[#4ad9d9] transition-colors appearance-none"
+              onChange={(e) => {
+                 const novosStatus = recalcularMaximos(ficha.dados, e.target.value);
+                 setFicha({ ...ficha, sistema_preset: e.target.value, dados: { ...ficha.dados, status: novosStatus } });
+              }} 
+              className="w-fit bg-transparent text-[#4ad9d9] text-[10px] uppercase tracking-widest font-bold outline-none cursor-pointer border-b border-[#2a3b52] pb-1"
             >
-              <option value="memorias_postumas">Sistema: Memórias Póstumas</option>
               <option value="ordem_paranormal">Sistema: Ordem Paranormal</option>
-              <option value="dnd5e">Sistema: Dungeons & Dragons 5e</option>
+              <option value="dnd5e">Sistema: D&D 5e</option>
+              <option value="memorias_postumas">Sistema: Memórias Póstumas</option>
             </select>
-            <input 
-              type="text" 
-              value={ficha.nome_personagem} 
-              onChange={(e) => setFicha({...ficha, nome_personagem: e.target.value})} 
-              className={`${cinzel.className} bg-transparent text-[#f0ebd8] text-4xl md:text-6xl font-black focus:outline-none w-full placeholder-[#2a3b52]`} 
-              placeholder="Nome do Herói"
-            />
+            <input type="text" value={ficha.nome_personagem} onChange={(e) => setFicha({...ficha, nome_personagem: e.target.value})} className={`${cinzel.className} bg-transparent text-[#f0ebd8] text-5xl font-black focus:outline-none w-full`} placeholder="Nome do Herói" />
           </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           <div className="lg:col-span-4 space-y-6">
-            <div onClick={() => fileInputRef.current?.click()} className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-[#131b26]/80 border border-[#2a3b52] rounded-3xl overflow-hidden group cursor-pointer shadow-lg hover:border-[#4ad9d9]/50 transition-all">
+            <div onClick={() => fileInputRef.current?.click()} className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-[#131b26]/80 border border-[#2a3b52] rounded-3xl overflow-hidden cursor-pointer shadow-lg">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
-              {isUploading ? <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 text-[#4ad9d9] font-bold tracking-widest text-xs uppercase">Enviando...</div> : null}
-              {ficha.dados.avatar_url ? (
-                <img src={ficha.dados.avatar_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt="Avatar" />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-[#2a3b52] group-hover:text-[#4ad9d9] transition-colors">
-                  <Camera size={48} strokeWidth={1} />
-                  <span className="text-[10px] mt-4 font-bold tracking-widest uppercase">Definir Retrato</span>
-                </div>
-              )}
+              {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 text-[#4ad9d9] font-bold text-xs">Enviando...</div>}
+              {ficha.dados.avatar_url ? <img src={ficha.dados.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-[#2a3b52]"><Camera size={48} /><span className="text-[10px] mt-4 font-bold">RETRATO</span></div>}
             </div>
 
-            <div className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl p-6 relative shadow-lg">
+            <div className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl p-6 relative">
                <div className="absolute top-0 right-0 bg-[#1a2b4c] border-b border-l border-[#2a3b52] rounded-bl-2xl p-3 flex flex-col items-center">
-                 <label className="text-[9px] uppercase font-black text-[#4ad9d9] tracking-widest mb-1">{isOP ? 'NEX' : 'LEVEL'}</label>
-                 <input type="number" value={isOP ? ficha.dados.nex : ficha.dados.nivel} onChange={(e) => atualizarProgressao(parseInt(e.target.value) || 0, isOP ? 'nex' : 'nivel')} className={`w-12 bg-transparent text-[#f0ebd8] font-black text-xl text-center outline-none ${noArrows}`} />
+                 <label className="text-[9px] uppercase font-black text-[#4ad9d9] mb-1">{isOP ? 'NEX' : 'LEVEL'}</label>
+                 <input type="number" value={isOP ? ficha.dados.nex : ficha.dados.nivel} onChange={(e) => {
+                    const val = Math.max(isOP ? 0 : 1, parseInt(e.target.value) || 0);
+                    const novosDados = { ...ficha.dados, [isOP ? 'nex' : 'nivel']: val };
+                    setFicha({ ...ficha, dados: { ...novosDados, status: recalcularMaximos(novosDados, ficha.sistema_preset) } });
+                 }} className={`w-12 bg-transparent text-[#f0ebd8] font-black text-xl text-center outline-none ${noArrows}`} />
                </div>
 
                <div className="space-y-5 pt-2">
                   <div>
-                    <label className="block text-[9px] uppercase font-black text-[#6b7b94] tracking-widest mb-1">Origem</label>
-                    <select value={ficha.dados.origem} onChange={(e) => atualizarFicha('origem', e.target.value)} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] py-1 outline-none text-sm appearance-none cursor-pointer focus:border-[#4ad9d9]">
+                    <label className="block text-[9px] uppercase font-black text-[#6b7b94] mb-1">Origem (Autopreencher)</label>
+                    <select value={ficha.dados.origem} onChange={(e) => handleSelecionarOrigem(e.target.value)} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] py-1 outline-none text-sm cursor-pointer">
                       <option value="" className="bg-[#0a0f18]">Selecionar...</option>
-                      {currentSys?.origens.map(o => <option key={o} value={o} className="bg-[#0a0f18]">{o}</option>)}
+                      {currentSys?.origens.map((o:any) => <option key={o.nome} value={o.nome} className="bg-[#0a0f18]">{o.nome}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[9px] uppercase font-black text-[#6b7b94] tracking-widest mb-1">Classe</label>
-                    <select value={ficha.dados.classe} onChange={(e) => atualizarFicha('classe', e.target.value)} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] py-1 outline-none text-sm appearance-none cursor-pointer focus:border-[#4ad9d9]">
+                    <label className="block text-[9px] uppercase font-black text-[#6b7b94] mb-1">Classe</label>
+                    <select value={ficha.dados.classe} onChange={(e) => atualizarFicha('classe', e.target.value)} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] py-1 outline-none text-sm cursor-pointer">
                       <option value="" className="bg-[#0a0f18]">Selecionar...</option>
-                      {currentSys?.classes.map(c => <option key={c} value={c} className="bg-[#0a0f18]">{c}</option>)}
+                      {currentSys?.classes.map((c:any) => <option key={c} value={c} className="bg-[#0a0f18]">{c}</option>)}
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-[9px] uppercase font-black text-[#6b7b94] tracking-widest mb-1">Idade / Detalhes</label>
-                    <input type="text" value={ficha.dados.idade} onChange={(e) => atualizarFicha('idade', e.target.value)} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] py-1 outline-none text-sm focus:border-[#4ad9d9]" />
                   </div>
                </div>
             </div>
           </div>
 
           <div className="lg:col-span-8 space-y-8">
+            
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {['vida', 'sanidade', 'estamina'].map(s => {
                 const stat = ficha.dados.status[s];
-                if (s === 'sanidade' && ficha.sistema_preset === 'dnd5e') return null;
+                if (s === 'sanidade' && !isOP) return null;
                 const color = s === 'vida' ? '#ef4444' : s === 'sanidade' ? '#a855f7' : '#eab308';
                 const label = s === 'estamina' && isOP ? 'PE' : s;
                 return (
@@ -236,7 +244,10 @@ export default function FichaPersonagemPage() {
                     <div className="flex justify-between items-end mb-3">
                       <span className="text-[10px] uppercase font-black tracking-widest" style={{ color }}>{label}</span>
                       <div className="flex items-center gap-1 text-xl">
-                        <input type="number" value={stat.atual} onChange={(e) => atualizarStatusAtual(s, e.target.value)} className={`bg-transparent text-right font-black text-white w-14 outline-none ${noArrows}`} />
+                        <input type="number" value={stat.atual} onChange={(e) => {
+                          const v = Math.max(0, Math.min(stat.max, parseInt(e.target.value) || 0));
+                          setFicha({ ...ficha, dados: { ...ficha.dados, status: { ...ficha.dados.status, [s]: { ...stat, atual: v } } } });
+                        }} className={`bg-transparent text-right font-black text-white w-14 outline-none ${noArrows}`} />
                         <span className="text-[#2a3b52] font-black">/</span>
                         <span className="text-sm font-bold text-[#6b7b94] w-8">{stat.max}</span>
                       </div>
@@ -245,8 +256,8 @@ export default function FichaPersonagemPage() {
                       <div className="h-full transition-all duration-500" style={{ width: `${(stat.atual/stat.max)*100}%`, backgroundColor: color }} />
                     </div>
                     <div className="flex justify-between mt-4">
-                      <button onClick={() => atualizarStatusAtual(s, '-1', true)} className="p-2 text-[#6b7b94] bg-[#0a0f18] rounded-lg hover:text-white hover:bg-[#2a3b52] transition-colors"><Minus size={14}/></button>
-                      <button onClick={() => atualizarStatusAtual(s, '1', true)} className="p-2 text-[#6b7b94] bg-[#0a0f18] rounded-lg hover:text-white hover:bg-[#2a3b52] transition-colors"><Plus size={14}/></button>
+                      <button onClick={() => { const v = Math.max(0, stat.atual - 1); setFicha({ ...ficha, dados: { ...ficha.dados, status: { ...ficha.dados.status, [s]: { ...stat, atual: v } } } }); }} className="p-2 text-[#6b7b94] bg-[#0a0f18] rounded-lg hover:text-white"><Minus size={14}/></button>
+                      <button onClick={() => { const v = Math.min(stat.max, stat.atual + 1); setFicha({ ...ficha, dados: { ...ficha.dados, status: { ...ficha.dados.status, [s]: { ...stat, atual: v } } } }); }} className="p-2 text-[#6b7b94] bg-[#0a0f18] rounded-lg hover:text-white"><Plus size={14}/></button>
                     </div>
                   </div>
                 );
@@ -254,76 +265,120 @@ export default function FichaPersonagemPage() {
             </section>
 
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl p-6 shadow-lg">
-               <div className="flex items-center gap-3 mb-6 border-b border-[#2a3b52] pb-3">
-                 <Swords className="text-[#4ad9d9]" size={20} />
-                 <h2 className={`${cinzel.className} text-[#f0ebd8] text-sm font-bold tracking-widest uppercase`}>Matriz de Atributos</h2>
-               </div>
-               
-               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+               <h3 className={`${cinzel.className} text-white text-xs tracking-[0.4em] mb-6 opacity-50`}>ATRIBUTOS</h3>
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                  {Object.entries(ficha.dados.atributos).map(([k, v]: any) => {
                    const mod = Math.floor((v - 10) / 2);
                    return (
-                     <div key={k} className="flex items-center gap-4 bg-[#0a0f18] p-3 rounded-xl border border-[#1a2b4c] hover:border-[#4ad9d9]/30 transition-colors">
-                       <input 
-                         type="number" 
-                         value={v} 
-                         onChange={(e) => atualizarAtributo(k, parseInt(e.target.value) || 0)} 
-                         className={`w-12 h-12 bg-[#131b26] rounded-lg text-center text-[#4ad9d9] font-black text-xl outline-none border border-[#2a3b52] focus:border-[#4ad9d9] ${noArrows}`} 
-                       />
-                       <div>
-                         <span className="block text-[10px] uppercase font-black tracking-widest text-[#6b7b94] mb-1">{k}</span>
-                         <span className="block text-sm font-bold text-[#f0ebd8]">Mod: <span className={mod >= 0 ? 'text-green-400' : 'text-red-400'}>{mod >= 0 ? `+${mod}` : mod}</span></span>
+                     <div key={k} className="flex flex-col items-center gap-2">
+                       <div className="relative w-full aspect-square flex items-center justify-center bg-[#0a0f18] border border-[#2a3b52] rounded-2xl">
+                          <input type="number" value={v} onChange={(e) => atualizarFicha(`atributos.${k}`, parseInt(e.target.value) || 0)} className={`bg-transparent text-center font-black text-2xl text-white w-full outline-none ${noArrows}`} />
+                          <div className="absolute -bottom-2 bg-[#131b26] border border-[#2a3b52] px-2 rounded text-[10px] font-bold text-[#4ad9d9]">
+                            {mod >= 0 ? `+${mod}` : mod}
+                          </div>
                        </div>
+                       <span className="text-[9px] uppercase font-black tracking-tighter mt-2 text-[#6b7b94]">{k}</span>
                      </div>
                    );
                  })}
                </div>
             </section>
 
+            {/* ABAS INTELIGENTES (Inclui Arsenal) */}
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl overflow-hidden shadow-lg">
                <div className="flex border-b border-[#2a3b52] overflow-x-auto">
-                 {currentSys?.categorias_hab.map(cat => {
-                   const Icon = cat.icon;
-                   return (
-                     <button 
-                       key={cat.id} 
-                       onClick={() => setActiveTab(cat.id)}
-                       className={`flex-1 py-4 px-6 text-[10px] uppercase font-black tracking-widest flex items-center justify-center gap-2 transition-all min-w-[160px] ${activeTab === cat.id ? 'bg-[#1a2b4c] text-[#4ad9d9] border-b-2 border-[#4ad9d9]' : 'text-[#6b7b94] hover:bg-white/5'}`}
-                     >
-                       <Icon size={14}/> {cat.nome}
-                     </button>
-                   );
-                 })}
+                 {currentSys?.categorias_hab?.map((cat:any) => (
+                   <button 
+                     key={cat.id} 
+                     onClick={() => setActiveTab(cat.id)}
+                     className={`py-4 px-6 text-[10px] uppercase font-black tracking-widest whitespace-nowrap transition-all ${activeTab === cat.id ? 'bg-[#1a2b4c] text-[#4ad9d9] border-b-2 border-[#4ad9d9]' : 'text-[#6b7b94] hover:bg-white/5'}`}
+                   >
+                     {cat.nome}
+                   </button>
+                 ))}
                </div>
 
                <div className="p-6">
-                 <div className="flex justify-between items-center mb-6">
-                   <h4 className="text-[10px] font-black uppercase tracking-widest text-[#6b7b94]">Lista de Ativos</h4>
-                   <button onClick={() => setIsAddingSkill(!isAddingSkill)} className="flex items-center gap-2 px-3 py-1.5 border border-[#4ad9d9]/30 text-[#4ad9d9] text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-[#4ad9d9] hover:text-[#090e17] transition-all"><Plus size={14}/> Adicionar</button>
-                 </div>
+                 
+                 {/* LÓGICA DE ABA DE ARSENAL (ARMAS) */}
+                 {activeTab === 'armas' ? (
+                   <>
+                     <div className="flex justify-between items-center mb-6">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-[#6b7b94]">Armas Equipadas</h4>
+                       <button onClick={() => setIsAddingWeapon(!isAddingWeapon)} className="flex items-center gap-2 px-3 py-1.5 border border-[#4ad9d9]/30 text-[#4ad9d9] text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-[#4ad9d9] hover:text-[#090e17] transition-all"><Plus size={14}/> Nova Arma</button>
+                     </div>
 
-                 {isAddingSkill && (
-                   <div className="flex flex-col md:flex-row gap-3 mb-6 p-4 bg-[#0a0f18] border border-[#4ad9d9]/30 rounded-xl">
-                     <input type="text" placeholder="Nome (Ex: Furtividade)" value={newSkill.nome} onChange={(e) => setNewSkill({...newSkill, nome: e.target.value})} className="bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-2 w-full outline-none focus:border-[#4ad9d9]" />
-                     <input type="text" placeholder="Dado/Custo (Ex: 1d20+2)" value={newSkill.dado} onChange={(e) => setNewSkill({...newSkill, dado: e.target.value})} className="bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-2 w-full md:w-32 outline-none focus:border-[#4ad9d9]" />
-                     <button onClick={adicionarHabilidade} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-white transition-colors">Incluir</button>
-                   </div>
+                     {isAddingWeapon && (
+                       <div className="mb-6 p-4 bg-[#0a0f18] border border-[#4ad9d9]/30 rounded-xl space-y-4">
+                         <div className="flex items-center gap-2 mb-2">
+                           <span className="text-xs text-[#4ad9d9] font-bold uppercase">Preset:</span>
+                           <select onChange={(e) => handleSelecionarArmaPreset(e.target.value)} className="bg-[#131b26] border border-[#2a3b52] text-white text-xs px-2 py-1 outline-none">
+                             <option value="">Manual...</option>
+                             {currentSys?.armas?.map((a:any) => <option key={a.nome} value={a.nome}>{a.nome}</option>)}
+                           </select>
+                         </div>
+                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                           <input type="text" placeholder="Nome Arma" value={newWeapon.nome} onChange={(e) => setNewWeapon({...newWeapon, nome: e.target.value})} className="bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                           <input type="text" placeholder="Dano (Ex: 1d10)" value={newWeapon.dano} onChange={(e) => setNewWeapon({...newWeapon, dano: e.target.value})} className="bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                           <input type="text" placeholder="Habilidade (Ex: Luta)" value={newWeapon.habilidade} onChange={(e) => setNewWeapon({...newWeapon, habilidade: e.target.value})} className="bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                           <input type="text" placeholder="Crítico (Ex: 19/x2)" value={newWeapon.critico} onChange={(e) => setNewWeapon({...newWeapon, critico: e.target.value})} className="bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                         </div>
+                         <input type="text" placeholder="Descrição rápida..." value={newWeapon.desc} onChange={(e) => setNewWeapon({...newWeapon, desc: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-[#6b7b94] px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                         <button onClick={adicionarArma} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest mt-2">Adicionar</button>
+                       </div>
+                     )}
+
+                     <div className="space-y-4">
+                       {ficha.dados.armas?.length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase">Arsenal vazio.</p>}
+                       {ficha.dados.armas?.map((a: any) => (
+                         <div key={a.id} className="bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl relative group">
+                           <button onClick={() => atualizarFicha('armas', ficha.dados.armas.filter((x:any) => x.id !== a.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500"><Trash2 size={16}/></button>
+                           <div className="flex items-end gap-4 mb-2">
+                             <h5 className="text-[#f0ebd8] font-black text-lg">{a.nome}</h5>
+                             <span className="text-[10px] text-[#4ad9d9] font-bold uppercase mb-1">{a.habilidade}</span>
+                           </div>
+                           <div className="flex gap-4 text-xs font-mono text-[#6b7b94] mb-2">
+                             <span className="bg-[#131b26] px-2 py-1 rounded text-[#ef4444] border border-red-900/30">Dano: {a.dano}</span>
+                             <span className="bg-[#131b26] px-2 py-1 rounded">Crit: {a.critico}</span>
+                           </div>
+                           {a.desc && <p className="text-[10px] text-[#6b7b94]">{a.desc}</p>}
+                         </div>
+                       ))}
+                     </div>
+                   </>
+                 ) : (
+                   /* LÓGICA DE ABAS DE HABILIDADES/PODERES */
+                   <>
+                     <div className="flex justify-between items-center mb-6">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-[#6b7b94]">Lista de {currentSys?.categorias_hab.find((c:any) => c.id === activeTab)?.nome}</h4>
+                       <button onClick={() => setIsAddingSkill(!isAddingSkill)} className="flex items-center gap-2 px-3 py-1.5 border border-[#4ad9d9]/30 text-[#4ad9d9] text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-[#4ad9d9] hover:text-[#090e17] transition-all"><Plus size={14}/> Novo</button>
+                     </div>
+
+                     {isAddingSkill && (
+                       <div className="mb-6 p-4 bg-[#0a0f18] border border-[#4ad9d9]/30 rounded-xl space-y-3">
+                         <input type="text" placeholder="Nome (Ex: Furtividade)" value={newSkill.nome} onChange={(e) => setNewSkill({...newSkill, nome: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                         <input type="text" placeholder="Dado/Custo Opcional (Ex: 1d20+2 ou 2 PE)" value={newSkill.dado} onChange={(e) => setNewSkill({...newSkill, dado: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
+                         <textarea placeholder="Descrição (O que faz?)" value={newSkill.desc} onChange={(e) => setNewSkill({...newSkill, desc: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-[#6b7b94] px-2 py-1 outline-none focus:border-[#4ad9d9] resize-none" rows={2}/>
+                         <button onClick={adicionarHabilidade} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest">Incluir</button>
+                       </div>
+                     )}
+
+                     <div className="space-y-3">
+                       {ficha.dados.habilidades.filter((h: any) => h.cat === activeTab).length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase">Nenhum registro.</p>}
+                       {ficha.dados.habilidades.filter((h: any) => h.cat === activeTab).map((h: any) => (
+                         <div key={h.id} className="group bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl hover:border-[#4ad9d9]/40 transition-all relative">
+                           <button onClick={() => atualizarFicha('habilidades', ficha.dados.habilidades.filter((x:any) => x.id !== h.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500"><Trash2 size={16}/></button>
+                           <div className="flex items-center gap-3 mb-1">
+                             <span className="text-[#f0ebd8] font-bold text-sm">{h.nome}</span>
+                             {h.dado && <span className="bg-[#131b26] text-[#4ad9d9] px-2 py-0.5 rounded font-mono text-[10px] border border-[#2a3b52]">{h.dado}</span>}
+                           </div>
+                           {h.desc && <p className="text-[#6b7b94] text-[10px] mt-2 pr-6 leading-relaxed">{h.desc}</p>}
+                         </div>
+                       ))}
+                     </div>
+                   </>
                  )}
 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                   {ficha.dados.habilidades.filter((h: any) => h.cat === activeTab).length === 0 && (
-                     <p className="col-span-2 text-center py-10 text-[#2a3b52] text-xs italic font-bold tracking-widest uppercase">Nenhum registro encontrado.</p>
-                   )}
-                   {ficha.dados.habilidades.filter((h: any) => h.cat === activeTab).map((h: any) => (
-                     <div key={h.id} className="group flex justify-between items-center bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl hover:border-[#4ad9d9]/40 transition-all">
-                       <span className="text-[#f0ebd8] font-bold text-sm">{h.nome}</span>
-                       <div className="flex items-center gap-3">
-                         <span className="bg-[#131b26] text-[#4ad9d9] px-3 py-1 rounded font-mono text-[10px] border border-[#2a3b52]">{h.dado}</span>
-                         <button onClick={() => atualizarFicha('habilidades', ficha.dados.habilidades.filter((x:any) => x.id !== h.id))} className="text-[#2a3b52] group-hover:text-red-500 transition-colors" title="Apagar"><Trash2 size={16}/></button>
-                       </div>
-                     </div>
-                   ))}
-                 </div>
                </div>
             </section>
           </div>
