@@ -29,8 +29,11 @@ export default function FichaPersonagemPage() {
   const carregarFicha = async () => {
     const { data, error } = await supabase.from('fichas').select('*').eq('id', id).single();
     if (data) {
-      // RETROCOMPATIBILIDADE: Se a vida for um número, converte para {atual, max}
-      const st = data.dados.status;
+      const d = data.dados;
+      // Garante que o NEX exista na ficha (Retrocompatibilidade)
+      if (d.nex === undefined) d.nex = 5;
+      
+      const st = d.status;
       ['vida', 'sanidade', 'estamina'].forEach(attr => {
         if (typeof st[attr] === 'number') {
           st[attr] = { atual: st[attr], max: st[attr] };
@@ -41,33 +44,79 @@ export default function FichaPersonagemPage() {
     setLoading(false);
   };
 
+  // --- MOTOR DE CÁLCULO DE STATUS (Baseado em NEX) ---
+  // Esta função recalcula os máximos sempre que o NEX ou os atributos mudam.
+  // Formula Base aproximada: Base + Modificador + (Nível - 1) * (BaseNivel + Modificador)
+  const recalcularMaximos = (dadosAtuais: any) => {
+    const nex = dadosAtuais.nex || 5;
+    const nivel = Math.max(1, Math.floor(nex / 5)); // 5% = Nível 1
+    const atr = dadosAtuais.atributos;
+
+    const modVigor = Math.floor((atr.vigor - 10) / 2);
+    const modSabedoria = Math.floor((atr.sabedoria - 10) / 2);
+    const modForca = Math.floor((atr.forca - 10) / 2);
+
+    // Valores bases genéricos de sobrevivência
+    const novaVidaMax = 16 + modVigor + ((nivel - 1) * (4 + modVigor));
+    const novaSanidadeMax = 12 + modSabedoria + ((nivel - 1) * (3 + modSabedoria));
+    const novaEstaminaMax = 12 + modForca + ((nivel - 1) * (3 + modForca));
+
+    return {
+      vida: { ...dadosAtuais.status.vida, max: novaVidaMax },
+      sanidade: { ...dadosAtuais.status.sanidade, max: novaSanidadeMax },
+      estamina: { ...dadosAtuais.status.estamina, max: novaEstaminaMax }
+    };
+  };
+
+  const atualizarNex = (novoNex: number) => {
+    const nexTratado = Math.max(0, Math.min(99, novoNex));
+    const dadosAtualizados = { ...ficha.dados, nex: nexTratado };
+    const novosStatus = recalcularMaximos(dadosAtualizados);
+    
+    setFicha({ ...ficha, dados: { ...dadosAtualizados, status: novosStatus } });
+  };
+
+  const atualizarAtributo = (key: string, valor: number) => {
+    const dadosAtualizados = { 
+      ...ficha.dados, 
+      atributos: { ...ficha.dados.atributos, [key]: valor } 
+    };
+    const novosStatus = recalcularMaximos(dadosAtualizados);
+
+    setFicha({ ...ficha, dados: { ...dadosAtualizados, status: novosStatus } });
+  };
+
+  const atualizarStatusAtual = (statNome: string, valorStr: string, incremental: boolean = false) => {
+    let valor = parseInt(valorStr) || 0;
+    const max = ficha.dados.status[statNome].max;
+    const atual = ficha.dados.status[statNome].atual;
+    
+    let novoAtual = incremental ? atual + valor : valor;
+    
+    // Trava para não passar do máximo e não cair abaixo de 0
+    novoAtual = Math.max(0, Math.min(max, novoAtual));
+
+    setFicha({
+      ...ficha,
+      dados: {
+        ...ficha.dados,
+        status: {
+          ...ficha.dados.status,
+          [statNome]: { atual: novoAtual, max }
+        }
+      }
+    });
+  };
+
   const salvarFicha = async () => {
     setIsSaving(true);
-    await supabase.from('fichas').update({
-      nome_personagem: ficha.nome_personagem,
-      dados: ficha.dados
-    }).eq('id', id);
+    await supabase.from('fichas').update({ nome_personagem: ficha.nome_personagem, dados: ficha.dados }).eq('id', id);
     setIsSaving(false);
   };
 
   const deletarFicha = async () => {
     await supabase.from('fichas').delete().eq('id', id);
     router.push('/fichas');
-  };
-
-  // --- CONTROLES DO CRIS (Status Rápido) ---
-  const atualizarStatus = (statNome: string, tipo: 'atual' | 'max', valorStr: string, incremental: boolean = false) => {
-    let valor = parseInt(valorStr) || 0;
-    const novoStatus = { ...ficha.dados.status };
-    
-    if (incremental) {
-      novoStatus[statNome][tipo] = novoStatus[statNome][tipo] + valor;
-    } else {
-      novoStatus[statNome][tipo] = valor;
-    }
-    
-    // Trava para não passar do máximo (opcional, tirei para permitir sobrevida/escudo)
-    setFicha({ ...ficha, dados: { ...ficha.dados, status: novoStatus } });
   };
 
   const adicionarHabilidade = () => {
@@ -83,18 +132,17 @@ export default function FichaPersonagemPage() {
   };
 
   if (loading) return <div className="h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9]">Sincronizando...</div>;
-  if (!ficha) return <div className="h-screen bg-[#090e17] flex items-center justify-center text-red-500">Personagem não encontrado no tecido da realidade.</div>;
+  if (!ficha) return <div className="h-screen bg-[#090e17] flex items-center justify-center text-red-500">Personagem não encontrado.</div>;
 
   return (
     <main className="min-h-screen bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative overflow-y-auto pb-32 overflow-x-hidden">
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#1a2b4c]/20 to-transparent pointer-events-none z-0"></div>
 
-      {/* MODAL DE DELEÇÃO */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090e17]/90 backdrop-blur-sm px-4">
           <div className="bg-[#131b26] border border-red-900/50 rounded-2xl p-8 max-w-md w-full shadow-[0_0_40px_rgba(239,68,68,0.15)] relative">
             <h2 className={`${cinzel.className} text-red-400 text-2xl font-bold mb-2`}>Apagar Personagem?</h2>
-            <p className={`${inter.className} text-sm text-[#8b9bb4] mb-6`}>A existência de <strong className="text-white">{ficha.nome_personagem}</strong> será apagada dos registros. Esta ação é irreversível.</p>
+            <p className={`${inter.className} text-sm text-[#8b9bb4] mb-6`}>A existência de <strong className="text-white">{ficha.nome_personagem}</strong> será apagada dos registros.</p>
             <div className="flex gap-4">
               <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 bg-transparent border border-[#2a3b52] text-white py-3 rounded-lg hover:bg-[#1a2b4c]/50 transition-all font-semibold tracking-widest uppercase text-xs">Cancelar</button>
               <button onClick={deletarFicha} className="flex-1 bg-red-900/40 border border-red-900 text-red-400 py-3 rounded-lg hover:bg-red-500 hover:text-white transition-all font-bold tracking-widest uppercase text-xs">Sim, Apagar</button>
@@ -134,8 +182,14 @@ export default function FichaPersonagemPage() {
               </div>
             </div>
 
-            <div className="bg-[#131b26]/60 backdrop-blur-md border border-[#2a3b52] rounded-2xl p-6 shadow-lg space-y-4">
-              <div><label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Idade / Altura</label><input type="text" value={ficha.dados.idade} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, idade: e.target.value}})} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none pb-1" /></div>
+            <div className="bg-[#131b26]/60 backdrop-blur-md border border-[#2a3b52] rounded-2xl p-6 shadow-lg space-y-4 relative overflow-hidden">
+              {/* O INPUT DE NEX É O CORAÇÃO DO CÁLCULO AGORA */}
+              <div className="absolute top-0 right-0 bg-[#1a2b4c] border-b border-l border-[#2a3b52] rounded-bl-2xl p-3 text-center">
+                 <label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">NEX (%)</label>
+                 <input type="number" value={ficha.dados.nex || 5} onChange={(e) => atualizarNex(parseInt(e.target.value) || 0)} className="w-12 bg-transparent text-[#f0ebd8] font-bold text-lg text-center focus:outline-none" />
+              </div>
+
+              <div className="pt-2"><label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Idade / Altura</label><input type="text" value={ficha.dados.idade} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, idade: e.target.value}})} className="w-2/3 bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none pb-1" /></div>
               <div><label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Raça</label><input type="text" value={ficha.dados.raca} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, raca: e.target.value}})} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none pb-1" /></div>
               <div><label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Gostos Pessoais</label><textarea value={ficha.dados.gostos} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, gostos: e.target.value}})} rows={3} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none resize-none pb-1" /></div>
             </div>
@@ -143,7 +197,6 @@ export default function FichaPersonagemPage() {
 
           <div className="md:col-span-8 space-y-6">
             
-            {/* STATUS ESTILO CRIS (BARRAS DE PROGRESSO) */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {[
                 { id: 'vida', nome: 'Vida', icon: Shield, cor: 'red' },
@@ -160,22 +213,21 @@ export default function FichaPersonagemPage() {
                       <span className="text-xs text-[#6b7b94] font-mono">{s.atual} / {s.max}</span>
                     </div>
                     
-                    {/* Barra de Progresso */}
                     <div className="w-full bg-[#0a0f18] h-1.5 rounded-full mb-4 overflow-hidden border border-[#1a2b4c]">
                        <div className={`bg-${stat.cor}-500 h-full transition-all duration-300 ease-out`} style={{ width: `${pct}%` }}></div>
                     </div>
                     
-                    {/* Controles: - / Input / + / Max */}
                     <div className="flex items-center justify-between gap-2">
-                      <button onClick={() => atualizarStatus(stat.id, 'atual', '-1', true)} className={`bg-[#0a0f18] border border-${stat.cor}-900/50 text-${stat.cor}-400 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-${stat.cor}-900/40 transition-colors`}><Minus size={14}/></button>
+                      <button onClick={() => atualizarStatusAtual(stat.id, '-1', true)} className={`bg-[#0a0f18] border border-${stat.cor}-900/50 text-${stat.cor}-400 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-${stat.cor}-900/40 transition-colors`}><Minus size={14}/></button>
                       
                       <div className="flex items-center gap-1">
-                        <input type="number" value={s.atual} onChange={(e) => atualizarStatus(stat.id, 'atual', e.target.value)} className={`w-12 bg-transparent text-center text-xl font-black text-[#f0ebd8] focus:outline-none focus:text-${stat.cor}-400 transition-colors`} />
+                        <input type="number" value={s.atual} onChange={(e) => atualizarStatusAtual(stat.id, e.target.value)} className={`w-12 bg-transparent text-center text-xl font-black text-[#f0ebd8] focus:outline-none focus:text-${stat.cor}-400 transition-colors`} />
                         <span className="text-[#2a3b52]">/</span>
-                        <input type="number" value={s.max} onChange={(e) => atualizarStatus(stat.id, 'max', e.target.value)} className="w-8 bg-transparent text-center text-sm font-bold text-[#6b7b94] focus:outline-none border-b border-transparent focus:border-[#4ad9d9]" title="Máximo" />
+                        {/* O INPUT DO MÁXIMO ESTÁ TRAVADO E OPACA. O SISTEMA DECIDE. */}
+                        <span className="w-8 text-center text-sm font-bold text-[#6b7b94]/50 cursor-not-allowed" title="Definido pelo NEX e Atributos">{s.max}</span>
                       </div>
 
-                      <button onClick={() => atualizarStatus(stat.id, 'atual', '1', true)} className={`bg-[#0a0f18] border border-${stat.cor}-900/50 text-${stat.cor}-400 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-${stat.cor}-900/40 transition-colors`}><Plus size={14}/></button>
+                      <button onClick={() => atualizarStatusAtual(stat.id, '1', true)} className={`bg-[#0a0f18] border border-${stat.cor}-900/50 text-${stat.cor}-400 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-${stat.cor}-900/40 transition-colors`}><Plus size={14}/></button>
                     </div>
                   </div>
                 );
@@ -192,7 +244,7 @@ export default function FichaPersonagemPage() {
                     const mod = Math.floor((value - 10) / 2);
                     return (
                       <div key={key} className="flex items-center gap-4 bg-[#0a0f18]/50 p-2 rounded-xl border border-[#1a2b4c]/50">
-                        <input type="number" value={value} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, atributos: {...ficha.dados.atributos, [key]: parseInt(e.target.value) || 0}}})} className="w-12 h-10 bg-[#0d131f] rounded-lg flex items-center justify-center text-center text-[#4ad9d9] font-black text-lg border border-[#2a3b52] focus:outline-none focus:border-[#4ad9d9]" />
+                        <input type="number" value={value} onChange={(e) => atualizarAtributo(key, parseInt(e.target.value) || 0)} className="w-12 h-10 bg-[#0d131f] rounded-lg flex items-center justify-center text-center text-[#4ad9d9] font-black text-lg border border-[#2a3b52] focus:outline-none focus:border-[#4ad9d9]" />
                         <div>
                           <div className="text-[10px] uppercase tracking-widest text-[#6b7b94]">{key}</div>
                           <div className={`${inter.className} text-[#f0ebd8] font-bold text-sm`}>Mod: <span className={mod >= 0 ? 'text-green-400' : 'text-red-400'}>{mod >= 0 ? `+${mod}` : mod}</span></div>
@@ -201,6 +253,7 @@ export default function FichaPersonagemPage() {
                     );
                   })}
                </div>
+               <p className="mt-4 text-xs text-[#6b7b94] text-center italic">* Mudar atributos de Vigor, Sabedoria ou Força afeta automaticamente os limites máximos de Status.</p>
             </section>
 
             <section className="bg-[#131b26]/60 backdrop-blur-md border border-[#2a3b52] rounded-2xl p-6 shadow-lg">
@@ -226,7 +279,7 @@ export default function FichaPersonagemPage() {
                    <div key={hab.id} className="flex justify-between items-center bg-[#0a0f18]/50 p-3 rounded-xl border border-[#1a2b4c] group">
                      <span className={`${inter.className} text-[#f0ebd8] font-semibold text-sm`}>{hab.nome}</span>
                      <div className="flex items-center gap-3">
-                       <span className="bg-[#1a2b4c] text-[#4ad9d9] px-3 py-1 rounded-md text-xs font-mono border border-[#2a3b52]">{hab.dado}</span>
+                       <span className="bg-[#1a2b4c] text-[#4ad9d9] px-3 py-1 rounded-md text-xs font-mono border border-[#2a3b52] cursor-pointer hover:bg-[#4ad9d9] hover:text-black transition-colors" title="Rolar Dado">{hab.dado}</span>
                        <button onClick={() => deletarHabilidade(hab.id)} className="text-[#6b7b94] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Remover Habilidade"><Trash2 size={16} /></button>
                      </div>
                    </div>
