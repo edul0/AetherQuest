@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../src/lib/supabase';
 import { Cinzel, Inter } from 'next/font/google';
-import { Camera, Plus, Save, ArrowLeft, Trash2, Minus, ChevronDown } from 'lucide-react';
+import { Camera, Plus, Save, ArrowLeft, Trash2, Minus } from 'lucide-react';
 import { PRESETS } from '../../../src/lib/constants';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
@@ -22,7 +22,6 @@ export default function FichaPersonagemPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // Estados dos Formulários
   const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [newSkill, setNewSkill] = useState({ nome: "", dado: "", desc: "" });
   const [isAddingWeapon, setIsAddingWeapon] = useState(false);
@@ -33,32 +32,35 @@ export default function FichaPersonagemPage() {
   const carregarFicha = async () => {
     const { data } = await supabase.from('fichas').select('*').eq('id', id).single();
     if (data) {
+      // Blindagem contra personagens antigos que não têm os arrays criados
       if (!data.dados.habilidades) data.dados.habilidades = [];
       if (!data.dados.armas) data.dados.armas = [];
+      if (!data.dados.atributos) data.dados.atributos = { forca: 10, destreza: 10, vigor: 10, intelecto: 10, sabedoria: 10, carisma: 10 };
+      
       setFicha(data);
       const sys = PRESETS[data.sistema_preset as keyof typeof PRESETS];
-      if (sys) setActiveTab(sys.categorias_hab[0].id);
+      if (sys && sys.categorias_hab) setActiveTab(sys.categorias_hab[0].id);
     }
     setLoading(false);
   };
 
   const recalcularMaximos = (dadosAtuais: any, sistema: string) => {
-    const atr = dadosAtuais.atributos;
+    const atr = dadosAtuais.atributos || {};
     const lv = sistema === 'ordem_paranormal' ? Math.max(1, Math.floor((dadosAtuais.nex || 5) / 5)) : (dadosAtuais.nivel || 1);
-    const modVig = Math.floor((atr.vigor - 10) / 2);
-    const modSab = Math.floor((atr.sabedoria - 10) / 2);
-    const modInt = Math.floor((atr.intelecto - 10) / 2);
+    const modVig = Math.floor(((atr.vigor || 10) - 10) / 2);
+    const modSab = Math.floor(((atr.sabedoria || 10) - 10) / 2);
+    const modInt = Math.floor(((atr.intelecto || 10) - 10) / 2);
 
     if (sistema === 'ordem_paranormal') return {
-      vida: { ...dadosAtuais.status.vida, max: 16 + modVig + (lv - 1) * (4 + modVig) },
-      sanidade: { ...dadosAtuais.status.sanidade, max: 12 + modSab + (lv - 1) * (3 + modSab) },
-      estamina: { ...dadosAtuais.status.estamina, max: 10 + modInt + (lv - 1) * (2 + modInt) }
+      vida: { ...dadosAtuais.status.vida, max: Math.max(1, 16 + modVig + (lv - 1) * (4 + modVig)) },
+      sanidade: { ...dadosAtuais.status.sanidade, max: Math.max(0, 12 + modSab + (lv - 1) * (3 + modSab)) },
+      estamina: { ...dadosAtuais.status.estamina, max: Math.max(0, 10 + modInt + (lv - 1) * (2 + modInt)) }
     };
     
     return {
-      vida: { ...dadosAtuais.status.vida, max: 20 + modVig + (lv - 1) * (6 + modVig) },
+      vida: { ...dadosAtuais.status.vida, max: Math.max(1, 20 + modVig + (lv - 1) * (6 + modVig)) },
       sanidade: { ...dadosAtuais.status.sanidade, max: 0 },
-      estamina: { ...dadosAtuais.status.estamina, max: 12 + modInt + (lv - 1) * (3 + modInt) }
+      estamina: { ...dadosAtuais.status.estamina, max: Math.max(0, 12 + modInt + (lv - 1) * (3 + modInt)) }
     };
   };
 
@@ -73,14 +75,12 @@ export default function FichaPersonagemPage() {
     setFicha({ ...ficha, dados: dadosComStatus });
   };
 
-  // --- INTELIGÊNCIA: AUTO-PREENCHER ORIGEM ---
   const handleSelecionarOrigem = (nomeOrigem: string) => {
     const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
     const origemData = sys?.origens?.find((o: any) => o.nome === nomeOrigem);
     
     atualizarFicha('origem', nomeOrigem);
     
-    // Se a origem tiver um poder associado, adiciona automaticamente nas habilidades
     if (origemData && origemData.poder) {
       const nomePoder = `[Origem] ${nomeOrigem}`;
       const jaTem = ficha.dados.habilidades.find((h:any) => h.nome === nomePoder);
@@ -91,7 +91,6 @@ export default function FichaPersonagemPage() {
     }
   };
 
-  // --- INTELIGÊNCIA: AUTO-PREENCHER ARMA ---
   const handleSelecionarArmaPreset = (nomeArma: string) => {
     const sys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
     const armaData = sys?.armas?.find((a: any) => a.nome === nomeArma);
@@ -144,11 +143,9 @@ export default function FichaPersonagemPage() {
   const noArrows = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
   return (
-    // CORREÇÃO DO SCROLL: min-h-screen permite que a página cresça e o scroll do navegador funcione nativamente
     <main className="min-h-screen w-full bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative pb-32">
       <div className="fixed top-0 left-0 w-full h-[100vh] bg-[radial-gradient(circle_at_50%_0%,_#1a2b4c22_0%,_transparent_70%)] pointer-events-none z-0" />
 
-      {/* Modal Apagar */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090e17]/90 backdrop-blur-sm px-4">
           <div className="bg-[#131b26] border border-red-900/50 rounded-2xl p-8 max-w-sm w-full shadow-2xl">
@@ -198,8 +195,8 @@ export default function FichaPersonagemPage() {
           <div className="lg:col-span-4 space-y-6">
             <div onClick={() => fileInputRef.current?.click()} className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-[#131b26]/80 border border-[#2a3b52] rounded-3xl overflow-hidden cursor-pointer shadow-lg">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
-              {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 text-[#4ad9d9] font-bold text-xs">Enviando...</div>}
-              {ficha.dados.avatar_url ? <img src={ficha.dados.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-[#2a3b52]"><Camera size={48} /><span className="text-[10px] mt-4 font-bold">RETRATO</span></div>}
+              {isUploading && <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10 text-[#4ad9d9] font-bold text-xs uppercase">Enviando...</div>}
+              {ficha.dados.avatar_url ? <img src={ficha.dados.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full flex flex-col items-center justify-center text-[#2a3b52]"><Camera size={48} /><span className="text-[10px] mt-4 font-bold tracking-widest uppercase">RETRATO</span></div>}
             </div>
 
             <div className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl p-6 relative">
@@ -217,14 +214,14 @@ export default function FichaPersonagemPage() {
                     <label className="block text-[9px] uppercase font-black text-[#6b7b94] mb-1">Origem (Autopreencher)</label>
                     <select value={ficha.dados.origem} onChange={(e) => handleSelecionarOrigem(e.target.value)} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] py-1 outline-none text-sm cursor-pointer">
                       <option value="" className="bg-[#0a0f18]">Selecionar...</option>
-                      {currentSys?.origens.map((o:any) => <option key={o.nome} value={o.nome} className="bg-[#0a0f18]">{o.nome}</option>)}
+                      {currentSys?.origens?.map((o:any) => <option key={o.nome} value={o.nome} className="bg-[#0a0f18]">{o.nome}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-[9px] uppercase font-black text-[#6b7b94] mb-1">Classe</label>
                     <select value={ficha.dados.classe} onChange={(e) => atualizarFicha('classe', e.target.value)} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] py-1 outline-none text-sm cursor-pointer">
                       <option value="" className="bg-[#0a0f18]">Selecionar...</option>
-                      {currentSys?.classes.map((c:any) => <option key={c} value={c} className="bg-[#0a0f18]">{c}</option>)}
+                      {currentSys?.classes?.map((c:any) => <option key={c} value={c} className="bg-[#0a0f18]">{c}</option>)}
                     </select>
                   </div>
                </div>
@@ -265,9 +262,9 @@ export default function FichaPersonagemPage() {
             </section>
 
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl p-6 shadow-lg">
-               <h3 className={`${cinzel.className} text-white text-xs tracking-[0.4em] mb-6 opacity-50`}>ATRIBUTOS</h3>
+               <h3 className={`${cinzel.className} text-white text-xs tracking-[0.4em] mb-6 opacity-50 uppercase`}>Matriz de Atributos</h3>
                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                 {Object.entries(ficha.dados.atributos).map(([k, v]: any) => {
+                 {Object.entries(ficha.dados.atributos || {}).map(([k, v]: any) => {
                    const mod = Math.floor((v - 10) / 2);
                    return (
                      <div key={k} className="flex flex-col items-center gap-2">
@@ -284,9 +281,9 @@ export default function FichaPersonagemPage() {
                </div>
             </section>
 
-            {/* ABAS INTELIGENTES (Inclui Arsenal) */}
+            {/* ABAS INTELIGENTES (Sem Ícones Fantasmas) */}
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl overflow-hidden shadow-lg">
-               <div className="flex border-b border-[#2a3b52] overflow-x-auto">
+               <div className="flex border-b border-[#2a3b52] overflow-x-auto scrollbar-hide">
                  {currentSys?.categorias_hab?.map((cat:any) => (
                    <button 
                      key={cat.id} 
@@ -300,7 +297,6 @@ export default function FichaPersonagemPage() {
 
                <div className="p-6">
                  
-                 {/* LÓGICA DE ABA DE ARSENAL (ARMAS) */}
                  {activeTab === 'armas' ? (
                    <>
                      <div className="flex justify-between items-center mb-6">
@@ -312,7 +308,7 @@ export default function FichaPersonagemPage() {
                        <div className="mb-6 p-4 bg-[#0a0f18] border border-[#4ad9d9]/30 rounded-xl space-y-4">
                          <div className="flex items-center gap-2 mb-2">
                            <span className="text-xs text-[#4ad9d9] font-bold uppercase">Preset:</span>
-                           <select onChange={(e) => handleSelecionarArmaPreset(e.target.value)} className="bg-[#131b26] border border-[#2a3b52] text-white text-xs px-2 py-1 outline-none">
+                           <select onChange={(e) => handleSelecionarArmaPreset(e.target.value)} className="bg-[#131b26] border border-[#2a3b52] text-white text-xs px-2 py-1 outline-none cursor-pointer">
                              <option value="">Manual...</option>
                              {currentSys?.armas?.map((a:any) => <option key={a.nome} value={a.nome}>{a.nome}</option>)}
                            </select>
@@ -324,15 +320,15 @@ export default function FichaPersonagemPage() {
                            <input type="text" placeholder="Crítico (Ex: 19/x2)" value={newWeapon.critico} onChange={(e) => setNewWeapon({...newWeapon, critico: e.target.value})} className="bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
                          </div>
                          <input type="text" placeholder="Descrição rápida..." value={newWeapon.desc} onChange={(e) => setNewWeapon({...newWeapon, desc: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-[#6b7b94] px-2 py-1 outline-none focus:border-[#4ad9d9]" />
-                         <button onClick={adicionarArma} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest mt-2">Adicionar</button>
+                         <button onClick={adicionarArma} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest mt-2 hover:bg-white transition-colors">Adicionar</button>
                        </div>
                      )}
 
                      <div className="space-y-4">
-                       {ficha.dados.armas?.length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase">Arsenal vazio.</p>}
+                       {ficha.dados.armas?.length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase tracking-widest">Arsenal vazio.</p>}
                        {ficha.dados.armas?.map((a: any) => (
-                         <div key={a.id} className="bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl relative group">
-                           <button onClick={() => atualizarFicha('armas', ficha.dados.armas.filter((x:any) => x.id !== a.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500"><Trash2 size={16}/></button>
+                         <div key={a.id} className="bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl relative group hover:border-[#4ad9d9]/50 transition-colors">
+                           <button onClick={() => atualizarFicha('armas', ficha.dados.armas.filter((x:any) => x.id !== a.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                            <div className="flex items-end gap-4 mb-2">
                              <h5 className="text-[#f0ebd8] font-black text-lg">{a.nome}</h5>
                              <span className="text-[10px] text-[#4ad9d9] font-bold uppercase mb-1">{a.habilidade}</span>
@@ -347,10 +343,9 @@ export default function FichaPersonagemPage() {
                      </div>
                    </>
                  ) : (
-                   /* LÓGICA DE ABAS DE HABILIDADES/PODERES */
                    <>
                      <div className="flex justify-between items-center mb-6">
-                       <h4 className="text-[10px] font-black uppercase tracking-widest text-[#6b7b94]">Lista de {currentSys?.categorias_hab.find((c:any) => c.id === activeTab)?.nome}</h4>
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-[#6b7b94]">Lista de {currentSys?.categorias_hab?.find((c:any) => c.id === activeTab)?.nome}</h4>
                        <button onClick={() => setIsAddingSkill(!isAddingSkill)} className="flex items-center gap-2 px-3 py-1.5 border border-[#4ad9d9]/30 text-[#4ad9d9] text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-[#4ad9d9] hover:text-[#090e17] transition-all"><Plus size={14}/> Novo</button>
                      </div>
 
@@ -359,15 +354,15 @@ export default function FichaPersonagemPage() {
                          <input type="text" placeholder="Nome (Ex: Furtividade)" value={newSkill.nome} onChange={(e) => setNewSkill({...newSkill, nome: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
                          <input type="text" placeholder="Dado/Custo Opcional (Ex: 1d20+2 ou 2 PE)" value={newSkill.dado} onChange={(e) => setNewSkill({...newSkill, dado: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-white px-2 py-1 outline-none focus:border-[#4ad9d9]" />
                          <textarea placeholder="Descrição (O que faz?)" value={newSkill.desc} onChange={(e) => setNewSkill({...newSkill, desc: e.target.value})} className="w-full bg-transparent border-b border-[#2a3b52] text-sm text-[#6b7b94] px-2 py-1 outline-none focus:border-[#4ad9d9] resize-none" rows={2}/>
-                         <button onClick={adicionarHabilidade} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest">Incluir</button>
+                         <button onClick={adicionarHabilidade} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-white transition-colors">Incluir</button>
                        </div>
                      )}
 
                      <div className="space-y-3">
-                       {ficha.dados.habilidades.filter((h: any) => h.cat === activeTab).length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase">Nenhum registro.</p>}
-                       {ficha.dados.habilidades.filter((h: any) => h.cat === activeTab).map((h: any) => (
+                       {ficha.dados.habilidades?.filter((h: any) => h.cat === activeTab).length === 0 && <p className="text-center py-10 text-[#2a3b52] text-xs font-bold uppercase tracking-widest">Nenhum registro.</p>}
+                       {ficha.dados.habilidades?.filter((h: any) => h.cat === activeTab).map((h: any) => (
                          <div key={h.id} className="group bg-[#0a0f18] border border-[#1a2b4c] p-4 rounded-xl hover:border-[#4ad9d9]/40 transition-all relative">
-                           <button onClick={() => atualizarFicha('habilidades', ficha.dados.habilidades.filter((x:any) => x.id !== h.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500"><Trash2 size={16}/></button>
+                           <button onClick={() => atualizarFicha('habilidades', ficha.dados.habilidades.filter((x:any) => x.id !== h.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
                            <div className="flex items-center gap-3 mb-1">
                              <span className="text-[#f0ebd8] font-bold text-sm">{h.nome}</span>
                              {h.dado && <span className="bg-[#131b26] text-[#4ad9d9] px-2 py-0.5 rounded font-mono text-[10px] border border-[#2a3b52]">{h.dado}</span>}
