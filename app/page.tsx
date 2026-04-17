@@ -2,12 +2,18 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Sword, Shield, Scroll, Settings } from 'lucide-react';
-import VTTCanvas from '@/components/vtt/VTTCanvas';
-import VTTControls from '@/components/vtt/VTTControls';
+import dynamic from 'next/dynamic';
+
+// 1. O SEGREDO DO SUCESSO: Importação dinâmica para o Konva não quebrar a Vercel
+const VTTCanvas = dynamic(() => import('../src/components/vtt/VTTCanvas'), { 
+  ssr: false 
+});
+// 2. Corrigindo o caminho do VTTControls
+import VTTControls from '../src/components/vtt/VTTControls';
 
 export default function Home() {
   const [inGame, setInGame] = useState(false);
-  const [salaId, setSalaId] = useState("ID-DA-SUA-SALA-AQUI"); // Use o ID que você criou no Supabase
+  const [salaId, setSalaId] = useState("ID-DA-SUA-SALA-AQUI");
 
   if (inGame) {
     return (
@@ -20,7 +26,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-black to-black text-white flex flex-col items-center justify-center p-6 text-center">
-      {/* Background Decorativo */}
       <div className="absolute inset-0 z-0 opacity-20 pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-900 rounded-full blur-[120px]" />
@@ -67,7 +72,7 @@ export default function Home() {
       </motion.div>
 
       <footer className="absolute bottom-8 text-[10px] text-slate-600 uppercase tracking-[0.2em]">
-        Desenvolvido por Eduardo & Gemini • 2026
+        Desenvolvido por Eduardo • 2026
       </footer>
     </main>
   );
