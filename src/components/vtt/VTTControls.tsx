@@ -1,5 +1,5 @@
 "use client";
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase'; // <-- CAMINHO CORRIGIDO
 import { Upload, Dice5, Users } from 'lucide-react';
 
 export default function VTTControls({ salaId }: { salaId: string }) {
@@ -29,18 +29,15 @@ export default function VTTControls({ salaId }: { salaId: string }) {
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-4 z-50">
-      {/* Botão de Adicionar Token */}
       <button onClick={addToken} className="bg-blue-600 p-4 rounded-full text-white shadow-xl active:scale-90 transition">
         <Users size={24} />
       </button>
 
-      {/* Botão de Upload de Mapa */}
       <label className="bg-emerald-600 p-4 rounded-full text-white shadow-xl active:scale-90 transition cursor-pointer">
         <Upload size={24} />
         <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
       </label>
 
-      {/* Botão de Rolagem Rápida */}
       <button onClick={() => alert("D20: " + (Math.floor(Math.random()*20)+1))} className="bg-red-600 p-4 rounded-full text-white shadow-xl active:scale-90 transition">
         <Dice5 size={24} />
       </button>
