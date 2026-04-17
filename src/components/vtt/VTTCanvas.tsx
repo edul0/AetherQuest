@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Stage, Layer, Image as KonvaImage, Circle, Line } from 'react-konva';
 import useImage from 'use-image';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase'; // <-- CAMINHO CORRIGIDO
+
 const GRID_SIZE = 50;
 
 export default function VTTCanvas({ salaId }: { salaId: string }) {
@@ -15,7 +16,6 @@ export default function VTTCanvas({ salaId }: { salaId: string }) {
     setWindowSize({ w: window.innerWidth, h: window.innerHeight });
     carregarDadosIniciais();
     
-    // ESCUTAR MUDANÇAS EM TEMPO REAL
     const channel = supabase
       .channel('vtt_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tokens' }, payload => {
@@ -39,18 +39,13 @@ export default function VTTCanvas({ salaId }: { salaId: string }) {
   };
 
   const handleDragEnd = async (id: string, e: any) => {
-    // Lógica de SNAP (Ímã)
     const newX = Math.round(e.target.x() / GRID_SIZE) * GRID_SIZE;
     const newY = Math.round(e.target.y() / GRID_SIZE) * GRID_SIZE;
 
-    // Atualiza localmente para ser instantâneo
     setTokens(prev => prev.map(t => t.id === id ? { ...t, x: newX, y: newY } : t));
-
-    // Sincroniza com Supabase
     await supabase.from('tokens').update({ x: newX, y: newY }).eq('id', id);
   };
 
-  // DESENHAR O GRID
   const lines = [];
   for (let i = 0; i < windowSize.w / GRID_SIZE; i++) {
     lines.push(<Line key={`v-${i}`} points={[i * GRID_SIZE, 0, i * GRID_SIZE, windowSize.h]} stroke="#334155" strokeWidth={1} />);
@@ -63,13 +58,8 @@ export default function VTTCanvas({ salaId }: { salaId: string }) {
     <div className="fixed inset-0 bg-slate-950 overflow-hidden">
       <Stage width={windowSize.w} height={windowSize.h} draggable>
         <Layer>
-          {/* CAMADA DO MAPA */}
           {image && <KonvaImage image={image} width={image.width} height={image.height} />}
-          
-          {/* CAMADA DO GRID */}
           {lines}
-
-          {/* CAMADA DOS TOKENS */}
           {tokens.map(t => (
             <Circle
               key={t.id}
