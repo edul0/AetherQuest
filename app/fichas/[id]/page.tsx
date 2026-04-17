@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../src/lib/supabase';
 import { Cinzel, Inter } from 'next/font/google';
-import { Shield, Brain, Zap, User, Camera, Plus, Dices, Swords, Save, ArrowLeft } from 'lucide-react';
+import { Shield, Brain, Zap, User, Camera, Plus, Dices, Swords, Save, ArrowLeft, Trash2, X, Minus } from 'lucide-react';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
 const inter = Inter({ subsets: ['latin'], weight: ['400', '600'] });
@@ -16,8 +16,8 @@ export default function FichaPersonagemPage() {
   const [ficha, setFicha] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  // Estados inline para a UI limpa de novas habilidades
   const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [newSkillName, setNewSkillName] = useState("");
   const [newSkillDice, setNewSkillDice] = useState("");
@@ -28,7 +28,16 @@ export default function FichaPersonagemPage() {
 
   const carregarFicha = async () => {
     const { data, error } = await supabase.from('fichas').select('*').eq('id', id).single();
-    if (data) setFicha(data);
+    if (data) {
+      // RETROCOMPATIBILIDADE: Se a vida for um número, converte para {atual, max}
+      const st = data.dados.status;
+      ['vida', 'sanidade', 'estamina'].forEach(attr => {
+        if (typeof st[attr] === 'number') {
+          st[attr] = { atual: st[attr], max: st[attr] };
+        }
+      });
+      setFicha(data);
+    }
     setLoading(false);
   };
 
@@ -41,53 +50,79 @@ export default function FichaPersonagemPage() {
     setIsSaving(false);
   };
 
+  const deletarFicha = async () => {
+    await supabase.from('fichas').delete().eq('id', id);
+    router.push('/fichas');
+  };
+
+  // --- CONTROLES DO CRIS (Status Rápido) ---
+  const atualizarStatus = (statNome: string, tipo: 'atual' | 'max', valorStr: string, incremental: boolean = false) => {
+    let valor = parseInt(valorStr) || 0;
+    const novoStatus = { ...ficha.dados.status };
+    
+    if (incremental) {
+      novoStatus[statNome][tipo] = novoStatus[statNome][tipo] + valor;
+    } else {
+      novoStatus[statNome][tipo] = valor;
+    }
+    
+    // Trava para não passar do máximo (opcional, tirei para permitir sobrevida/escudo)
+    setFicha({ ...ficha, dados: { ...ficha.dados, status: novoStatus } });
+  };
+
   const adicionarHabilidade = () => {
     if (!newSkillName || !newSkillDice) return;
     const novasHabilidades = [...(ficha.dados.habilidades || []), { id: Date.now(), nome: newSkillName, dado: newSkillDice }];
     setFicha({ ...ficha, dados: { ...ficha.dados, habilidades: novasHabilidades } });
-    setNewSkillName("");
-    setNewSkillDice("");
-    setIsAddingSkill(false);
+    setNewSkillName(""); setNewSkillDice(""); setIsAddingSkill(false);
   };
 
-  const atualizarAtributo = (key: string, value: number) => {
-    setFicha({
-      ...ficha,
-      dados: { ...ficha.dados, atributos: { ...ficha.dados.atributos, [key]: value } }
-    });
+  const deletarHabilidade = (habId: number) => {
+    const filtradas = ficha.dados.habilidades.filter((h: any) => h.id !== habId);
+    setFicha({ ...ficha, dados: { ...ficha.dados, habilidades: filtradas } });
   };
 
   if (loading) return <div className="h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9]">Sincronizando...</div>;
-  if (!ficha) return <div className="h-screen bg-[#090e17] flex items-center justify-center text-red-500">Personagem não encontrado.</div>;
+  if (!ficha) return <div className="h-screen bg-[#090e17] flex items-center justify-center text-red-500">Personagem não encontrado no tecido da realidade.</div>;
 
   return (
-    <main className="min-h-screen bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative overflow-y-auto pb-32">
+    <main className="min-h-screen bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative overflow-y-auto pb-32 overflow-x-hidden">
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#1a2b4c]/20 to-transparent pointer-events-none z-0"></div>
 
+      {/* MODAL DE DELEÇÃO */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090e17]/90 backdrop-blur-sm px-4">
+          <div className="bg-[#131b26] border border-red-900/50 rounded-2xl p-8 max-w-md w-full shadow-[0_0_40px_rgba(239,68,68,0.15)] relative">
+            <h2 className={`${cinzel.className} text-red-400 text-2xl font-bold mb-2`}>Apagar Personagem?</h2>
+            <p className={`${inter.className} text-sm text-[#8b9bb4] mb-6`}>A existência de <strong className="text-white">{ficha.nome_personagem}</strong> será apagada dos registros. Esta ação é irreversível.</p>
+            <div className="flex gap-4">
+              <button onClick={() => setIsDeleteModalOpen(false)} className="flex-1 bg-transparent border border-[#2a3b52] text-white py-3 rounded-lg hover:bg-[#1a2b4c]/50 transition-all font-semibold tracking-widest uppercase text-xs">Cancelar</button>
+              <button onClick={deletarFicha} className="flex-1 bg-red-900/40 border border-red-900 text-red-400 py-3 rounded-lg hover:bg-red-500 hover:text-white transition-all font-bold tracking-widest uppercase text-xs">Sim, Apagar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto relative z-10">
-        <header className="flex justify-between items-end mb-8">
-          <div>
-            <button onClick={() => router.push('/fichas')} className="flex items-center gap-2 text-[#6b7b94] hover:text-white mb-4 transition-colors text-xs uppercase tracking-widest">
+        <header className="flex justify-between items-start mb-8">
+          <div className="w-full md:w-auto">
+            <button onClick={() => router.push('/fichas')} className="flex items-center gap-2 text-[#6b7b94] hover:text-[#4ad9d9] mb-4 transition-colors text-xs uppercase tracking-widest">
               <ArrowLeft size={14} /> Voltar ao Hub
             </button>
             <div className="flex items-center gap-2 text-[#4ad9d9] mb-1 text-xs uppercase tracking-widest font-semibold">
               <User size={14} /> Preset: {ficha.sistema_preset.replace('_', ' ')}
             </div>
-            {/* Input elegante para trocar o nome do personagem */}
-            <input 
-              type="text" 
-              value={ficha.nome_personagem} 
-              onChange={(e) => setFicha({...ficha, nome_personagem: e.target.value})}
-              className={`${cinzel.className} text-[#f0ebd8] text-4xl md:text-5xl font-black tracking-wider bg-transparent border-b border-transparent hover:border-[#2a3b52] focus:border-[#4ad9d9] focus:outline-none transition-colors w-full`}
-            />
+            <input type="text" value={ficha.nome_personagem} onChange={(e) => setFicha({...ficha, nome_personagem: e.target.value})} className={`${cinzel.className} text-[#f0ebd8] text-4xl md:text-5xl font-black tracking-wider bg-transparent border-b border-transparent hover:border-[#2a3b52] focus:border-[#4ad9d9] focus:outline-none transition-colors w-full md:w-auto`}/>
           </div>
-          <button 
-            onClick={salvarFicha}
-            disabled={isSaving}
-            className="flex items-center gap-2 bg-gradient-to-r from-[#218b8b] to-[#1a6666] text-white px-6 py-2 rounded-full hover:from-[#2aabab] hover:to-[#218b8b] transition-all shadow-[0_0_15px_rgba(33,139,139,0.3)] text-sm font-semibold tracking-widest uppercase"
-          >
-            <Save size={16} /> {isSaving ? 'Salvando...' : 'Salvar'}
-          </button>
+          
+          <div className="flex flex-col gap-3 mt-4 md:mt-0">
+            <button onClick={salvarFicha} disabled={isSaving} className="flex items-center justify-center gap-2 bg-gradient-to-r from-[#218b8b] to-[#1a6666] text-white px-6 py-2 rounded-full hover:from-[#2aabab] hover:to-[#218b8b] transition-all shadow-[0_0_15px_rgba(33,139,139,0.3)] text-xs font-semibold tracking-widest uppercase w-full md:w-auto">
+              <Save size={14} /> {isSaving ? 'Salvando...' : 'Salvar Personagem'}
+            </button>
+            <button onClick={() => setIsDeleteModalOpen(true)} className="flex items-center justify-center gap-2 bg-red-900/20 text-red-400 border border-red-900/30 px-6 py-2 rounded-full hover:bg-red-900/50 hover:text-red-300 transition-all text-xs font-semibold tracking-widest uppercase w-full md:w-auto">
+              <Trash2 size={14} /> Apagar
+            </button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -100,35 +135,51 @@ export default function FichaPersonagemPage() {
             </div>
 
             <div className="bg-[#131b26]/60 backdrop-blur-md border border-[#2a3b52] rounded-2xl p-6 shadow-lg space-y-4">
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Idade / Altura</label>
-                <input type="text" value={ficha.dados.idade} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, idade: e.target.value}})} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none pb-1" />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Raça</label>
-                <input type="text" value={ficha.dados.raca} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, raca: e.target.value}})} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none pb-1" />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Gostos Pessoais</label>
-                <textarea value={ficha.dados.gostos} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, gostos: e.target.value}})} rows={3} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none resize-none pb-1" />
-              </div>
+              <div><label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Idade / Altura</label><input type="text" value={ficha.dados.idade} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, idade: e.target.value}})} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none pb-1" /></div>
+              <div><label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Raça</label><input type="text" value={ficha.dados.raca} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, raca: e.target.value}})} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none pb-1" /></div>
+              <div><label className="block text-[10px] uppercase tracking-widest text-[#4ad9d9] mb-1">Gostos Pessoais</label><textarea value={ficha.dados.gostos} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, gostos: e.target.value}})} rows={3} className="w-full bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] focus:border-[#4ad9d9] focus:outline-none resize-none pb-1" /></div>
             </div>
           </div>
 
           <div className="md:col-span-8 space-y-6">
-            <section className="grid grid-cols-3 gap-4">
-               {/* Inputs numéricos para os status principais */}
-               {['vida', 'sanidade', 'estamina'].map((stat) => (
-                <div key={stat} className="bg-[#131b26]/60 border border-[#2a3b52] rounded-2xl p-4 flex flex-col items-center justify-center relative">
-                  <input 
-                    type="number" 
-                    value={ficha.dados.status[stat]} 
-                    onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, status: {...ficha.dados.status, [stat]: parseInt(e.target.value) || 0}}})}
-                    className="bg-transparent text-3xl font-black text-[#f0ebd8] w-20 text-center focus:outline-none border-b border-transparent focus:border-[#4ad9d9]"
-                  />
-                  <span className="text-[10px] uppercase tracking-widest text-[#6b7b94] mt-1">{stat}</span>
-                </div>
-              ))}
+            
+            {/* STATUS ESTILO CRIS (BARRAS DE PROGRESSO) */}
+            <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { id: 'vida', nome: 'Vida', icon: Shield, cor: 'red' },
+                { id: 'sanidade', nome: 'Sanidade', icon: Brain, cor: 'purple' },
+                { id: 'estamina', nome: 'Estamina', icon: Zap, cor: 'green' }
+              ].map((stat) => {
+                const s = ficha.dados.status[stat.id];
+                const pct = Math.max(0, Math.min(100, (s.atual / s.max) * 100)) || 0;
+                
+                return (
+                  <div key={stat.id} className={`bg-[#131b26]/60 border border-${stat.cor}-900/30 rounded-2xl p-4 relative overflow-hidden`}>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={`text-xs uppercase text-${stat.cor}-400 font-bold tracking-widest`}><stat.icon size={14} className="inline mr-1 -mt-0.5"/> {stat.nome}</span>
+                      <span className="text-xs text-[#6b7b94] font-mono">{s.atual} / {s.max}</span>
+                    </div>
+                    
+                    {/* Barra de Progresso */}
+                    <div className="w-full bg-[#0a0f18] h-1.5 rounded-full mb-4 overflow-hidden border border-[#1a2b4c]">
+                       <div className={`bg-${stat.cor}-500 h-full transition-all duration-300 ease-out`} style={{ width: `${pct}%` }}></div>
+                    </div>
+                    
+                    {/* Controles: - / Input / + / Max */}
+                    <div className="flex items-center justify-between gap-2">
+                      <button onClick={() => atualizarStatus(stat.id, 'atual', '-1', true)} className={`bg-[#0a0f18] border border-${stat.cor}-900/50 text-${stat.cor}-400 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-${stat.cor}-900/40 transition-colors`}><Minus size={14}/></button>
+                      
+                      <div className="flex items-center gap-1">
+                        <input type="number" value={s.atual} onChange={(e) => atualizarStatus(stat.id, 'atual', e.target.value)} className={`w-12 bg-transparent text-center text-xl font-black text-[#f0ebd8] focus:outline-none focus:text-${stat.cor}-400 transition-colors`} />
+                        <span className="text-[#2a3b52]">/</span>
+                        <input type="number" value={s.max} onChange={(e) => atualizarStatus(stat.id, 'max', e.target.value)} className="w-8 bg-transparent text-center text-sm font-bold text-[#6b7b94] focus:outline-none border-b border-transparent focus:border-[#4ad9d9]" title="Máximo" />
+                      </div>
+
+                      <button onClick={() => atualizarStatus(stat.id, 'atual', '1', true)} className={`bg-[#0a0f18] border border-${stat.cor}-900/50 text-${stat.cor}-400 w-8 h-8 rounded-lg flex items-center justify-center hover:bg-${stat.cor}-900/40 transition-colors`}><Plus size={14}/></button>
+                    </div>
+                  </div>
+                );
+              })}
             </section>
 
             <section className="bg-[#131b26]/60 backdrop-blur-md border border-[#2a3b52] rounded-2xl p-6 shadow-lg">
@@ -136,18 +187,12 @@ export default function FichaPersonagemPage() {
                  <Swords className="text-[#4ad9d9]" size={20} />
                  <h2 className={`${cinzel.className} text-[#f0ebd8] text-lg font-bold tracking-widest uppercase`}>Atributos Principais</h2>
                </div>
-               
                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {Object.entries(ficha.dados.atributos).map(([key, value]: any) => {
                     const mod = Math.floor((value - 10) / 2);
                     return (
                       <div key={key} className="flex items-center gap-4 bg-[#0a0f18]/50 p-2 rounded-xl border border-[#1a2b4c]/50">
-                        <input 
-                          type="number" 
-                          value={value} 
-                          onChange={(e) => atualizarAtributo(key, parseInt(e.target.value) || 0)}
-                          className="w-12 h-10 bg-[#0d131f] rounded-lg flex items-center justify-center text-center text-[#4ad9d9] font-black text-lg border border-[#2a3b52] focus:outline-none focus:border-[#4ad9d9]"
-                        />
+                        <input type="number" value={value} onChange={(e) => setFicha({...ficha, dados: {...ficha.dados, atributos: {...ficha.dados.atributos, [key]: parseInt(e.target.value) || 0}}})} className="w-12 h-10 bg-[#0d131f] rounded-lg flex items-center justify-center text-center text-[#4ad9d9] font-black text-lg border border-[#2a3b52] focus:outline-none focus:border-[#4ad9d9]" />
                         <div>
                           <div className="text-[10px] uppercase tracking-widest text-[#6b7b94]">{key}</div>
                           <div className={`${inter.className} text-[#f0ebd8] font-bold text-sm`}>Mod: <span className={mod >= 0 ? 'text-green-400' : 'text-red-400'}>{mod >= 0 ? `+${mod}` : mod}</span></div>
@@ -164,28 +209,26 @@ export default function FichaPersonagemPage() {
                     <Dices className="text-[#4ad9d9]" size={20} />
                     <h2 className={`${cinzel.className} text-[#f0ebd8] text-lg font-bold tracking-widest uppercase`}>Habilidades e Perícias</h2>
                  </div>
-                 <button onClick={() => setIsAddingSkill(!isAddingSkill)} className="flex items-center gap-1 text-[#4ad9d9] text-xs uppercase font-semibold hover:text-white bg-[#1a2b4c]/50 px-3 py-1.5 rounded-full border border-[#4ad9d9]/30">
-                   <Plus size={14} /> Adicionar
-                 </button>
+                 <button onClick={() => setIsAddingSkill(!isAddingSkill)} className="flex items-center gap-1 text-[#4ad9d9] text-xs uppercase font-semibold hover:text-white bg-[#1a2b4c]/50 px-3 py-1.5 rounded-full border border-[#4ad9d9]/30"><Plus size={14} /> Adicionar</button>
                </div>
 
-               {/* NOVA UI INLINE PARA ADICIONAR HABILIDADE (Sem prompt!) */}
                {isAddingSkill && (
-                 <div className="flex gap-2 mb-4 bg-[#0a0f18] p-3 rounded-xl border border-[#4ad9d9]/50 items-center">
-                   <input type="text" placeholder="Nome (Ex: Furtividade)" value={newSkillName} onChange={(e) => setNewSkillName(e.target.value)} className="bg-transparent border-b border-[#2a3b52] text-sm text-[#f0ebd8] px-2 py-1 w-full focus:outline-none focus:border-[#4ad9d9]" />
-                   <input type="text" placeholder="Dado (Ex: 1d20+2)" value={newSkillDice} onChange={(e) => setNewSkillDice(e.target.value)} className="bg-transparent border-b border-[#2a3b52] text-sm text-[#f0ebd8] px-2 py-1 w-32 focus:outline-none focus:border-[#4ad9d9]" />
-                   <button onClick={adicionarHabilidade} className="bg-[#4ad9d9] text-black px-4 py-1.5 rounded text-xs font-bold uppercase tracking-widest hover:bg-white transition-colors">OK</button>
+                 <div className="flex flex-col md:flex-row gap-2 mb-4 bg-[#0a0f18] p-3 rounded-xl border border-[#4ad9d9]/50 items-center">
+                   <input type="text" placeholder="Nome (Ex: Furtividade)" value={newSkillName} onChange={(e) => setNewSkillName(e.target.value)} className="bg-transparent border-b border-[#2a3b52] text-sm text-[#f0ebd8] px-2 py-2 w-full focus:outline-none focus:border-[#4ad9d9]" />
+                   <input type="text" placeholder="Dado (Ex: 1d20+2)" value={newSkillDice} onChange={(e) => setNewSkillDice(e.target.value)} className="bg-transparent border-b border-[#2a3b52] text-sm text-[#f0ebd8] px-2 py-2 w-full md:w-32 focus:outline-none focus:border-[#4ad9d9]" />
+                   <button onClick={adicionarHabilidade} className="w-full md:w-auto bg-[#4ad9d9] text-black px-6 py-2 rounded text-xs font-bold uppercase tracking-widest hover:bg-white transition-colors mt-2 md:mt-0">OK</button>
                  </div>
                )}
                
                <div className="space-y-3">
-                 {(!ficha.dados.habilidades || ficha.dados.habilidades.length === 0) && !isAddingSkill && (
-                   <p className="text-sm text-[#6b7b94] italic text-center py-4">Nenhuma habilidade cadastrada.</p>
-                 )}
+                 {(!ficha.dados.habilidades || ficha.dados.habilidades.length === 0) && !isAddingSkill && <p className="text-sm text-[#6b7b94] italic text-center py-4">Nenhuma habilidade cadastrada.</p>}
                  {ficha.dados.habilidades?.map((hab: any) => (
-                   <div key={hab.id} className="flex justify-between items-center bg-[#0a0f18]/50 p-3 rounded-xl border border-[#1a2b4c]">
+                   <div key={hab.id} className="flex justify-between items-center bg-[#0a0f18]/50 p-3 rounded-xl border border-[#1a2b4c] group">
                      <span className={`${inter.className} text-[#f0ebd8] font-semibold text-sm`}>{hab.nome}</span>
-                     <span className="bg-[#1a2b4c] text-[#4ad9d9] px-3 py-1 rounded-md text-xs font-mono border border-[#2a3b52]">{hab.dado}</span>
+                     <div className="flex items-center gap-3">
+                       <span className="bg-[#1a2b4c] text-[#4ad9d9] px-3 py-1 rounded-md text-xs font-mono border border-[#2a3b52]">{hab.dado}</span>
+                       <button onClick={() => deletarHabilidade(hab.id)} className="text-[#6b7b94] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Remover Habilidade"><Trash2 size={16} /></button>
+                     </div>
                    </div>
                  ))}
                </div>
