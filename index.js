@@ -61,6 +61,46 @@
     function rollDice() {
       alert("Resultado: " + (Math.floor(Math.random() * 20) + 1));
     }
+
+// Configuração do Grid
+const GRID_SIZE = 50; 
+
+// Função para alinhar ao grid (Snap)
+const snapToGrid = (pos) => Math.round(pos / GRID_SIZE) * GRID_SIZE;
+
+// 3. Criando o Token com Snap e Sincronização
+const token = new Konva.Circle({
+  x: snapToGrid(100),
+  y: snapToGrid(100),
+  radius: 20,
+  fill: '#ef4444',
+  draggable: true,
+  shadowBlur: 5
+});
+
+// Evento: Enquanto arrasta (Suavidade local)
+token.on('dragmove', () => {
+  // Opcional: mostrar uma sombra de onde ele vai cair
+});
+
+// Evento: Quando solta (Sincronização com a nuvem)
+token.on('dragend', async () => {
+  const newX = snapToGrid(token.x());
+  const newY = snapToGrid(token.y());
+
+  // Atualiza a posição visual para o snap
+  token.position({ x: newX, y: newY });
+  layer.batchDraw();
+
+  // Envia para o Supabase (O mestre no telemóvel atualiza o teu PC)
+  const { error } = await supabase
+    .from('tokens')
+    .update({ x: newX, y: newY })
+    .eq('nome', 'Orc_01'); 
+    
+  if (error) console.error("Erro ao sincronizar:", error.message);
+});
+
   </script>
 </body>
 </html>
