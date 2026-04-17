@@ -1,18 +1,19 @@
 import './globals.css'
-import { Press_Start_2P, VT323 } from 'next/font/google'
+import { Cinzel, Lora } from 'next/font/google'
 
-// Fonte para Títulos (Mais quadrada/Zelda clássico)
-const pressStart2P = Press_Start_2P({ 
-  weight: '400',
+// Fonte para Títulos (Elegância afiada estilo Fantasia Moderna)
+const cinzel = Cinzel({ 
+  weight: ['400', '700', '900'],
   subsets: ['latin'],
-  variable: '--font-press-start'
+  variable: '--font-cinzel'
 })
 
-// Fonte para Textos Menores (Mais legível mas ainda pixelada)
-const vt323 = VT323({
-  weight: '400',
+// Fonte para Textos Menores (Orgânica e literária)
+const lora = Lora({
+  weight: ['400', '500'],
   subsets: ['latin'],
-  variable: '--font-vt323'
+  style: ['normal', 'italic'],
+  variable: '--font-lora'
 })
 
 export const metadata = {
@@ -27,7 +28,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className={`${pressStart2P.variable} ${vt323.variable} bg-[#1a1c1d] overflow-hidden touch-none text-[#e0d6c8]`}>
+      <body className={`${cinzel.variable} ${lora.variable} bg-[#0a0f12] overflow-hidden touch-none text-[#e2dfd2]`}>
         {children}
       </body>
     </html>
