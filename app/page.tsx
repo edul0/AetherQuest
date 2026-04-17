@@ -1,14 +1,11 @@
 "use client";
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { Sword, Shield, Scroll, Settings } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { Shield, Scroll, Settings } from 'lucide-react';
 
-// O SEGREDO: Carrega o Canvas apenas no navegador, ignorando o servidor da Vercel
 const VTTCanvas = dynamic(() => import('../src/components/vtt/VTTCanvas'), { 
   ssr: false 
 });
-// Caminho corrigido
 import VTTControls from '../src/components/vtt/VTTControls';
 
 export default function Home() {
@@ -17,7 +14,7 @@ export default function Home() {
 
   if (inGame) {
     return (
-      <main className="h-screen w-full bg-black">
+      <main className="h-screen w-full bg-[#1a1c1d]">
         <VTTCanvas salaId={salaId} />
         <VTTControls salaId={salaId} />
       </main>
@@ -25,55 +22,51 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-black to-black text-white flex flex-col items-center justify-center p-6 text-center">
-      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-900 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-900 rounded-full blur-[120px]" />
-      </div>
+    <main className="min-h-screen bg-[#141516] flex flex-col items-center justify-center p-6 text-center bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] bg-blend-overlay">
+      
+      {/* Container Principal Estilo Menu de RPG */}
+      <div className="border-4 border-[#8b7355] bg-[#2a2d30] p-8 md:p-12 shadow-[8px_8px_0_#000] max-w-2xl w-full relative">
+        
+        {/* Cantos Decorativos (PixelArt style) */}
+        <div className="absolute -top-2 -left-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
+        <div className="absolute -top-2 -right-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
+        <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
+        <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="z-10 max-w-2xl"
-      >
-        <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-500">
-          AETHER<span className="text-red-600">QUEST</span>
+        <h1 className="font-['var(--font-press-start)'] text-3xl md:text-5xl mb-6 text-[#d4af37] drop-shadow-[4px_4px_0_#000] tracking-widest leading-relaxed">
+          AETHER<br className="md:hidden"/><span className="text-[#3b82f6]">QUEST</span>
         </h1>
-        <p className="text-slate-400 text-lg md:text-xl mb-12 font-light">
-          O Tabletop Virtual de alto nível para mestres que não param. 
-          <span className="block italic text-sm mt-2">Sincronização total. Multiplataforma. Gratuito.</span>
+        
+        <p className="font-['var(--font-vt323)'] text-[#a99c8f] text-2xl mb-10 tracking-wider">
+          O Reinos o aguardam, Mestre.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-md mx-auto">
+        <div className="flex flex-col gap-6 w-full max-w-xs mx-auto">
+          {/* Botão Principal Estilo Zelda (Verde Esmeralda) */}
           <button 
             onClick={() => setInGame(true)}
-            className="group relative flex items-center justify-center gap-3 bg-white text-black font-bold py-4 px-8 rounded-2xl hover:bg-red-600 hover:text-white transition-all duration-300"
+            className="font-['var(--font-press-start)'] text-sm md:text-xs flex items-center justify-center gap-3 bg-[#10b981] border-4 border-[#059669] text-white py-5 px-6 hover:bg-[#34d399] hover:-translate-y-1 active:translate-y-1 transition-all shadow-[4px_4px_0_#000]"
           >
-            <Sword className="group-hover:rotate-12 transition-transform" />
             ENTRAR NA MESA
           </button>
           
-          <button className="flex items-center justify-center gap-3 bg-slate-800/50 backdrop-blur-md border border-slate-700 text-white font-bold py-4 px-8 rounded-2xl hover:bg-slate-700 transition-all">
-            <Scroll size={20} />
+          <button className="font-['var(--font-press-start)'] text-sm md:text-xs flex items-center justify-center gap-3 bg-[#4b5563] border-4 border-[#374151] text-white py-5 px-6 hover:bg-[#6b7280] active:translate-y-1 transition-all shadow-[4px_4px_0_#000]">
+            <Scroll size={16} className="hidden md:block"/>
             CAMPANHAS
           </button>
         </div>
 
-        <div className="mt-16 flex justify-center gap-8 text-slate-500">
-          <div className="flex flex-col items-center gap-1">
+        <div className="mt-12 flex justify-center gap-8 text-[#8b7355] font-['var(--font-vt323)'] text-xl">
+          <div className="flex flex-col items-center gap-2 hover:text-[#d4af37] cursor-pointer">
             <Shield size={24} />
-            <span className="text-[10px] uppercase tracking-widest">Seguro</span>
+            <span>Regras</span>
           </div>
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex flex-col items-center gap-2 hover:text-[#d4af37] cursor-pointer">
             <Settings size={24} />
-            <span className="text-[10px] uppercase tracking-widest">Ajustes</span>
+            <span>Opções</span>
           </div>
         </div>
-      </motion.div>
-
-      <footer className="absolute bottom-8 text-[10px] text-slate-600 uppercase tracking-[0.2em]">
-        Desenvolvido por Eduardo • 2026
-      </footer>
+      </div>
     </main>
   );
 }
