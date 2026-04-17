@@ -4,11 +4,11 @@ import { motion } from 'framer-motion';
 import { Sword, Shield, Scroll, Settings } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
-// 1. O SEGREDO DO SUCESSO: Importação dinâmica para o Konva não quebrar a Vercel
+// O SEGREDO: Carrega o Canvas apenas no navegador, ignorando o servidor da Vercel
 const VTTCanvas = dynamic(() => import('../src/components/vtt/VTTCanvas'), { 
   ssr: false 
 });
-// 2. Corrigindo o caminho do VTTControls
+// Caminho corrigido
 import VTTControls from '../src/components/vtt/VTTControls';
 
 export default function Home() {
