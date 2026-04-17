@@ -30,8 +30,7 @@ export default function FichasPage() {
     setHabilidades([...habilidades, { id: Date.now(), nome, dado }]);
   };
 
-  return (
-    <main className="min-h-screen bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative overflow-y-auto">
+  <main className="h-[100dvh] w-full bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 pb-32 relative overflow-y-auto overflow-x-hidden">
       
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-[#1a2b4c]/20 to-transparent pointer-events-none z-0"></div>
 
