@@ -125,14 +125,13 @@ export default function FichaPersonagemPage() {
   const currentSys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS];
   const isOP = ficha.sistema_preset === 'ordem_paranormal';
 
-  // Classe CSS global para esconder as setas dos inputs numéricos (Spinner)
   const noArrows = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 
   return (
-    <main className="min-h-[100dvh] w-full bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative overflow-y-auto pb-32">
-      <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_0%,_#1a2b4c22_0%,_transparent_70%)] pointer-events-none z-0" />
+    // AQUI ESTÁ A CORREÇÃO: h-[100dvh] força a tela ao tamanho do monitor e overflow-y-auto faz a rolagem ocorrer por dentro dela.
+    <main className="h-[100dvh] w-full bg-[#090e17] text-[#8b9bb4] p-4 md:p-8 relative overflow-y-auto pb-32">
+      <div className="absolute top-0 left-0 w-full h-[120%] bg-[radial-gradient(circle_at_50%_0%,_#1a2b4c22_0%,_transparent_70%)] pointer-events-none z-0" />
 
-      {/* Modal de Exclusão */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#090e17]/90 backdrop-blur-sm px-4">
           <div className="bg-[#131b26] border border-red-900/50 rounded-2xl p-8 max-w-sm w-full shadow-2xl">
@@ -147,7 +146,6 @@ export default function FichaPersonagemPage() {
 
       <div className="max-w-6xl mx-auto relative z-10">
         
-        {/* CABEÇALHO REFEITO (Limpo e Organizado) */}
         <header className="flex flex-col gap-6 mb-12 border-b border-[#2a3b52] pb-6">
           <div className="flex justify-between items-center">
             <button onClick={() => router.push('/fichas')} className="text-xs uppercase tracking-[0.2em] text-[#6b7b94] hover:text-[#4ad9d9] transition-colors flex items-center gap-2">
@@ -183,7 +181,6 @@ export default function FichaPersonagemPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* COLUNA ESQUERDA (Identidade) */}
           <div className="lg:col-span-4 space-y-6">
             <div onClick={() => fileInputRef.current?.click()} className="relative aspect-[3/4] w-full max-w-sm mx-auto bg-[#131b26]/80 border border-[#2a3b52] rounded-3xl overflow-hidden group cursor-pointer shadow-lg hover:border-[#4ad9d9]/50 transition-all">
               <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
@@ -227,10 +224,7 @@ export default function FichaPersonagemPage() {
             </div>
           </div>
 
-          {/* COLUNA DIREITA (Matemática e Habilidades) */}
           <div className="lg:col-span-8 space-y-8">
-            
-            {/* STATUS (Vida, Sanidade, Estamina) */}
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {['vida', 'sanidade', 'estamina'].map(s => {
                 const stat = ficha.dados.status[s];
@@ -259,7 +253,6 @@ export default function FichaPersonagemPage() {
               })}
             </section>
 
-            {/* ATRIBUTOS (Design Retornado para Pílulas) */}
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl p-6 shadow-lg">
                <div className="flex items-center gap-3 mb-6 border-b border-[#2a3b52] pb-3">
                  <Swords className="text-[#4ad9d9]" size={20} />
@@ -287,7 +280,6 @@ export default function FichaPersonagemPage() {
                </div>
             </section>
 
-            {/* HABILIDADES */}
             <section className="bg-[#131b26]/60 border border-[#2a3b52] rounded-3xl overflow-hidden shadow-lg">
                <div className="flex border-b border-[#2a3b52] overflow-x-auto">
                  {currentSys?.categorias_hab.map(cat => {
