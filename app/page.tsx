@@ -1,10 +1,10 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase } from '../src/lib/supabase';
 import { Cinzel, Inter } from 'next/font/google';
 import { Camera, Plus, Save, ArrowLeft, Trash2, Minus, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Shield, Swords, Zap } from 'lucide-react';
-import { PRESETS } from '../../../src/lib/constants';
+import { PRESETS } from '../src/lib/constants';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
 const inter = Inter({ subsets: ['latin'], weight: ['400', '600'] });
