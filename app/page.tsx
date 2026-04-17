@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Shield, Scroll, Settings } from 'lucide-react';
+import { Sword, Scroll, Compass, BookOpen } from 'lucide-react';
 
 const VTTCanvas = dynamic(() => import('../src/components/vtt/VTTCanvas'), { 
   ssr: false 
@@ -14,7 +14,7 @@ export default function Home() {
 
   if (inGame) {
     return (
-      <main className="h-screen w-full bg-[#1a1c1d]">
+      <main className="h-screen w-full bg-[#0a0f12]">
         <VTTCanvas salaId={salaId} />
         <VTTControls salaId={salaId} />
       </main>
@@ -22,51 +22,62 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[#141516] flex flex-col items-center justify-center p-6 text-center bg-[url('https://www.transparenttextures.com/patterns/aged-paper.png')] bg-blend-overlay">
+    <main className="min-h-screen bg-[#0d1317] flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
       
-      {/* Container Principal Estilo Menu de RPG */}
-      <div className="border-4 border-[#8b7355] bg-[#2a2d30] p-8 md:p-12 shadow-[8px_8px_0_#000] max-w-2xl w-full relative">
-        
-        {/* Cantos Decorativos (PixelArt style) */}
-        <div className="absolute -top-2 -left-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
-        <div className="absolute -top-2 -right-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
-        <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
-        <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-[#d4af37] border-2 border-black"></div>
+      {/* Background Sutil - Efeito de Fumaça/Masmorra */}
+      <div className="absolute inset-0 z-0 opacity-30 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-[#1c2e26] rounded-full blur-[150px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-[#2d1b19] rounded-full blur-[150px]" />
+      </div>
 
-        <h1 className="font-['var(--font-press-start)'] text-3xl md:text-5xl mb-6 text-[#d4af37] drop-shadow-[4px_4px_0_#000] tracking-widest leading-relaxed">
-          AETHER<br className="md:hidden"/><span className="text-[#3b82f6]">QUEST</span>
+      {/* Painel Principal - Vidro Fosco/Fantasia Moderna */}
+      <div className="z-10 bg-[#161d22]/80 backdrop-blur-md p-10 md:p-16 rounded-3xl border border-[#2a363d] shadow-2xl max-w-2xl w-full relative">
+        
+        {/* Detalhe de Linha Dourada Acima do Título */}
+        <div className="w-16 h-[2px] bg-[#cda462] mx-auto mb-8 opacity-70 rounded-full"></div>
+
+        <h1 className="font-['var(--font-cinzel)'] text-5xl md:text-7xl font-bold mb-4 tracking-wider text-[#f4ecd8] drop-shadow-md">
+          AETHER<span className="text-[#3b82f6]">QUEST</span>
         </h1>
         
-        <p className="font-['var(--font-vt323)'] text-[#a99c8f] text-2xl mb-10 tracking-wider">
-          O Reinos o aguardam, Mestre.
+        <p className="font-['var(--font-lora)'] italic text-[#a3b1b9] text-xl md:text-2xl mb-12 tracking-wide font-light">
+          "As lendas não se contam sozinhas, Mestre."
         </p>
 
-        <div className="flex flex-col gap-6 w-full max-w-xs mx-auto">
-          {/* Botão Principal Estilo Zelda (Verde Esmeralda) */}
+        <div className="flex flex-col sm:flex-row gap-5 w-full justify-center mt-8">
+          
+          {/* Botão Principal - Verde BotW / Polido */}
           <button 
             onClick={() => setInGame(true)}
-            className="font-['var(--font-press-start)'] text-sm md:text-xs flex items-center justify-center gap-3 bg-[#10b981] border-4 border-[#059669] text-white py-5 px-6 hover:bg-[#34d399] hover:-translate-y-1 active:translate-y-1 transition-all shadow-[4px_4px_0_#000]"
+            className="group relative flex items-center justify-center gap-3 bg-gradient-to-b from-[#1b5e40] to-[#12422c] border border-[#2d855f] text-[#f4ecd8] font-['var(--font-cinzel)'] font-bold tracking-widest py-4 px-8 rounded-full hover:from-[#237450] hover:to-[#175438] transition-all shadow-lg hover:shadow-[#1b5e40]/40 duration-300 w-full sm:w-auto"
           >
-            ENTRAR NA MESA
+            <Sword size={20} className="opacity-80 group-hover:opacity-100 transition-opacity" />
+            INICIAR JORNADA
           </button>
           
-          <button className="font-['var(--font-press-start)'] text-sm md:text-xs flex items-center justify-center gap-3 bg-[#4b5563] border-4 border-[#374151] text-white py-5 px-6 hover:bg-[#6b7280] active:translate-y-1 transition-all shadow-[4px_4px_0_#000]">
-            <Scroll size={16} className="hidden md:block"/>
-            CAMPANHAS
+          {/* Botão Secundário - Pedra Escura / Couro */}
+          <button className="group flex items-center justify-center gap-3 bg-gradient-to-b from-[#252f36] to-[#1a2227] border border-[#374650] text-[#c3ced5] font-['var(--font-cinzel)'] font-bold tracking-widest py-4 px-8 rounded-full hover:from-[#2c3840] hover:to-[#1f282e] transition-all shadow-lg duration-300 w-full sm:w-auto">
+            <Scroll size={20} className="opacity-70 group-hover:opacity-100 transition-opacity"/>
+            PERGAMINHOS
           </button>
         </div>
 
-        <div className="mt-12 flex justify-center gap-8 text-[#8b7355] font-['var(--font-vt323)'] text-xl">
-          <div className="flex flex-col items-center gap-2 hover:text-[#d4af37] cursor-pointer">
-            <Shield size={24} />
-            <span>Regras</span>
+        {/* Menu Inferior - Ícones Orgânicos */}
+        <div className="mt-16 flex justify-center gap-10 text-[#718590] font-['var(--font-cinzel)'] text-sm tracking-widest uppercase">
+          <div className="flex flex-col items-center gap-3 hover:text-[#cda462] transition-colors cursor-pointer group">
+            <BookOpen size={22} strokeWidth={1.5} className="group-hover:scale-110 transition-transform"/>
+            <span>Compêndio</span>
           </div>
-          <div className="flex flex-col items-center gap-2 hover:text-[#d4af37] cursor-pointer">
-            <Settings size={24} />
-            <span>Opções</span>
+          <div className="flex flex-col items-center gap-3 hover:text-[#cda462] transition-colors cursor-pointer group">
+            <Compass size={22} strokeWidth={1.5} className="group-hover:scale-110 transition-transform"/>
+            <span>Bússola</span>
           </div>
         </div>
+        
+        {/* Detalhe de Linha Dourada Abaixo */}
+        <div className="w-16 h-[2px] bg-[#cda462] mx-auto mt-12 opacity-30 rounded-full"></div>
       </div>
+      
     </main>
   );
 }
