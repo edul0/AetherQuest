@@ -46,16 +46,18 @@ export default function FichasHub() {
       user_id: session.user.id,
       sala_id: 'lobby',
       nome_personagem: newCharName,
-      sistema_preset: 'memorias_postumas',
+      sistema_preset: 'ordem_paranormal',
       dados: {
         idade: "Desconhecida", raca: "Desconhecida", gostos: "Nenhum registro.",
+        nex: 5,
         status: { 
-          vida: { atual: 10, max: 10 }, 
-          sanidade: { atual: 10, max: 10 }, 
-          estamina: { atual: 10, max: 10 } 
+          vida: { atual: 20, max: 20 }, 
+          sanidade: { atual: 15, max: 15 }, 
+          estamina: { atual: 2, max: 2 } 
         },
-        atributos: { forca: 10, destreza: 10, sabedoria: 10, intelecto: 10, carisma: 10, vigor: 10 },
-        habilidades: []
+        atributos: { forca: 1, destreza: 1, sabedoria: 1, intelecto: 1, carisma: 1, vigor: 1 },
+        habilidades: [],
+        armas: []
       }
     };
 
