@@ -13,7 +13,6 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
   useEffect(() => {
     carregarCenas();
     
-    // Escuta novas cenas sendo criadas em tempo real
     const channel = supabase
       .channel('cenas_realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cenas', filter: `sala_id=eq.${salaId}` }, payload => {
@@ -28,7 +27,7 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
     const { data } = await supabase.from('cenas').select('*').eq('sala_id', salaId);
     if (data && data.length > 0) {
       setCenas(data);
-      if (!cenaAtivaId) onSelectCena(data[0]); // Seleciona a primeira cena automaticamente
+      if (!cenaAtivaId) onSelectCena(data[0]); 
     }
   };
 
@@ -39,7 +38,7 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
   };
 
   return (
-    <div className="fixed top-0 left-0 w-full z-50 bg-[#090e17]/80 backdrop-blur-md border-b border-[#1a2b4c]/60 flex items-center px-4 py-3 gap-4 overflow-x-auto">
+    <div className="fixed top-0 left-0 w-full z-50 bg-[#090e17]/90 backdrop-blur-md border-b border-[#1a2b4c]/60 flex items-center px-4 py-3 gap-4 overflow-x-auto shadow-lg">
       <div className={`${cinzel.className} text-[#4ad9d9] font-bold tracking-widest text-sm flex items-center gap-2 mr-4`}>
         <Map size={18} />
         LOCAIS
@@ -59,10 +58,9 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
         </button>
       ))}
 
-      {/* Botão de Mestre para adicionar Cenas */}
       <button 
         onClick={criarNovaCena}
-        className="ml-auto bg-[#1a2b4c]/50 text-[#4ad9d9] p-2 rounded-full hover:bg-[#4ad9d9]/20 transition-colors border border-[#4ad9d9]/30"
+        className="ml-auto bg-[#1a2b4c]/50 text-[#4ad9d9] p-2 rounded-full hover:bg-[#4ad9d9]/20 transition-colors border border-[#4ad9d9]/30 flex-shrink-0"
         title="Criar Novo Local"
       >
         <Plus size={16} />
