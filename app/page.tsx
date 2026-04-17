@@ -33,7 +33,6 @@ export default function Login() {
       if (error) {
         alert("Erro no login: " + error.message);
       } else {
-        // Redireciona para a home após o login
         router.push('/');
       }
     }
@@ -82,12 +81,8 @@ export default function Login() {
         </form>
 
         <button 
+          type="button"
           onClick={() => setIsRegistering(!isRegistering)}
           className={`${inter.className} w-full mt-6 text-[#4ad9d9] text-xs hover:text-white transition-colors underline`}
         >
-          {isRegistering ? 'Já possui conta? Entre aqui.' : 'Novo no reino? Registre-se.'}
-        </button>
-      </div>
-    </main>
-  );
-}
+          {isRegistering ? 'Já possui conta? Entre aqui.' : 'Novo no reino? Registre-
