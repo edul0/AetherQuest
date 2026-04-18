@@ -19,15 +19,15 @@ const GRID_SIZE = 50;
 
 // Paleta de cores: BOTW dark navy + teal (consistente com app/page.tsx)
 const COLORS = {
-  bg: "#050a14",
+  bg: "#050a10",
   grid: "#4ad9d9",
   selectionRing: "#4ad9d9",
-  tokenLabel: "#c8dff0",
+  tokenLabel: "#f0ebd8",
   hpHigh: "#22c55e",
   hpMid: "#f59e0b",
   hpLow: "#ef4444",
-  hpBarBg: "#050a14",
-  placeholderText: "#1e3a5f",
+  hpBarBg: "#0a0f18",
+  placeholderText: "#6b7b94",
 };
 
 interface VTTCanvasProps {
