@@ -1,77 +1,66 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Cinzel, Inter } from "next/font/google";
-import { Map, Plus } from "lucide-react";
+import { Dice5, Map as MapIcon, Users } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 
-const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700"] });
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+export default function VTTControls({ cenaId }: { cenaId: string }) {
+  const handleFileUpload = async (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file || !cenaId) {
+      return;
+    }
 
-export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
-  const [cenas, setCenas] = useState<any[]>([]);
+    const path = `mapas/${cenaId}-${Date.now()}.png`;
+    const { error } = await supabase.storage.from("mapas").upload(path, file, { upsert: true });
+    if (error) {
+      alert(`Falha no upload do mapa: ${error.message}`);
+      return;
+    }
 
-  useEffect(() => {
-    const carregarCenas = async () => {
-      const { data } = await supabase.from("cenas").select("*").eq("sala_id", salaId);
-      if (data && data.length > 0) {
-        setCenas(data);
-        if (!cenaAtivaId) {
-          onSelectCena(data[0]);
-        }
-      } else {
-        setCenas([]);
-      }
-    };
+    const { data } = supabase.storage.from("mapas").getPublicUrl(path);
+    await supabase.from("cenas").update({ mapa_url: data.publicUrl }).eq("id", cenaId);
+  };
 
-    carregarCenas();
+  const addToken = async () => {
+    if (!cenaId) {
+      return;
+    }
 
-    const channel = supabase
-      .channel(`cenas_realtime_${salaId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "cenas", filter: `sala_id=eq.${salaId}` },
-        () => carregarCenas(),
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [cenaAtivaId, onSelectCena, salaId]);
-
-  const criarNovaCena = async () => {
-    const nome = `Setor ${cenas.length + 1}`;
-    await supabase.from("cenas").insert([{ sala_id: salaId, nome }]);
+    await supabase.from("tokens").insert([
+      {
+        cena_id: cenaId,
+        nome: "Entidade",
+        x: 0,
+        y: 0,
+        cor: "#ef4444",
+      },
+    ]);
   };
 
   return (
-    <div className="fixed left-0 top-0 z-50 flex w-full items-center gap-4 overflow-x-auto border-b border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-4 py-3 shadow-lg backdrop-blur-md">
-      <div className={`${cinzel.className} mr-2 flex items-center gap-2 text-sm font-bold tracking-[0.22em] text-[var(--aq-accent)]`}>
-        <Map size={18} />
-        LOCAIS
-      </div>
+    <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 gap-2 rounded-2xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.9)] p-2 shadow-[0_0_24px_rgba(0,0,0,0.45)] backdrop-blur-md">
+      <button
+        onClick={addToken}
+        className="rounded-xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.14)] hover:text-[var(--aq-accent)] active:scale-95"
+        title="Adicionar token"
+      >
+        <Users size={24} />
+      </button>
 
-      {cenas.map((cena) => (
-        <button
-          key={cena.id}
-          onClick={() => onSelectCena(cena)}
-          className={`${inter.className} whitespace-nowrap rounded-full px-5 py-2 text-xs font-semibold tracking-[0.18em] transition-all ${
-            cenaAtivaId === cena.id
-              ? "border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)] shadow-[0_0_15px_rgba(74,217,217,0.18)]"
-              : "border border-transparent bg-transparent text-[var(--aq-text-muted)] hover:bg-[rgba(26,43,76,0.32)] hover:text-[var(--aq-title)]"
-          }`}
-        >
-          {cena.nome}
-        </button>
-      ))}
+      <label
+        className="cursor-pointer rounded-xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.14)] hover:text-[var(--aq-accent)] active:scale-95"
+        title="Trocar mapa da cena atual"
+      >
+        <MapIcon size={24} />
+        <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
+      </label>
 
       <button
-        onClick={criarNovaCena}
-        className="ml-auto shrink-0 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.82)] p-2 text-[var(--aq-accent)] transition-colors hover:bg-[rgba(74,217,217,0.14)]"
-        title="Criar Novo Local"
+        onClick={() => alert(`D20: ${Math.floor(Math.random() * 20) + 1}`)}
+        className="rounded-xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.14)] hover:text-[var(--aq-accent)] active:scale-95"
+        title="Rolar D20"
       >
-        <Plus size={16} />
+        <Dice5 size={24} />
       </button>
     </div>
   );
