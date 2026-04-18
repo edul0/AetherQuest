@@ -61,7 +61,11 @@ export default function FichasHubPage() {
           raca: firstRace?.nome ?? "",
           raca_custom: "",
           deslocamento: firstRace?.deslocamento ?? "9m",
-          atributos: { forca: 1, agilidade: 1, vigor: 1, intelecto: 1, presenca: 1 },
+          idade: "",
+          altura: "",
+          gostos: "",
+          atributos: { forca: 1, agilidade: 1, destreza: 1, vigor: 1, intelecto: 1, presenca: 1, sabedoria: 1, carisma: 1 },
+          rolagens_status: Object.fromEntries((preset.statusRolls ?? []).map((entry) => [entry.key, 0])),
           status: {
             vida: { atual: 10, max: 10 },
             sanidade: { atual: 10, max: 10 },
