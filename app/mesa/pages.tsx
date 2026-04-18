@@ -267,7 +267,7 @@ export default function MesaPage() {
   }
 
   return (
-    <main className={`aq-page overflow-hidden ${inter.className}`}>
+    <main className={`aq-page overflow-x-hidden ${inter.className}`}>
       {salaAtiva && cenaAtiva ? (
         <>
           <VTTCanvas
