@@ -183,6 +183,8 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
   const vida = fichaData?.dados?.status?.vida;
   const sanidade = fichaData?.dados?.status?.sanidade;
   const pe = fichaData?.dados?.status?.pe ?? fichaData?.dados?.status?.estamina;
+  const defesa = fichaData?.dados?.defesa?.passiva;
+  const deslocamento = fichaData?.dados?.deslocamento;
 
   return (
     <div
@@ -245,6 +247,19 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
               {sanidade ? <StatusBar current={sanidade.atual} max={sanidade.max} label="Sanidade" color="#8b5cf6" /> : null}
               {pe ? <StatusBar current={pe.atual} max={pe.max} label="PE / Recursos" color="#4ad9d9" /> : null}
             </div>
+
+            {(defesa || deslocamento) ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-[#1a2b4c] bg-[rgba(5,10,16,0.72)] px-3 py-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#6b7b94]">Defesa</p>
+                  <p className="mt-1 text-sm font-black text-white">{defesa ?? "-"}</p>
+                </div>
+                <div className="rounded-lg border border-[#1a2b4c] bg-[rgba(5,10,16,0.72)] px-3 py-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#6b7b94]">Deslocamento</p>
+                  <p className="mt-1 text-sm font-black text-white">{deslocamento || "-"}</p>
+                </div>
+              </div>
+            ) : null}
 
             <div style={{ borderTop: "1px solid #1a2b4c" }} />
 
