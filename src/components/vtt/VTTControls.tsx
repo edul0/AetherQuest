@@ -10,7 +10,8 @@ export default function VTTControls({ cenaId }: { cenaId: string }) {
       return;
     }
 
-    const path = `mapas/${cenaId}-${Date.now()}.png`;
+    const ext = file.name.split(".").pop() || "png";
+    const path = `mapas/${cenaId}-${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from("mapas").upload(path, file, { upsert: true });
     if (error) {
       alert(`Falha no upload do mapa: ${error.message}`);
