@@ -25,7 +25,7 @@ const PERICIAS_ORDEM = [
 export default function FichaPersonagemPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const id = params?.id as string | undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [ficha, setFicha] = useState<any>(null);
@@ -39,8 +39,10 @@ export default function FichaPersonagemPage() {
   const [newSkill, setNewSkill] = useState({ nome: "", dado: "", desc: "" });
 
   useEffect(() => { 
-    if (id) {
+    if (id && id !== 'undefined') {
       carregarFicha(); 
+    } else {
+      setLoading(false);
     }
   }, [id]);
 
@@ -143,6 +145,19 @@ export default function FichaPersonagemPage() {
     setIsAddingSkill(false);
   };
 
+  // --- EARLY RETURNS (BLINDAGEM ANTI-CRASH) ---
+
+  if (!id || id === 'undefined') {
+    return (
+      <div className="min-h-screen bg-[#090e17] flex flex-col items-center justify-center text-[#8b9bb4]">
+        <h2 className="text-xl mb-4 font-bold text-red-500">Erro Fatal: ID não encontrado.</h2>
+        <p className="text-sm mb-4">A URL está sem o ID do personagem. Verifique se clicou em um link quebrado.</p>
+        <p className="text-xs mb-8 text-[#6b7b94]">Este código pertence EXCLUSIVAMENTE ao arquivo: <strong>app/fichas/[id]/page.tsx</strong></p>
+        <button onClick={() => router.push('/fichas')} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded text-xs font-black uppercase tracking-widest hover:bg-white transition-all">Voltar ao Hub de Fichas</button>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9] font-mono tracking-widest animate-pulse">
@@ -155,21 +170,21 @@ export default function FichaPersonagemPage() {
     return (
       <div className="min-h-screen bg-[#090e17] flex flex-col items-center justify-center text-[#8b9bb4]">
         <h2 className="text-xl mb-4 font-bold text-red-500">Erro: Ficha não encontrada.</h2>
-        <button onClick={() => router.push('/fichas')} className="text-[#4ad9d9] hover:underline uppercase tracking-widest text-xs">Voltar ao Hub</button>
+        <p className="text-sm mb-8">Nenhum personagem com este ID foi encontrado no banco de dados.</p>
+        <button onClick={() => router.push('/fichas')} className="bg-[#4ad9d9] text-[#090e17] px-6 py-2 rounded text-xs font-black uppercase tracking-widest hover:bg-white transition-all">Voltar ao Hub de Fichas</button>
       </div>
     );
   }
 
+  // --- RENDERIZAÇÃO SEGURA ---
   const isOP = ficha.sistema_preset === 'ordem_paranormal';
   const noArrows = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
   const inputClass = "bg-transparent text-[#f0ebd8] text-sm outline-none border-b border-[#2a3b52] focus:border-[#4ad9d9] hover:border-[#6b7b94] transition-colors p-1 w-full";
   const currentSys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS] as any;
-  const containerClasses = "min-h-screen w-full bg-[#090e17] text-[#8b9bb4] relative pb-32 selection:bg-[#4ad9d9]/30 selection:text-white " + inter.className;
 
   return (
-    <main className={containerClasses}>
-      
-      {/* HEADER NAVBAR - TEMA AETHERQUEST */}
+    <main className={`min-h-screen w-full bg-[#090e17] text-[#8b9bb4] relative pb-32 ${inter.className} selection:bg-[#4ad9d9]/30 selection:text-white`}>
+      {/* HEADER NAVBAR */}
       <header className="bg-[#090e17]/90 backdrop-blur-sm border-b border-[#2a3b52] p-4 px-8 flex justify-between items-center sticky top-0 z-50">
         <div className="flex items-center gap-6">
           <button onClick={() => router.push('/fichas')} className="text-xs uppercase tracking-widest text-[#6b7b94] hover:text-[#4ad9d9] flex items-center gap-2 transition-colors"><ArrowLeft size={14}/> Voltar ao Hub</button>
@@ -229,7 +244,7 @@ export default function FichaPersonagemPage() {
                 </div>
               </div>
 
-              {/* PENTAGRAMA - TEMA CIANO */}
+              {/* PENTAGRAMA */}
               <div className="relative w-[320px] h-[320px] my-6 flex items-center justify-center">
                 <div className="absolute inset-0 z-0">
                     <div className="absolute top-[50px] left-[160px] w-0.5 h-[220px] bg-[#4ad9d9]/20 -translate-x-1/2" />
