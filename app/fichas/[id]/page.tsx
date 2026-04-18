@@ -1,10 +1,9 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-// Caminho correto para a Ficha (volta 3 casas)
 import { supabase } from '../../../src/lib/supabase'; 
 import { Cinzel, Inter } from 'next/font/google';
-import { Camera, ArrowLeft, Trash2, Zap, Shield, Plus } from 'lucide-react';
+import { Camera, ArrowLeft, Trash2, Shield, Plus, Search, ChevronDown } from 'lucide-react';
 import { PRESETS } from '../../../src/lib/constants';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
