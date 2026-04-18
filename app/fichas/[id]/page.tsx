@@ -10,7 +10,7 @@ import {
   Plus,
   Search,
   Shield,
-  Sparkles,03:38 18/04/2026
+  Sparkles,
   Trash2,
   X,
   Zap
@@ -1062,4 +1062,5 @@ export default function FichaPersonagemPage() {
       ) : null}
     </main>
   );
+  
 }
