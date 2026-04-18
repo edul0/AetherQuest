@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Dice5 } from "lucide-react";
 import { ChoiceOption } from "../../lib/types";
 
 type ChoiceLibraryProps = {
@@ -53,8 +53,8 @@ export default function ChoiceLibrary({
                   </div>
                   <ChevronDown size={16} className={`text-[var(--aq-accent)] transition-transform ${isOpen ? "rotate-180" : ""}`} />
                 </button>
-                <button onClick={() => onApply(item)} className="aq-button-primary !px-3 !py-2">
-                  <Plus size={12} />
+                <button onClick={() => onApply(item)} className="aq-button-primary aq-button-compact">
+                  <Dice5 size={12} />
                   Adicionar
                 </button>
               </div>
@@ -63,6 +63,7 @@ export default function ChoiceLibrary({
                 <div className="border-t border-[var(--aq-border)] px-4 py-4">
                   {item.desc ? <p className="text-sm leading-relaxed text-[var(--aq-text)]">{item.desc}</p> : null}
                   {item.poder ? <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text)]"><strong className="text-[var(--aq-title)]">Poder:</strong> {item.poder}</p> : null}
+                  {item.dado ? <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text)]"><strong className="text-[var(--aq-title)]">Dado:</strong> {item.dado}</p> : null}
                   {item.tags?.length ? <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text)]"><strong className="text-[var(--aq-title)]">Tags:</strong> {item.tags.join(", ")}</p> : null}
                   {item.proficiencias?.length ? <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text)]"><strong className="text-[var(--aq-title)]">Pericias:</strong> {item.proficiencias.join(", ")}</p> : null}
                   {item.atributos && Object.keys(item.atributos).length > 0 ? (
