@@ -1,246 +1,456 @@
-"use client";
+import { ORDEM_PARANORMAL } from "./data/ordem";
+import { CatalogEntry, ChoiceOption, SystemPreset } from "./types";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Cinzel, Inter } from "next/font/google";
-import { Plus, Shield, Swords, Trash2 } from "lucide-react";
-import { supabase } from "../../src/lib/supabase";
-import { PRESETS } from "../../src/lib/constants";
+const ORDEM_CLASSES: ChoiceOption[] = [
+  {
+    nome: "Combatente",
+    grupo: "Base",
+    vidaBase: 20,
+    vidaPorNivel: 4,
+    peBase: 2,
+    pePorNivel: 1,
+    sanidadeBase: 16,
+    sanidadePorNivel: 3,
+    defesaBonus: 1,
+    proficiencias: ["Fortitude", "Luta"],
+    caminhos: [
+      { nome: "Aniquilador", desc: "Especialista em armas pesadas e impacto bruto.", proficiencias: ["Pontaria"] },
+      { nome: "Guerreiro", desc: "Linha de frente agressiva e adaptavel.", proficiencias: ["Luta"] },
+      { nome: "Operacoes Especiais", desc: "Pressao tatica e mobilidade ofensiva.", proficiencias: ["Reflexos", "Tatica"] },
+      { nome: "Tropa de Choque", desc: "Absorve dano e protege a linha aliada.", proficiencias: ["Fortitude"] },
+      { nome: "Personalizada", custom: true, desc: "Defina manualmente uma trilha de combatente." },
+    ],
+  },
+  {
+    nome: "Especialista",
+    grupo: "Base",
+    vidaBase: 16,
+    vidaPorNivel: 3,
+    peBase: 3,
+    pePorNivel: 2,
+    sanidadeBase: 18,
+    sanidadePorNivel: 4,
+    proficiencias: ["Crime", "Investigacao"],
+    caminhos: [
+      { nome: "Atirador de Elite", desc: "Precisao e controle de campo.", proficiencias: ["Pontaria", "Percepcao"] },
+      { nome: "Infiltrador", desc: "Furtividade, invasao e dano oportunista.", proficiencias: ["Crime", "Furtividade"] },
+      { nome: "Medico de Campo", desc: "Suporte rapido e estabilizacao em combate.", proficiencias: ["Medicina"] },
+      { nome: "Negociador", desc: "Controle social e leitura de cena.", proficiencias: ["Diplomacia", "Intuicao"] },
+      { nome: "Tecnico", desc: "Ferramentas, explosivos e improviso.", proficiencias: ["Tecnologia", "Profissao"] },
+      { nome: "Personalizada", custom: true, desc: "Defina manualmente uma trilha de especialista." },
+    ],
+  },
+  {
+    nome: "Ocultista",
+    grupo: "Base",
+    vidaBase: 12,
+    vidaPorNivel: 2,
+    peBase: 5,
+    pePorNivel: 3,
+    sanidadeBase: 20,
+    sanidadePorNivel: 4,
+    defesaBonus: 0,
+    proficiencias: ["Ocultismo", "Vontade"],
+    caminhos: [
+      { nome: "Conduite", desc: "Expande alcance e fluxo ritualistico.", proficiencias: ["Ocultismo"] },
+      { nome: "Graduado", desc: "Aprende mais rituais e amplia repertorio.", proficiencias: ["Ocultismo", "Atualidades"] },
+      { nome: "Intuitivo", desc: "Sobrevive melhor ao Outro Lado.", proficiencias: ["Vontade", "Percepcao"] },
+      { nome: "Lamina Paranormal", desc: "Mistura ritual e combate direto.", proficiencias: ["Luta", "Ocultismo"] },
+      { nome: "Personalizada", custom: true, desc: "Defina manualmente uma trilha de ocultista." },
+    ],
+  },
+  {
+    nome: "Personalizada",
+    custom: true,
+    desc: "Defina manualmente uma classe ou trilha.",
+  },
+];
 
-const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const ORDEM_RACES: ChoiceOption[] = [
+  {
+    nome: "Marcado",
+    desc: "Humano tocado pelo Outro Lado.",
+    deslocamento: "9m",
+  },
+  {
+    nome: "Sobrevivente",
+    desc: "Versao flexivel para campanhas autorais.",
+    atributos: { vigor: 1, presenca: 1 },
+    deslocamento: "9m",
+  },
+  {
+    nome: "Personalizada",
+    custom: true,
+    desc: "Defina manualmente uma linhagem ou condicao especial.",
+  },
+];
 
-export default function FichasHubPage() {
-  const router = useRouter();
-  const [fichas, setFichas] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedPresetId, setSelectedPresetId] = useState("ordem_paranormal");
+const ORDEM_MELHORIAS: CatalogEntry[] = [
+  { nome: "Calibre grosso", desc: "Aumenta o impacto do disparo e torna a arma mais destrutiva." },
+  { nome: "Cruel", desc: "Focada em finalizacao e agressividade, favorece dano bruto." },
+  { nome: "Certeira", desc: "Ajustada para precisao e constancia em ataques." },
+  { nome: "Tatica", desc: "Adaptada para manobras e uso inteligente em combate." },
+  { nome: "Reforcada", desc: "Estrutura robusta para suportar pancada, desgaste e recuo." },
+  { nome: "Silenciada", desc: "Reduz ruido e assinatura da arma em cena tensa." },
+];
 
-  useEffect(() => {
-    const carregarFichas = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("fichas")
-          .select("id, nome_personagem, sistema_preset, dados")
-          .order("nome_personagem");
-        if (error) {
-          throw error;
-        }
-        setFichas(data ?? []);
-      } catch (error) {
-        console.error("Erro ao carregar fichas:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+const ORDEM_MALDICOES: CatalogEntry[] = [
+  { nome: "Sangrenta", desc: "A arma drena violencia da cena e responde melhor a ferimentos." },
+  { nome: "Energetica", desc: "Canaliza energia instavel e pode explodir em impacto." },
+  { nome: "Sombria", desc: "Carrega um eco escuro que favorece emboscada e medo." },
+  { nome: "Ritualistica", desc: "Serve melhor como foco para efeitos rituais e interacoes ocultas." },
+  { nome: "Repulsora", desc: "Empurra, desestabiliza ou afasta alvos no contato." },
+  { nome: "Lancinante", desc: "Amplifica perfuracao e dano persistente em ataques bem colocados." },
+];
 
-    carregarFichas();
-  }, []);
+const DND5E: SystemPreset = {
+  nome: "D&D 5e",
+  racas: [
+    {
+      nome: "Humano",
+      desc: "Versatil e adaptavel.",
+      atributos: { forca: 1, agilidade: 1, vigor: 1, intelecto: 1, presenca: 1 },
+      deslocamento: "9m",
+    },
+    {
+      nome: "Anao",
+      desc: "Resistente e obstinado.",
+      atributos: { vigor: 2 },
+      proficiencias: ["Fortitude", "Historia"],
+      deslocamento: "7,5m",
+    },
+    {
+      nome: "Elfo",
+      desc: "Agil, atento e ligado a magia.",
+      atributos: { agilidade: 2, intelecto: 1 },
+      proficiencias: ["Percepcao"],
+      deslocamento: "9m",
+    },
+    {
+      nome: "Halfling",
+      desc: "Pequeno, sortudo e furtivo.",
+      atributos: { agilidade: 2, presenca: 1 },
+      proficiencias: ["Furtividade"],
+      deslocamento: "7,5m",
+    },
+    {
+      nome: "Tiefling",
+      desc: "Marcado pelo infernal e pela presenca.",
+      atributos: { presenca: 2, intelecto: 1 },
+      proficiencias: ["Intimidacao"],
+      deslocamento: "9m",
+    },
+    {
+      nome: "Personalizada",
+      custom: true,
+      desc: "Defina manualmente a raca ou linhagem.",
+    },
+  ],
+  origens: [
+    { nome: "Acolito", desc: "Ligacao com templos e tradicao.", proficiencias: ["Religiao", "Intuicao"] },
+    { nome: "Criminoso", desc: "Furtividade e contatos.", proficiencias: ["Crime", "Furtividade"] },
+    { nome: "Erudito", desc: "Conhecimento academico.", proficiencias: ["Historia", "Atualidades"] },
+    { nome: "Heroi do Povo", desc: "Figura querida pelo povo.", proficiencias: ["Atletismo", "Sobrevivencia"] },
+    { nome: "Soldado", desc: "Disciplina e experiencia de combate.", proficiencias: ["Intimidacao", "Tatica"] },
+    { nome: "Personalizada", custom: true, desc: "Defina um antecedente proprio." },
+  ],
+  classes: [
+    {
+      nome: "Barbaro",
+      grupo: "Marcial",
+      vidaBase: 18,
+      vidaPorNivel: 8,
+      peBase: 2,
+      pePorNivel: 1,
+      sanidadeBase: 10,
+      sanidadePorNivel: 1,
+      defesaBonus: 1,
+      proficiencias: ["Atletismo", "Fortitude"],
+      caminhos: [
+        { nome: "Berserker", desc: "Furia pura e agressiva." },
+        { nome: "Totemico", desc: "Liga-se a espiritos animais." },
+        { nome: "Personalizada", custom: true, desc: "Defina um caminho barbaro proprio." },
+      ],
+    },
+    {
+      nome: "Guerreiro",
+      grupo: "Marcial",
+      vidaBase: 16,
+      vidaPorNivel: 7,
+      peBase: 3,
+      pePorNivel: 1,
+      sanidadeBase: 10,
+      sanidadePorNivel: 1,
+      defesaBonus: 1,
+      proficiencias: ["Luta", "Pontaria"],
+      caminhos: [
+        { nome: "Campeao", desc: "Tecnica marcial direta e consistente." },
+        { nome: "Mestre de Batalha", desc: "Manobras e controle tatico." },
+        { nome: "Personalizada", custom: true, desc: "Defina um arquétipo marcial proprio." },
+      ],
+    },
+    {
+      nome: "Ladino",
+      grupo: "Especialista",
+      vidaBase: 14,
+      vidaPorNivel: 6,
+      peBase: 4,
+      pePorNivel: 1,
+      sanidadeBase: 10,
+      sanidadePorNivel: 1,
+      proficiencias: ["Crime", "Furtividade"],
+      caminhos: [
+        { nome: "Assassino", desc: "Eliminacao precisa e letal." },
+        { nome: "Trapaceiro Arcano", desc: "Ilusao, truques e magia furtiva." },
+        { nome: "Personalizada", custom: true, desc: "Defina um arquétipo de ladino proprio." },
+      ],
+    },
+    {
+      nome: "Mago",
+      grupo: "Arcano",
+      vidaBase: 10,
+      vidaPorNivel: 5,
+      peBase: 6,
+      pePorNivel: 2,
+      sanidadeBase: 10,
+      sanidadePorNivel: 1,
+      proficiencias: ["Ocultismo", "Atualidades"],
+      caminhos: [
+        { nome: "Evocacao", desc: "Dominio ofensivo dos elementos." },
+        { nome: "Adivinhacao", desc: "Leitura de futuro e controle do acaso." },
+        { nome: "Personalizada", custom: true, desc: "Defina uma escola arcana propria." },
+      ],
+    },
+    {
+      nome: "Clerigo",
+      grupo: "Divino",
+      vidaBase: 12,
+      vidaPorNivel: 6,
+      peBase: 5,
+      pePorNivel: 2,
+      sanidadeBase: 12,
+      sanidadePorNivel: 1,
+      proficiencias: ["Religiao", "Intuicao"],
+      caminhos: [
+        { nome: "Dominio da Vida", desc: "Cura, resiliencia e amparo." },
+        { nome: "Dominio da Guerra", desc: "Pressao divina em combate." },
+        { nome: "Personalizada", custom: true, desc: "Defina um dominio proprio." },
+      ],
+    },
+    { nome: "Personalizada", custom: true, desc: "Defina uma classe propria." },
+  ],
+  categorias_hab: [
+    { id: "comum", nome: "Caracteristicas de Classe" },
+    { id: "racas_hab", nome: "Tracos Raciais" },
+    { id: "magias", nome: "Magias" },
+    { id: "armas", nome: "Equipamentos" },
+  ],
+  comum: [
+    { nome: "Furia", dado: "2 PE", desc: "Recebe bonus ofensivos e resiste melhor ao dano.", subcat: "Barbaro", fonte: "D&D 5e" },
+    { nome: "Segundo Folego", dado: "1 PE", desc: "Recupera folego e parte da vida.", subcat: "Guerreiro", fonte: "D&D 5e" },
+    { nome: "Ataque Furtivo", dado: "-", desc: "Causa dano extra quando tem vantagem ou distracao.", subcat: "Ladino", fonte: "D&D 5e" },
+    { nome: "Recuperacao Arcana", dado: "-", desc: "Recupera parte do recurso magico no descanso.", subcat: "Mago", fonte: "D&D 5e" },
+    { nome: "Canalizar Divindade", dado: "1 PE", desc: "Canaliza poder sagrado para efeitos de dominio.", subcat: "Clerigo", fonte: "D&D 5e" },
+  ],
+  racas_hab: [
+    { nome: "Adaptavel", dado: "-", desc: "Recebe proficiencia adicional a escolha.", subcat: "Humano", fonte: "D&D 5e" },
+    { nome: "Resiliencia Ana", dado: "-", desc: "Maior resistencia fisica e cultural.", subcat: "Anao", fonte: "D&D 5e" },
+    { nome: "Sentidos Agucados", dado: "-", desc: "Percepcao superior e elegancia natural.", subcat: "Elfo", fonte: "D&D 5e" },
+    { nome: "Bravura", dado: "-", desc: "Resiste ao medo com facilidade.", subcat: "Halfling", fonte: "D&D 5e" },
+    { nome: "Heranca Infernal", dado: "-", desc: "Magia e resistencia inatas.", subcat: "Tiefling", fonte: "D&D 5e" },
+  ],
+  magias: [
+    { nome: "Misseis Magicos", dado: "1 PE", desc: "Projeteis que acertam com precisao.", subcat: "Arcano", fonte: "D&D 5e" },
+    { nome: "Curar Ferimentos", dado: "1 PE", desc: "Recupera pontos de vida por toque.", subcat: "Divino", fonte: "D&D 5e" },
+    { nome: "Escudo Arcano", dado: "1 PE", desc: "Eleva temporariamente a defesa.", subcat: "Arcano", fonte: "D&D 5e" },
+  ],
+  armas: [
+    { id: 1, nome: "Espada Longa", tipo: "Marcial", habilidade: "forca", dano: "1d8", critico: "19-20", alcance: "Adjacente", categoria: 0, desc: "Lamina versatil para combate direto." },
+    { id: 2, nome: "Arco Longo", tipo: "Marcial", habilidade: "agilidade", dano: "1d8", critico: "20", alcance: "Longo", categoria: 0, desc: "Arma de alcance preciso." },
+    { id: 3, nome: "Adaga", tipo: "Simples", habilidade: "agilidade", dano: "1d4", critico: "19-20", alcance: "Curto", categoria: 0, desc: "Leve e facil de esconder." },
+    { id: 4, nome: "Cajado Arcano", tipo: "Arcano", habilidade: "intelecto", dano: "1d6", critico: "20", alcance: "Adjacente", categoria: 0, desc: "Canaliza energia magica." },
+  ],
+  melhoriasCatalogo: [
+    { nome: "Obra-prima", desc: "Acabamento superior, mais confiavel e elegante em uso." },
+    { nome: "Prateada", desc: "Tratamento especial para enfrentar alvos sobrenaturais ou malditos." },
+    { nome: "Foco arcano", desc: "Melhora a canalizacao magica e a estabilidade de feitiços." },
+    { nome: "Mira precisa", desc: "Favorece ataques de longa distancia e disparos calculados." },
+    { nome: "Empunhadura reforcada", desc: "Seguranca e controle extra em golpes e recuo." },
+  ],
+  maldicoesCatalogo: [
+    { nome: "Amaldicoada", desc: "A arma carrega um efeito sombrio de origem desconhecida." },
+    { nome: "Vorpal fragmentada", desc: "Rasga pontos criticos com violencia anormal." },
+    { nome: "Sombria", desc: "Absorve luz e parece mais perigosa em ambientes escuros." },
+    { nome: "Raio crepitante", desc: "Solta descargas instaveis durante o uso." },
+  ],
+  resourceLabels: {
+    vida: "Vida",
+    pe: "Recurso",
+    sanidade: "Resolve",
+  },
+  progressLabel: "Nivel",
+  progressMin: 1,
+  progressMax: 20,
+  progressStep: 1,
+  proficienciaTreino: 2,
+  pericias: [
+    { nome: "Acrobacia", atributo: "agilidade" },
+    { nome: "Atletismo", atributo: "forca" },
+    { nome: "Atualidades", atributo: "intelecto" },
+    { nome: "Crime", atributo: "agilidade" },
+    { nome: "Fortitude", atributo: "vigor" },
+    { nome: "Furtividade", atributo: "agilidade" },
+    { nome: "Historia", atributo: "intelecto" },
+    { nome: "Intimidacao", atributo: "presenca" },
+    { nome: "Intuicao", atributo: "presenca" },
+    { nome: "Investigacao", atributo: "intelecto" },
+    { nome: "Luta", atributo: "forca" },
+    { nome: "Medicina", atributo: "intelecto" },
+    { nome: "Natureza", atributo: "intelecto" },
+    { nome: "Ocultismo", atributo: "intelecto" },
+    { nome: "Percepcao", atributo: "presenca" },
+    { nome: "Pontaria", atributo: "agilidade" },
+    { nome: "Religiao", atributo: "presenca" },
+    { nome: "Sobrevivencia", atributo: "intelecto" },
+    { nome: "Tatica", atributo: "intelecto" },
+  ],
+};
 
-  const criarNovaFicha = async () => {
-    try {
-      const preset = PRESETS[selectedPresetId] ?? PRESETS.ordem_paranormal;
-      const firstClass = preset.classes?.[0];
-      const firstRace = preset.racas?.[0];
-      const firstOrigin = preset.origens?.[0];
-      const firstPath = firstClass?.caminhos?.[0];
-      const progressValue = preset.progressMin ?? 1;
-
-      const novaFicha = {
-        nome_personagem: "Novo Personagem",
-        sistema_preset: selectedPresetId,
-        dados: {
-          nex: progressValue,
-          progressao: progressValue,
-          classe: firstClass?.nome ?? "",
-          classe_custom: "",
-          trilha: firstPath?.nome ?? "",
-          trilha_custom: "",
-          origem: firstOrigin?.nome ?? "",
-          origem_custom: "",
-          raca: firstRace?.nome ?? "",
-          raca_custom: "",
-          deslocamento: firstRace?.deslocamento ?? "9m",
-          idade: "",
-          altura: "",
-          gostos: "",
-          atributos: { forca: 1, agilidade: 1, destreza: 1, vigor: 1, intelecto: 1, presenca: 1, sabedoria: 1, carisma: 1 },
-          rolagens_status: Object.fromEntries((preset.statusRolls ?? []).map((entry) => [entry.key, 0])),
-          status: {
-            vida: { atual: 10, max: 10 },
-            sanidade: { atual: 10, max: 10 },
-            pe: { atual: 10, max: 10 },
-          },
-          habilidades: [],
-          armas: [],
-          pericias: {},
-          defesa: { passiva: 10, bloqueio: 0, esquiva: 0 },
-        },
-      };
-
-      const { data, error } = await supabase.from("fichas").insert([novaFicha]).select().single();
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        router.push(`/fichas/${data.id}`);
-      }
-    } catch (error: any) {
-      alert(`Erro ao criar ficha: ${error.message}`);
-    }
-  };
-
-  const deletarFicha = async (id: string) => {
-    const confirmDelete = window.confirm("Deseja excluir esta ficha?");
-    if (!confirmDelete) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase.from("fichas").delete().eq("id", id);
-      if (error) {
-        throw error;
-      }
-      setFichas((current) => current.filter((ficha) => ficha.id !== id));
-    } catch (error: any) {
-      alert(`Erro ao excluir ficha: ${error.message}`);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="aq-page flex items-center justify-center">
-        <div className="font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)] animate-pulse">
-          Sincronizando arquivos...
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <main className={`aq-page ${inter.className}`}>
-      <div className="aq-orb aq-orb-cyan" />
-      <div className="aq-orb aq-orb-indigo" />
-
-      <div className="aq-shell px-8 py-12 md:px-16">
-        <header className="mb-12 flex flex-col gap-4 border-b border-[var(--aq-border)] pb-8 md:flex-row md:items-end md:justify-between">
-          <div>
-            <div className="aq-kicker">Omnis</div>
-            <h1 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-6xl`}>
-              Seus Personagens
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--aq-text-muted)]">
-              Crie, organize e abra fichas prontas para a mesa tática. Tudo já alinhado com a paleta cyberpunk do AetherQuest.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <button onClick={() => router.push("/mesa")} className="aq-button-secondary">
-              Abrir Mesa
-            </button>
-            <button onClick={criarNovaFicha} className="aq-button-primary">
-              <Plus size={14} />
-              Criar Novo
-            </button>
-          </div>
-        </header>
-
-        <section className="mb-10 aq-panel p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="aq-kicker">Forge Preset</div>
-              <h2 className={`${cinzel.className} mt-2 text-2xl font-black tracking-[0.08em] text-[var(--aq-title)]`}>
-                Escolha o sistema antes de criar
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--aq-text-muted)]">
-                A ficha ja nasce com classe, origem, raca e caminho base do sistema escolhido. Depois voce ainda pode trocar tudo ou usar opcoes personalizadas.
-              </p>
-            </div>
-            <button onClick={criarNovaFicha} className="aq-button-primary">
-              <Plus size={14} />
-              Criar no sistema atual
-            </button>
-          </div>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {Object.entries(PRESETS).map(([presetId, preset]) => (
-              <button
-                key={presetId}
-                onClick={() => setSelectedPresetId(presetId)}
-                className={`rounded-3xl border p-5 text-left transition-all ${
-                  selectedPresetId === presetId
-                    ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.08)] shadow-[0_0_24px_rgba(74,217,217,0.12)]"
-                    : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.58)] hover:border-[var(--aq-border-strong)]"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <h3 className={`${cinzel.className} text-xl font-black tracking-[0.06em] text-[var(--aq-title)]`}>
-                    {preset.nome}
-                  </h3>
-                  {selectedPresetId === presetId ? <span className="aq-pill">Ativo</span> : null}
-                </div>
-                <div className="mt-4 space-y-2 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
-                  <div>{`${preset.progressLabel ?? "Nivel"} ${preset.progressMin ?? 1}-${preset.progressMax ?? 20}`}</div>
-                  <div>{`${preset.classes?.length ?? 0} classes`}</div>
-                  <div>{`${preset.racas?.length ?? 0} racas`}</div>
-                  <div>{`${preset.origens?.length ?? 0} origens`}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {fichas.length === 0 ? (
-          <div className="aq-empty-state">Nenhum personagem encontrado.</div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {fichas.map((ficha) => (
-              <button
-                key={ficha.id}
-                onClick={() => router.push(`/fichas/${ficha.id}`)}
-                className="aq-panel group p-6 text-left transition-all hover:border-[var(--aq-border-strong)] hover:shadow-[0_0_28px_rgba(74,217,217,0.12)]"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <h2 className={`${cinzel.className} text-2xl font-black tracking-[0.06em] text-[var(--aq-title)] transition-colors group-hover:text-[var(--aq-accent)]`}>
-                      {ficha.nome_personagem || "Sem Nome"}
-                    </h2>
-                    <p className="mt-2 text-[11px] uppercase tracking-[0.24em] text-[var(--aq-accent)]">
-                      Preset: {String(ficha.sistema_preset ?? "desconhecido").replace("_", " ")}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      deletarFicha(ficha.id);
-                    }}
-                    className="rounded-full border border-red-500/30 p-2 text-red-300 transition-colors hover:border-red-400 hover:text-red-200"
-                    title="Excluir personagem"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-
-                <div className="mt-6 grid gap-3 border-t border-[var(--aq-border)] pt-4">
-                  <div className="flex items-center gap-2 text-sm text-[var(--aq-title)]">
-                    <Shield size={14} className="text-red-400" />
-                    <span>
-                      {ficha.dados?.status?.vida?.atual || 0}/{ficha.dados?.status?.vida?.max || 0} Vida
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-[var(--aq-title)]">
-                    <Swords size={14} className="text-[var(--aq-accent)]" />
-                    <span>
-                      {ficha.dados?.status?.sanidade?.atual || 0}/{ficha.dados?.status?.sanidade?.max || 0} Sanidade
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </main>
-  );
-}
+export const PRESETS: Record<string, SystemPreset> = {
+  ordem_paranormal: {
+    ...(ORDEM_PARANORMAL as any),
+    nome: "Ordem Paranormal",
+    racas: ORDEM_RACES,
+    classes: ORDEM_CLASSES,
+    melhoriasCatalogo: ORDEM_MELHORIAS,
+    maldicoesCatalogo: ORDEM_MALDICOES,
+    resourceLabels: {
+      vida: "Vida",
+      pe: "PE",
+      sanidade: "Sanidade",
+    },
+    progressLabel: "NEX",
+    progressMin: 5,
+    progressMax: 99,
+    progressStep: 5,
+    proficienciaTreino: 5,
+  } as SystemPreset,
+  dnd5e: DND5E as SystemPreset,
+  memorias_postumas: {
+    nome: "Memorias Postumas",
+    origens: [
+      { nome: "Sobrevivente", poder: "Voce ja viu o bastante para continuar andando.", proficiencias: ["Vontade", "Percepcao"] },
+      { nome: "Marginal", poder: "Improvisa recursos sob pressao e nao trava facil.", proficiencias: ["Improviso", "Furtividade"] },
+      { nome: "Devoto", poder: "Mantem a mente firme diante do inexplicavel.", proficiencias: ["Feiticaria", "Vontade"] },
+      { nome: "Personalizada", custom: true, desc: "Defina uma origem autoral." },
+    ],
+    classes: [
+      {
+        nome: "Lutador",
+        vidaBase: 0,
+        vidaPorNivel: 0,
+        peBase: 0,
+        pePorNivel: 0,
+        sanidadeBase: 0,
+        sanidadePorNivel: 0,
+        defesaBonus: 1,
+        caminhos: [{ nome: "Black Leg" }, { nome: "Boxeador" }, { nome: "Personalizada", custom: true }],
+      },
+      {
+        nome: "Ocultista",
+        vidaBase: 0,
+        vidaPorNivel: 0,
+        peBase: 0,
+        pePorNivel: 0,
+        sanidadeBase: 0,
+        sanidadePorNivel: 0,
+        caminhos: [{ nome: "Canalizador" }, { nome: "Ritualista" }, { nome: "Personalizada", custom: true }],
+      },
+      { nome: "Sobrevivente", vidaBase: 0, vidaPorNivel: 0, peBase: 0, pePorNivel: 0, sanidadeBase: 0, sanidadePorNivel: 0, caminhos: [{ nome: "Errante" }, { nome: "Guardiao" }, { nome: "Personalizada", custom: true }] },
+      { nome: "Personalizada", custom: true, desc: "Defina um arquétipo proprio." },
+    ],
+    racas: [
+      { nome: "Humano", atributos: { forca: 1 }, tags: ["+2 em testes de sanidade", "Adaptacao"], desc: "Ignoram o primeiro efeito da marca e recuperam sanidade mais facilmente." },
+      { nome: "Mink", atributos: { destreza: 2, forca: 1 }, tags: ["+3 em Percepcao", "Eletro"], proficiencias: ["Percepcao"], desc: "Ataques corpo a corpo causam 1d4 extra, mas custam 1 de estamina." },
+      { nome: "Oni", atributos: { forca: 2, vigor: 2 }, tags: ["-2 dano", "Corpo Monstruoso", "Furia Crescente"], desc: "Em 50% do HP recebe mais forca, mas perde controle com a paranoia." },
+      { nome: "Lunarian", atributos: { vigor: 2, destreza: 1 }, tags: ["-2 dano", "Chamas", "Modo Defensivo", "Modo Agil"], desc: "Alterna entre defesa absoluta e mobilidade extrema." },
+      { nome: "Personalizada", custom: true, desc: "Defina uma raca autoral." },
+    ],
+    categorias_hab: [{ id: "comum", nome: "Habilidades Base" }],
+    armas: [],
+    comum: [
+      { nome: "Adaptacao", dado: "1x por cena", desc: "Ao falhar em um teste, pode rerrolar. Se falhar de novo, perde 2 de sanidade.", subcat: "Humano", fonte: "Memorias Postumas" },
+      { nome: "Eletro", dado: "1 Estamina", desc: "Ataques corpo a corpo causam 1d4 de dano adicional.", subcat: "Mink", fonte: "Memorias Postumas" },
+      { nome: "Corpo Monstruoso", dado: "-", desc: "Ao chegar em 50% da vida, ganha +2 de Forca.", subcat: "Oni", fonte: "Memorias Postumas" },
+      { nome: "Furia Crescente", dado: "-", desc: "Recebe +1 em Forca por turno de combate, maximo 3.", subcat: "Oni", fonte: "Memorias Postumas" },
+      { nome: "Chamas", dado: "Acao livre", desc: "Pode alternar entre modo defensivo e agil uma vez por turno.", subcat: "Lunarian", fonte: "Memorias Postumas" },
+      { nome: "Limite Forcado", dado: "Toda estamina", desc: "Forca o corpo alem do limite e recebe dados bonus, mas entra em burnout.", subcat: "Geral", fonte: "Memorias Postumas" },
+    ],
+    attributeLayout: [
+      { id: "forca", label: "FOR", nome: "Forca" },
+      { id: "destreza", label: "DES", nome: "Destreza" },
+      { id: "sabedoria", label: "SAB", nome: "Sabedoria" },
+      { id: "intelecto", label: "INT", nome: "Intelecto" },
+      { id: "carisma", label: "CAR", nome: "Carisma" },
+      { id: "vigor", label: "VIG", nome: "Vigor" },
+    ],
+    attributeAssignmentText: "Voce tem 15, 14, 13, 12, 10 e 8 para distribuir entre os atributos.",
+    resourceLabels: {
+      vida: "Vida",
+      pe: "Estamina",
+      sanidade: "Sanidade",
+    },
+    statusRolls: [
+      { key: "vida", label: "Vida", formula: "8 + 2d16", base: 8, atributo: "vigor", hint: "Some aqui o total rolado em 2d16." },
+      { key: "sanidade", label: "Sanidade", formula: "10 + 3d7", base: 10, atributo: "sabedoria", hint: "Some aqui o total rolado em 3d7." },
+      { key: "pe", label: "Estamina", formula: "10 + 4d6", base: 10, atributo: "forca", hint: "Some aqui o total rolado em 4d6." },
+    ],
+    loreNotes: [
+      {
+        titulo: "Sanidade",
+        texto:
+          "15+ Resiste\n10-14 Abalado (-1 em acoes por 1 turno)\n5-9 Panico (perde acao ou age irracionalmente)\n4 ou menos Colapso (efeito grave).",
+      },
+      {
+        titulo: "Deterioracao",
+        texto:
+          "1-2 marcas: Distorcao.\n3-4 marcas: Paranoia.\n5-6 marcas: Colapso.\nFalhas criticas em recuperacao adicionam +1 marca.",
+      },
+      {
+        titulo: "Luta e Reflexo",
+        texto:
+          "Estilo de luta, fintas, postura e jogo de pe moldam o combate. Tempo de reacao cobre o esperado; reflexo cobre o inesperado.",
+      },
+      {
+        titulo: "Defesa",
+        texto:
+          "Sem item defensivo nao ha defesa plena. Em defesa com 20 natural voce pode aparar e abrir contra-ataque.",
+      },
+    ],
+    progressLabel: "Nivel",
+    progressMin: 1,
+    progressMax: 10,
+    progressStep: 1,
+    proficienciaTreino: 2,
+    pericias: [
+      { nome: "Socos", atributo: "forca", atributoSecundario: "destreza" },
+      { nome: "Chutes", atributo: "forca", atributoSecundario: "destreza" },
+      { nome: "Mira", atributo: "destreza", atributoSecundario: "intelecto" },
+      { nome: "Tempo de Reacao", atributo: "destreza", atributoSecundario: "sabedoria" },
+      { nome: "Reflexo", atributo: "destreza" },
+      { nome: "Improviso", atributo: "intelecto" },
+      { nome: "Vontade", atributo: "sabedoria" },
+      { nome: "Feiticaria", atributo: "sabedoria" },
+      { nome: "Investigacao", atributo: "intelecto" },
+      { nome: "Percepcao", atributo: "sabedoria" },
+      { nome: "Acrobacia", atributo: "destreza" },
+      { nome: "Atuacao", atributo: "carisma" },
+      { nome: "Defesa", atributo: "destreza", atributoSecundario: "vigor" },
+      { nome: "Furtividade", atributo: "intelecto", atributoSecundario: "destreza" },
+      { nome: "Identificar Magia", atributo: "intelecto" },
+      { nome: "Enganacao", atributo: "carisma" },
+      { nome: "Sobrevivencia", atributo: "sabedoria" },
+      { nome: "Diplomacia", atributo: "carisma" },
+    ],
+  } as SystemPreset,
+};
