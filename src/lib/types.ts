@@ -3,14 +3,9 @@ export interface Skill {
   nome: string;
   dado?: string;
   desc: string;
-  cat: string;export interface Skill {
-  id: number;
-  nome: string;
-  dado?: string;
-  desc: string;
   cat: string;
-  subcat?: string; // Ex: 'Aniquilador', 'Guerreiro'
-  fonte?: string;  // Ex: 'Livro Base', 'Arquivos Confidenciais'
+  subcat?: string;
+  fonte?: string;
 }
 
 export interface Weapon {
@@ -48,38 +43,41 @@ export interface SystemPreset {
   classes: string[];
   categorias_hab: Category[];
   armas: Weapon[];
-  [key: string]: any; // Para categorias dinâmicas como 'rituais', 'paranormal', etc.
+  [key: string]: any;
 }
 
-}
+// --- VTT TYPES ---
 
-export interface Weapon {
-  id: number;
-  nome: string;
-  tipo: string;
-  habilidade: string;
-  dano: string;
-  critico: string;
-  alcance: string;
-  categoria: number;
-  desc: string;
-}
-
-export interface Origin {
-  nome: string;
-  poder: string;
-  proficiencias: string[];
-}
-
-export interface Category {
+/**
+ * Representa um token no mapa VTT.
+ * `ficha_id` é nullable: token burro (sem ficha) vs token vinculado (com ficha).
+ * A sincronização HP é feita pela ficha, nunca armazenada localmente no token.
+ */
+export interface Token {
   id: string;
+  cena_id: string;
+  ficha_id: string | null;
   nome: string;
+  x: number;
+  y: number;
+  cor: string;
 }
 
-export interface SystemPreset {
-  origens: Origin[];
-  classes: string[];
-  categorias_hab: Category[];
-  armas: Weapon[];
-  [key: string]: any; // Para categorias dinâmicas como 'rituais', 'paranormal', etc.
+/**
+ * Snapshot da ficha relevante para o VTT.
+ * Extraído de `fichas.dados` para renderização de HP bars e TokenPanel.
+ */
+export interface FichaVTTSnapshot {
+  id: string;
+  nome_personagem: string;
+  sistema_preset: string;
+  avatar_url?: string;
+  dados: {
+    status?: {
+      vida?: { atual: number; max: number };
+      sanidade?: { atual: number; max: number };
+      estamina?: { atual: number; max: number };
+    };
+    [key: string]: any;
+  };
 }
