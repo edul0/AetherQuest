@@ -958,7 +958,7 @@ export default function FichaPersonagemPage() {
         </div>
       </header>
 
-      <div className="aq-shell mt-8 space-y-8 px-4 md:px-8">
+      <div className="aq-shell mt-6 space-y-8 px-2 md:mt-8 md:px-4 xl:px-6">
         <IdentityBriefing
           title="Origem da Ficha"
           subtitle="Escolha o sistema, depois feche a identidade base do personagem com raca, origem, classe e caminho. A ficha e a mesa leem esse bloco como o nucleo do personagem, entao tudo daqui precisa estar claro e coerente."
@@ -977,7 +977,7 @@ export default function FichaPersonagemPage() {
           ]}
         />
 
-        <div className="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(460px,560px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(520px,620px)_minmax(0,1fr)] 2xl:gap-8">
         <section className="space-y-8">
           <div className="aq-panel p-5">
             <div className="flex flex-col gap-5 md:flex-row">
