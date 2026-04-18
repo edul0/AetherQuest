@@ -15,12 +15,12 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { PRESETS } from "../../../src/lib/constants";
-import { supabase } from "../../../src/lib/supabase";
-import { AttributeDefinition, AttributeMap, ChoiceOption, Skill, SystemPreset } from "../../../src/lib/types";
-import IdentityBriefing from "../../../src/components/ficha/IdentityBriefing";
-import WeaponModsEditor from "../../../src/components/ficha/WeaponModsEditor";
-import ChoiceLibrary from "../../../src/components/ficha/ChoiceLibrary";
+import { PRESETS } from "@/src/lib/constants";
+import { supabase } from "@/src/lib/supabase";
+import { AttributeDefinition, AttributeMap, ChoiceOption, Skill, SystemPreset } from "@/src/lib/types";
+import IdentityBriefing from "@/src/components/ficha/IdentityBriefing";
+import WeaponModsEditor from "@/src/components/ficha/WeaponModsEditor";
+import ChoiceLibrary from "@/src/components/ficha/ChoiceLibrary";
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
