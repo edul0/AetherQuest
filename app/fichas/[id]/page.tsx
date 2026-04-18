@@ -358,6 +358,18 @@ export default function FichaPersonagemPage() {
     carregarFicha();
   }, [id]);
 
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setModalOpen(null);
+        setSelectionMenu(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, []);
+
   const preset = useMemo(() => getPreset(ficha?.sistema_preset), [ficha?.sistema_preset]);
   const progressLabel = preset.progressLabel ?? "Nivel";
   const progressMin = preset.progressMin ?? 1;
@@ -1542,8 +1554,15 @@ export default function FichaPersonagemPage() {
       </div>
 
       {modalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,11,0.82)] p-6 backdrop-blur-md">
-          <div className="aq-panel max-h-[85vh] w-full max-w-4xl overflow-hidden">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,11,0.82)] p-6 backdrop-blur-md"
+          onClick={() => {
+            setModalOpen(null);
+            setSearchTerm("");
+            setCompendiumFilter("all");
+          }}
+        >
+          <div className="aq-panel max-h-[85vh] w-full max-w-4xl overflow-hidden" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[var(--aq-border)] px-5 py-4">
               <div>
                 <div className="aq-kicker">{modalOpen === "armas" ? "Arsenal" : "Compendio"}</div>
@@ -1579,7 +1598,7 @@ export default function FichaPersonagemPage() {
                     <button
                       key={filter}
                       onClick={() => setCompendiumFilter(filter)}
-                      className={compendiumFilter === filter ? "aq-button-primary !px-3 !py-2" : "aq-button-secondary !px-3 !py-2"}
+                      className={compendiumFilter === filter ? "aq-button-primary aq-button-compact" : "aq-button-secondary aq-button-compact"}
                     >
                       {filter === "all" ? "Tudo" : filter}
                     </button>
@@ -1609,7 +1628,7 @@ export default function FichaPersonagemPage() {
                         </div>
                         {item.desc ? <p className="mt-2 text-sm leading-relaxed text-[var(--aq-text)]">{item.desc}</p> : null}
                       </div>
-                      <span className="aq-button-secondary shrink-0">Adicionar</span>
+                      <span className="aq-button-secondary aq-button-compact shrink-0">Adicionar</span>
                     </div>
                   </button>
                 ))
@@ -1620,8 +1639,8 @@ export default function FichaPersonagemPage() {
       ) : null}
 
       {selectionMenu && selectionMenuConfig ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,11,0.82)] p-6 backdrop-blur-md">
-          <div className="aq-panel aq-scrollbar max-h-[85vh] w-full max-w-3xl overflow-y-auto p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,11,0.82)] p-6 backdrop-blur-md" onClick={() => setSelectionMenu(null)}>
+          <div className="aq-panel aq-scrollbar max-h-[85vh] w-full max-w-3xl overflow-y-auto p-5" onClick={(event) => event.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between gap-4 border-b border-[var(--aq-border)] pb-4">
               <div>
                 <div className="aq-kicker">Selecao Dedicada</div>
