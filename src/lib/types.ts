@@ -23,9 +23,27 @@ export interface Weapon {
 export interface AttributeMap {
   forca: number;
   agilidade: number;
+  destreza: number;
   vigor: number;
   intelecto: number;
   presenca: number;
+  sabedoria: number;
+  carisma: number;
+}
+
+export interface AttributeDefinition {
+  id: keyof AttributeMap;
+  label: string;
+  nome: string;
+}
+
+export interface StatusRollConfig {
+  key: "vida" | "sanidade" | "pe";
+  label: string;
+  formula: string;
+  base: number;
+  atributo: keyof AttributeMap;
+  hint?: string;
 }
 
 export interface ChoiceOption {
@@ -69,8 +87,12 @@ export interface SystemPreset {
   armas: Weapon[];
   melhoriasCatalogo?: string[];
   maldicoesCatalogo?: string[];
-  pericias?: Array<{ nome: string; atributo: keyof AttributeMap }>;
+  pericias?: Array<{ nome: string; atributo: keyof AttributeMap; atributoSecundario?: keyof AttributeMap }>;
   resourceLabels?: ResourceLabels;
+  attributeLayout?: AttributeDefinition[];
+  attributeAssignmentText?: string;
+  statusRolls?: StatusRollConfig[];
+  loreNotes?: Array<{ titulo: string; texto: string }>;
   progressLabel?: string;
   progressMin?: number;
   progressMax?: number;
