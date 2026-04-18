@@ -3,7 +3,7 @@ export interface Skill {
   nome: string;
   dado?: string;
   desc: string;
-  cat: string;
+  cat?: string;
   subcat?: string;
   fonte?: string;
 }
@@ -20,17 +20,33 @@ export interface Weapon {
   desc: string;
 }
 
-export interface Origin {
-  nome: string;
-  poder: string;
-  proficiencias: string[];
+export interface AttributeMap {
+  forca: number;
+  agilidade: number;
+  vigor: number;
+  intelecto: number;
+  presenca: number;
 }
 
-export interface SkillDefinition {
+export interface ChoiceOption {
   nome: string;
-  atributo: string;
-  treinada: boolean;
-  bonus: number;
+  desc?: string;
+  poder?: string;
+  grupo?: string;
+  custom?: boolean;
+  caminhos?: ChoiceOption[];
+  tags?: string[];
+  atributos?: Partial<AttributeMap>;
+  proficiencias?: string[];
+  habilidades?: string[];
+  deslocamento?: string;
+  defesaBonus?: number;
+  vidaBase?: number;
+  vidaPorNivel?: number;
+  peBase?: number;
+  pePorNivel?: number;
+  sanidadeBase?: number;
+  sanidadePorNivel?: number;
 }
 
 export interface Category {
@@ -38,21 +54,31 @@ export interface Category {
   nome: string;
 }
 
+export interface ResourceLabels {
+  vida: string;
+  pe: string;
+  sanidade: string;
+}
+
 export interface SystemPreset {
-  origens: Origin[];
-  classes: string[];
+  nome: string;
+  origens: ChoiceOption[];
+  classes: ChoiceOption[];
+  racas: ChoiceOption[];
   categorias_hab: Category[];
   armas: Weapon[];
+  melhoriasCatalogo?: string[];
+  maldicoesCatalogo?: string[];
+  pericias?: Array<{ nome: string; atributo: keyof AttributeMap }>;
+  resourceLabels?: ResourceLabels;
+  progressLabel?: string;
+  progressMin?: number;
+  progressMax?: number;
+  progressStep?: number;
+  proficienciaTreino?: number;
   [key: string]: any;
 }
 
-// --- VTT TYPES ---
-
-/**
- * Representa um token no mapa VTT.
- * `ficha_id` é nullable: token burro (sem ficha) vs token vinculado (com ficha).
- * A sincronização HP é feita pela ficha, nunca armazenada localmente no token.
- */
 export interface Token {
   id: string;
   cena_id: string;
@@ -63,10 +89,6 @@ export interface Token {
   cor: string;
 }
 
-/**
- * Snapshot da ficha relevante para o VTT.
- * Extraído de `fichas.dados` para renderização de HP bars e TokenPanel.
- */
 export interface FichaVTTSnapshot {
   id: string;
   nome_personagem: string;
@@ -77,6 +99,7 @@ export interface FichaVTTSnapshot {
       vida?: { atual: number; max: number };
       sanidade?: { atual: number; max: number };
       estamina?: { atual: number; max: number };
+      pe?: { atual: number; max: number };
     };
     [key: string]: any;
   };
