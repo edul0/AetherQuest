@@ -3,14 +3,215 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
-  --background-end-rgb: 0, 0, 0;
+  --aq-bg: #050a10;
+  --aq-bg-deep: #02060b;
+  --aq-surface: #0a0f18;
+  --aq-surface-soft: rgba(10, 15, 24, 0.84);
+  --aq-border: #1a2b4c;
+  --aq-border-strong: rgba(74, 217, 217, 0.34);
+  --aq-accent: #4ad9d9;
+  --aq-accent-soft: rgba(74, 217, 217, 0.14);
+  --aq-title: #f0ebd8;
+  --aq-text: #8b9bb4;
+  --aq-text-muted: #6b7b94;
+  --aq-text-subtle: #41556f;
+  --aq-danger: #ef4444;
+  --aq-success: #22c55e;
+}
+
+html {
+  background: var(--aq-bg);
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
-  overflow: hidden; /* Importante para o VTT não bugar no celular */
-  touch-action: none; /* Desativa gestos padrão do navegador para o Canvas funcionar */
+  min-height: 100vh;
+  color: var(--aq-text);
+  background:
+    radial-gradient(circle at top left, rgba(74, 217, 217, 0.08), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(26, 43, 76, 0.2), transparent 30%),
+    linear-gradient(180deg, rgba(2, 6, 11, 0.96), rgba(5, 10, 16, 1));
+  overflow-x: hidden;
+  touch-action: manipulation;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  scrollbar-color: var(--aq-border) transparent;
+}
+
+::selection {
+  background: rgba(74, 217, 217, 0.28);
+  color: white;
+}
+
+.aq-page {
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(74, 217, 217, 0.08), transparent 26%),
+    radial-gradient(circle at 80% 85%, rgba(26, 43, 76, 0.2), transparent 28%),
+    var(--aq-bg);
+  color: var(--aq-text);
+}
+
+.aq-shell {
+  position: relative;
+  z-index: 1;
+  margin: 0 auto;
+  width: min(100%, 1280px);
+}
+
+.aq-panel {
+  border: 1px solid rgba(26, 43, 76, 0.92);
+  border-radius: 1.5rem;
+  background: linear-gradient(180deg, rgba(10, 15, 24, 0.96), rgba(5, 10, 16, 0.94));
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(74, 217, 217, 0.02);
+}
+
+.aq-button-primary,
+.aq-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 9999px;
+  padding: 0.8rem 1.2rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.aq-button-primary {
+  border: 1px solid rgba(74, 217, 217, 0.28);
+  background: linear-gradient(135deg, rgba(74, 217, 217, 0.92), rgba(30, 107, 107, 0.9));
+  color: #021317;
+  box-shadow: 0 0 24px rgba(74, 217, 217, 0.2);
+}
+
+.aq-button-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 34px rgba(74, 217, 217, 0.34);
+}
+
+.aq-button-secondary {
+  border: 1px solid rgba(26, 43, 76, 0.94);
+  background: rgba(10, 15, 24, 0.66);
+  color: var(--aq-text);
+}
+
+.aq-button-secondary:hover {
+  border-color: var(--aq-border-strong);
+  color: var(--aq-accent);
+  background: rgba(74, 217, 217, 0.08);
+}
+
+.aq-input {
+  width: 100%;
+  border: 1px solid rgba(26, 43, 76, 0.94);
+  border-radius: 1rem;
+  background: rgba(5, 10, 16, 0.78);
+  padding: 0.78rem 0.95rem;
+  color: var(--aq-title);
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.aq-input::placeholder {
+  color: var(--aq-text-subtle);
+}
+
+.aq-input:focus {
+  border-color: var(--aq-border-strong);
+  box-shadow: 0 0 0 1px rgba(74, 217, 217, 0.16);
+}
+
+.aq-kicker {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--aq-accent);
+}
+
+.aq-pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(74, 217, 217, 0.22);
+  border-radius: 9999px;
+  background: rgba(74, 217, 217, 0.1);
+  padding: 0.28rem 0.65rem;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--aq-accent);
+}
+
+.aq-pill-muted {
+  border-color: rgba(26, 43, 76, 0.92);
+  background: rgba(26, 43, 76, 0.26);
+  color: var(--aq-text);
+}
+
+.aq-empty-state {
+  border: 1px dashed rgba(74, 217, 217, 0.2);
+  border-radius: 1.5rem;
+  background: rgba(5, 10, 16, 0.52);
+  padding: 3rem 1.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--aq-text-muted);
+}
+
+.aq-scrollbar::-webkit-scrollbar {
+  width: 10px;
+}
+
+.aq-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aq-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, rgba(26, 43, 76, 0.95), rgba(74, 217, 217, 0.22));
+  background-clip: padding-box;
+}
+
+.aq-orb {
+  pointer-events: none;
+  position: absolute;
+  inset: auto;
+  border-radius: 9999px;
+  filter: blur(120px);
+  opacity: 0.4;
+}
+
+.aq-orb-cyan {
+  top: 4rem;
+  left: 10%;
+  height: 22rem;
+  width: 22rem;
+  background: rgba(74, 217, 217, 0.12);
+}
+
+.aq-orb-indigo {
+  right: 8%;
+  bottom: 3rem;
+  height: 18rem;
+  width: 18rem;
+  background: rgba(26, 43, 76, 0.22);
 }
