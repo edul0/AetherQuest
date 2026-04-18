@@ -1,69 +1,78 @@
 "use client";
-import { supabase } from '../../lib/supabase';
-import { Upload, Dice5, Users, Map as MapIcon, Heart } from 'lucide-react';
 
-// Tipagem atualizada para receber cenaId
-export default function VTTControls({ cenaId }: { cenaId: string }) {
-  
-  const handleFileUpload = async (e: any) => {
-    const file = e.target.files[0];
-    if (!file || !cenaId) return;
+import React, { useEffect, useState } from "react";
+import { Cinzel, Inter } from "next/font/google";
+import { Map, Plus } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 
-    const path = `mapas/${cenaId}-${Date.now()}.png`;
-    const { data, error } = await supabase.storage.from('mapas').upload(path, file);
+const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
-    if (data) {
-      const { data: { publicUrl } } = supabase.storage.from('mapas').getPublicUrl(path);
-      // Atualiza a tabela CENAS e não salas
-      await supabase.from('cenas').update({ mapa_url: publicUrl }).eq('id', cenaId);
-    }
-  };
+export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
+  const [cenas, setCenas] = useState<any[]>([]);
 
-  const addToken = async () => {
-    if (!cenaId) return;
-    
-    // Insere o token atrelado à CENA
-    await supabase.from('tokens').insert([{
-      cena_id: cenaId,
-      nome: 'Monstro',
-      x: 0,
-      y: 0,
-      cor: '#ef4444' 
-    }]);
+  useEffect(() => {
+    const carregarCenas = async () => {
+      const { data } = await supabase.from("cenas").select("*").eq("sala_id", salaId);
+      if (data && data.length > 0) {
+        setCenas(data);
+        if (!cenaAtivaId) {
+          onSelectCena(data[0]);
+        }
+      } else {
+        setCenas([]);
+      }
+    };
+
+    carregarCenas();
+
+    const channel = supabase
+      .channel(`cenas_realtime_${salaId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "cenas", filter: `sala_id=eq.${salaId}` },
+        () => carregarCenas(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [cenaAtivaId, onSelectCena, salaId]);
+
+  const criarNovaCena = async () => {
+    const nome = `Setor ${cenas.length + 1}`;
+    await supabase.from("cenas").insert([{ sala_id: salaId, nome }]);
   };
 
   return (
-    <>
-      {/* Controles Inferiores */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-50 bg-[#131b26]/90 backdrop-blur-md border border-[#2a3b52] p-2 rounded-2xl shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-        
-        {/* Adicionar Inimigo/Token */}
-        <button 
-          onClick={addToken} 
-          className="bg-[#1a2b4c]/50 border border-[#2a3b52] p-3 rounded-xl text-[#f0ebd8] hover:bg-[#4ad9d9]/20 hover:text-[#4ad9d9] hover:border-[#4ad9d9]/50 active:scale-95 transition-all"
-          title="Adicionar Inimigo"
-        >
-          <Users size={24} />
-        </button>
-
-        {/* Upload de Mapa */}
-        <label 
-          className="bg-[#1a2b4c]/50 border border-[#2a3b52] p-3 rounded-xl text-[#f0ebd8] hover:bg-[#4ad9d9]/20 hover:text-[#4ad9d9] hover:border-[#4ad9d9]/50 active:scale-95 transition-all cursor-pointer"
-          title="Trocar Mapa da Cena Atual"
-        >
-          <MapIcon size={24} />
-          <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
-        </label>
-
-        {/* Rolagem de Dado Clássica */}
-        <button 
-          onClick={() => alert("D20: " + (Math.floor(Math.random()*20)+1))} 
-          className="bg-[#1a2b4c]/50 border border-[#2a3b52] p-3 rounded-xl text-[#f0ebd8] hover:bg-[#4ad9d9]/20 hover:text-[#4ad9d9] hover:border-[#4ad9d9]/50 active:scale-95 transition-all"
-          title="Rolar D20"
-        >
-          <Dice5 size={24} />
-        </button>
+    <div className="fixed left-0 top-0 z-50 flex w-full items-center gap-4 overflow-x-auto border-b border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-4 py-3 shadow-lg backdrop-blur-md">
+      <div className={`${cinzel.className} mr-2 flex items-center gap-2 text-sm font-bold tracking-[0.22em] text-[var(--aq-accent)]`}>
+        <Map size={18} />
+        LOCAIS
       </div>
-    </>
+
+      {cenas.map((cena) => (
+        <button
+          key={cena.id}
+          onClick={() => onSelectCena(cena)}
+          className={`${inter.className} whitespace-nowrap rounded-full px-5 py-2 text-xs font-semibold tracking-[0.18em] transition-all ${
+            cenaAtivaId === cena.id
+              ? "border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)] shadow-[0_0_15px_rgba(74,217,217,0.18)]"
+              : "border border-transparent bg-transparent text-[var(--aq-text-muted)] hover:bg-[rgba(26,43,76,0.32)] hover:text-[var(--aq-title)]"
+          }`}
+        >
+          {cena.nome}
+        </button>
+      ))}
+
+      <button
+        onClick={criarNovaCena}
+        className="ml-auto shrink-0 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.82)] p-2 text-[var(--aq-accent)] transition-colors hover:bg-[rgba(74,217,217,0.14)]"
+        title="Criar Novo Local"
+      >
+        <Plus size={16} />
+      </button>
+    </div>
   );
 }
