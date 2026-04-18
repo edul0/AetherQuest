@@ -17,25 +17,28 @@ import {
 } from "lucide-react";
 import { PRESETS } from "../../../src/lib/constants";
 import { supabase } from "../../../src/lib/supabase";
-import { AttributeMap, ChoiceOption, Skill, SystemPreset } from "../../../src/lib/types";
+import { AttributeDefinition, AttributeMap, ChoiceOption, Skill, SystemPreset } from "../../../src/lib/types";
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
-const ATTRIBUTE_ORDER = [
-  { id: "agilidade", label: "AGI", nome: "Agilidade", pos: "top-0 left-1/2 -translate-x-1/2" },
-  { id: "intelecto", label: "INT", nome: "Intelecto", pos: "top-[30%] right-0 translate-x-3" },
-  { id: "vigor", label: "VIG", nome: "Vigor", pos: "bottom-3 right-3" },
-  { id: "presenca", label: "PRE", nome: "Presenca", pos: "bottom-3 left-3" },
-  { id: "forca", label: "FOR", nome: "Forca", pos: "top-[30%] left-0 -translate-x-3" },
-] as const;
+const DEFAULT_ATTRIBUTE_LAYOUT: AttributeDefinition[] = [
+  { id: "agilidade", label: "AGI", nome: "Agilidade" },
+  { id: "intelecto", label: "INT", nome: "Intelecto" },
+  { id: "vigor", label: "VIG", nome: "Vigor" },
+  { id: "presenca", label: "PRE", nome: "Presenca" },
+  { id: "forca", label: "FOR", nome: "Forca" },
+];
 
 const DEFAULT_ATTRS: AttributeMap = {
   forca: 1,
   agilidade: 1,
+  destreza: 1,
   vigor: 1,
   intelecto: 1,
   presenca: 1,
+  sabedoria: 1,
+  carisma: 1,
 };
 
 const DEFAULT_STATUS = {
@@ -182,8 +185,12 @@ function normalizeFicha(record: any) {
   const dados = {
     ...(record?.dados ?? {}),
     avatar_url: record?.dados?.avatar_url ?? record?.avatar_url ?? "",
+    idade: record?.dados?.idade ?? "",
+    altura: record?.dados?.altura ?? "",
+    gostos: record?.dados?.gostos ?? "",
     habilidades: Array.isArray(record?.dados?.habilidades) ? record.dados.habilidades : [],
     armas: Array.isArray(record?.dados?.armas) ? record.dados.armas : [],
+    rolagens_status: record?.dados?.rolagens_status ?? {},
     pericias: record?.dados?.pericias ?? {},
     defesa: {
       ...DEFAULT_DEFESA,
@@ -327,6 +334,8 @@ export default function FichaPersonagemPage() {
     pe: "PE",
     sanidade: "Sanidade",
   };
+  const attributeLayout = preset.attributeLayout ?? DEFAULT_ATTRIBUTE_LAYOUT;
+  const hasStatusRolls = (preset.statusRolls ?? []).length > 0;
 
   const selectedRace = useMemo(() => getChoiceByName(preset.racas, ficha?.dados?.raca), [ficha?.dados?.raca, preset.racas]);
   const selectedOrigin = useMemo(() => getChoiceByName(preset.origens, ficha?.dados?.origem), [ficha?.dados?.origem, preset.origens]);
@@ -339,9 +348,12 @@ export default function FichaPersonagemPage() {
   const effectiveAttributes: AttributeMap = useMemo(() => ({
     forca: (baseAttributes.forca ?? 0) + (racialBonuses.forca ?? 0),
     agilidade: (baseAttributes.agilidade ?? 0) + (racialBonuses.agilidade ?? 0),
+    destreza: (baseAttributes.destreza ?? 0) + (racialBonuses.destreza ?? 0),
     vigor: (baseAttributes.vigor ?? 0) + (racialBonuses.vigor ?? 0),
     intelecto: (baseAttributes.intelecto ?? 0) + (racialBonuses.intelecto ?? 0),
     presenca: (baseAttributes.presenca ?? 0) + (racialBonuses.presenca ?? 0),
+    sabedoria: (baseAttributes.sabedoria ?? 0) + (racialBonuses.sabedoria ?? 0),
+    carisma: (baseAttributes.carisma ?? 0) + (racialBonuses.carisma ?? 0),
   }), [baseAttributes, racialBonuses]);
 
   const autoSkillMap = useMemo(
@@ -560,28 +572,51 @@ export default function FichaPersonagemPage() {
     const classConfig = selectedClass;
     const defenseExtra = Number(ficha.dados.defesa?.outros ?? 0);
 
-    const nextVidaMax = Math.max(
-      1,
-      Number(classConfig?.vidaBase ?? 10) +
-        Math.max(0, levelUnits - 1) * Number(classConfig?.vidaPorNivel ?? 0) +
-        effectiveAttributes.vigor * 2,
-    );
-    const nextPeMax = Math.max(
-      0,
-      Number(classConfig?.peBase ?? 0) +
-        Math.max(0, levelUnits - 1) * Number(classConfig?.pePorNivel ?? 0) +
-        effectiveAttributes.presenca,
-    );
-    const nextSanidadeMax = Math.max(
-      0,
-      Number(classConfig?.sanidadeBase ?? 10) +
-        Math.max(0, levelUnits - 1) * Number(classConfig?.sanidadePorNivel ?? 0) +
-        effectiveAttributes.presenca,
-    );
+    const rollMap = ficha.dados.rolagens_status ?? {};
+    const nextVidaMax = hasStatusRolls
+      ? Math.max(
+          1,
+          Number(preset.statusRolls?.find((entry) => entry.key === "vida")?.base ?? 0) +
+            Number(rollMap.vida ?? 0) +
+            Number(effectiveAttributes[preset.statusRolls?.find((entry) => entry.key === "vida")?.atributo ?? "vigor"] ?? 0),
+        )
+      : Math.max(
+          1,
+          Number(classConfig?.vidaBase ?? 10) +
+            Math.max(0, levelUnits - 1) * Number(classConfig?.vidaPorNivel ?? 0) +
+            effectiveAttributes.vigor * 2,
+        );
+    const nextPeMax = hasStatusRolls
+      ? Math.max(
+          0,
+          Number(preset.statusRolls?.find((entry) => entry.key === "pe")?.base ?? 0) +
+            Number(rollMap.pe ?? 0) +
+            Number(effectiveAttributes[preset.statusRolls?.find((entry) => entry.key === "pe")?.atributo ?? "forca"] ?? 0),
+        )
+      : Math.max(
+          0,
+          Number(classConfig?.peBase ?? 0) +
+            Math.max(0, levelUnits - 1) * Number(classConfig?.pePorNivel ?? 0) +
+            effectiveAttributes.presenca,
+        );
+    const nextSanidadeMax = hasStatusRolls
+      ? Math.max(
+          0,
+          Number(preset.statusRolls?.find((entry) => entry.key === "sanidade")?.base ?? 0) +
+            Number(rollMap.sanidade ?? 0) +
+            Number(effectiveAttributes[preset.statusRolls?.find((entry) => entry.key === "sanidade")?.atributo ?? "sabedoria"] ?? 0),
+        )
+      : Math.max(
+          0,
+          Number(classConfig?.sanidadeBase ?? 10) +
+            Math.max(0, levelUnits - 1) * Number(classConfig?.sanidadePorNivel ?? 0) +
+            effectiveAttributes.presenca,
+        );
 
-    const nextDefesaPassiva = 10 + effectiveAttributes.agilidade + Number(classConfig?.defesaBonus ?? 0) + defenseExtra;
+    const defesaBase = ficha.sistema_preset === "memorias_postumas" ? effectiveAttributes.destreza : effectiveAttributes.agilidade;
+    const nextDefesaPassiva = 10 + defesaBase + Number(classConfig?.defesaBonus ?? 0) + defenseExtra;
     const nextBloqueio = Math.max(0, effectiveAttributes.vigor + Math.floor(Number(classConfig?.defesaBonus ?? 0) / 2));
-    const nextEsquiva = Math.max(0, effectiveAttributes.agilidade + Number(classConfig?.defesaBonus ?? 0));
+    const nextEsquiva = Math.max(0, defesaBase + Number(classConfig?.defesaBonus ?? 0));
     const nextDeslocamento = selectedRace?.deslocamento || ficha.dados.deslocamento || "9m";
 
     setFicha((current: any) => {
@@ -635,7 +670,7 @@ export default function FichaPersonagemPage() {
         },
       };
     });
-  }, [effectiveAttributes, ficha, progressMax, progressMin, progressStep, selectedClass, selectedRace]);
+  }, [effectiveAttributes, ficha, hasStatusRolls, preset.statusRolls, progressMax, progressMin, progressStep, selectedClass, selectedRace]);
 
   const salvarFicha = async () => {
     if (!id || !ficha) {
@@ -769,6 +804,18 @@ export default function FichaPersonagemPage() {
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="aq-kicker">Idade</div>
+                    <input value={ficha.dados.idade ?? ""} onChange={(e) => setFichaValue("idade", e.target.value)} className="aq-input mt-2" />
+                  </div>
+                  <div>
+                    <div className="aq-kicker">Altura</div>
+                    <input value={ficha.dados.altura ?? ""} onChange={(e) => setFichaValue("altura", e.target.value)} className="aq-input mt-2" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <div className="aq-kicker">Gostos / Observacoes</div>
+                    <input value={ficha.dados.gostos ?? ""} onChange={(e) => setFichaValue("gostos", e.target.value)} className="aq-input mt-2" />
+                  </div>
                   <div>
                     <div className="aq-kicker">Sistema</div>
                     <select
@@ -912,15 +959,16 @@ export default function FichaPersonagemPage() {
             <div className={`mb-6 text-center text-2xl font-black tracking-[0.24em] text-[var(--aq-title)] ${cinzel.className}`}>
               ATRIBUTOS
             </div>
-            <div className="relative h-[320px] w-[320px]">
-              <div className="absolute inset-0 rounded-full border border-[var(--aq-border)] opacity-60" />
-              <div className="absolute inset-[40px] rounded-full border border-[rgba(74,217,217,0.18)]" />
-              {ATTRIBUTE_ORDER.map((attribute) => {
+            {preset.attributeAssignmentText ? (
+              <p className="mb-5 text-center text-sm leading-relaxed text-[var(--aq-text-muted)]">{preset.attributeAssignmentText}</p>
+            ) : null}
+            <div className={`grid w-full gap-4 ${attributeLayout.length > 5 ? "md:grid-cols-3" : "md:grid-cols-5"}`}>
+              {attributeLayout.map((attribute) => {
                 const bonus = racialBonuses[attribute.id as keyof AttributeMap] ?? 0;
                 return (
                   <div
                     key={attribute.id}
-                    className={`absolute ${attribute.pos} flex h-[92px] w-[92px] flex-col items-center justify-center rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] shadow-[0_0_24px_rgba(74,217,217,0.08)]`}
+                    className="flex min-h-[120px] flex-col items-center justify-center rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] p-4 text-center shadow-[0_0_24px_rgba(74,217,217,0.08)]"
                   >
                     <input
                       type="number"
@@ -979,6 +1027,29 @@ export default function FichaPersonagemPage() {
               fill="linear-gradient(90deg, rgba(74,217,217,0.92), rgba(30,107,107,0.95))"
               onChange={(next) => setFichaValue("status.pe", { ...ficha.dados.status.pe, ...next })}
             />
+
+            {hasStatusRolls ? (
+              <div className="grid gap-3 border-t border-[var(--aq-border)] pt-4">
+                <div className="aq-kicker">Rolagens Base dos Status</div>
+                {(preset.statusRolls ?? []).map((roll) => (
+                  <div key={roll.key} className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-black text-[var(--aq-title)]">{roll.label}</div>
+                        <div className="mt-1 text-xs text-[var(--aq-text-muted)]">{`${roll.formula} + ${roll.atributo}`}</div>
+                      </div>
+                      <input
+                        type="number"
+                        value={ficha.dados.rolagens_status?.[roll.key] ?? 0}
+                        onChange={(e) => setFichaValue(`rolagens_status.${roll.key}`, parseInt(e.target.value, 10) || 0)}
+                        className="aq-input w-24 text-center"
+                      />
+                    </div>
+                    {roll.hint ? <p className="mt-2 text-xs text-[var(--aq-text-muted)]">{roll.hint}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -994,7 +1065,13 @@ export default function FichaPersonagemPage() {
             {[
               { label: "Bloqueio", value: ficha.dados.defesa.bloqueio ?? 0 },
               { label: "Esquiva", value: ficha.dados.defesa.esquiva ?? 0 },
-              { label: "Atributos Efetivos", value: `${effectiveAttributes.agilidade}/${effectiveAttributes.vigor}` },
+              {
+                label: "Atributos Efetivos",
+                value:
+                  ficha.sistema_preset === "memorias_postumas"
+                    ? `${effectiveAttributes.destreza}/${effectiveAttributes.sabedoria}/${effectiveAttributes.vigor}`
+                    : `${effectiveAttributes.agilidade}/${effectiveAttributes.vigor}`,
+              },
             ].map((field) => (
               <div key={field.label} className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] p-4">
                 <div className="aq-kicker">{field.label}</div>
@@ -1002,6 +1079,20 @@ export default function FichaPersonagemPage() {
               </div>
             ))}
           </div>
+
+          {(preset.loreNotes ?? []).length > 0 ? (
+            <div className="aq-panel space-y-4 p-5">
+              <div className="aq-kicker">Regras do Sistema</div>
+              <div className="grid gap-4 xl:grid-cols-2">
+                {(preset.loreNotes ?? []).map((note) => (
+                  <article key={note.titulo} className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
+                    <h3 className="text-sm font-black uppercase tracking-[0.18em] text-[var(--aq-title)]">{note.titulo}</h3>
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aq-text)]">{note.texto}</p>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap gap-3">
             {[
@@ -1031,7 +1122,13 @@ export default function FichaPersonagemPage() {
                     const outros = ficha.dados.pericias?.[pericia.nome]?.outros || 0;
                     const auto = autoSkillMap[pericia.nome] || 0;
                     const atributo = pericia.atributo;
-                    const total = (effectiveAttributes[atributo] || 0) + treino + outros + auto;
+                    const atributoSecundario = pericia.atributoSecundario;
+                    const total =
+                      (effectiveAttributes[atributo] || 0) +
+                      (atributoSecundario ? effectiveAttributes[atributoSecundario] || 0 : 0) +
+                      treino +
+                      outros +
+                      auto;
                     const trained = treino > 0 || auto > 0;
 
                     return (
@@ -1044,7 +1141,7 @@ export default function FichaPersonagemPage() {
                           </div>
                         </div>
                         <div className="col-span-2 text-center text-[11px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
-                          {atributo.slice(0, 3)}
+                          {atributoSecundario ? `${atributo.slice(0, 3)} + ${atributoSecundario.slice(0, 3)}` : atributo.slice(0, 3)}
                         </div>
                         <div className="col-span-1 text-center text-sm font-black text-[var(--aq-title)]">{total}</div>
                         <div className="col-span-2 flex justify-center">
