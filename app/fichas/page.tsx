@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Cinzel, Inter } from "next/font/google";
-import { Plus, Shield, Swords } from "lucide-react";
+import { Plus, Shield, Swords, Trash2 } from "lucide-react";
 import { supabase } from "../../src/lib/supabase";
 import { PRESETS } from "../../src/lib/constants";
 
@@ -88,6 +88,23 @@ export default function FichasHubPage() {
       }
     } catch (error: any) {
       alert(`Erro ao criar ficha: ${error.message}`);
+    }
+  };
+
+  const deletarFicha = async (id: string) => {
+    const confirmDelete = window.confirm("Deseja excluir esta ficha?");
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("fichas").delete().eq("id", id);
+      if (error) {
+        throw error;
+      }
+      setFichas((current) => current.filter((ficha) => ficha.id !== id));
+    } catch (error: any) {
+      alert(`Erro ao excluir ficha: ${error.message}`);
     }
   };
 
@@ -193,6 +210,16 @@ export default function FichasHubPage() {
                       Preset: {String(ficha.sistema_preset ?? "desconhecido").replace("_", " ")}
                     </p>
                   </div>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deletarFicha(ficha.id);
+                    }}
+                    className="rounded-full border border-red-500/30 p-2 text-red-300 transition-colors hover:border-red-400 hover:text-red-200"
+                    title="Excluir personagem"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
 
                 <div className="mt-6 grid gap-3 border-t border-[var(--aq-border)] pt-4">
