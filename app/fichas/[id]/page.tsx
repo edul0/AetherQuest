@@ -10,9 +10,10 @@ import {
   Plus,
   Search,
   Shield,
+  Sparkles,03:38 18/04/2026
   Trash2,
   X,
-  Zap,
+  Zap
 } from "lucide-react";
 import { supabase } from "../../../src/lib/supabase";
 import { PRESETS } from "../../../src/lib/constants";
@@ -20,98 +21,239 @@ import { PRESETS } from "../../../src/lib/constants";
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
+const CUSTOM_OPTION = "__custom__";
+const DEFAULT_ATTRS = { forca: 1, agilidade: 1, vigor: 1, intelecto: 1, presenca: 1 };
+const DEFAULT_STATUS = {
+  vida: { atual: 10, max: 10 },
+  sanidade: { atual: 10, max: 10 },
+  pe: { atual: 5, max: 5 }
+};
 const ATTRIBUTE_ORDER = [
   { id: "agilidade", label: "AGI", nome: "Agilidade", pos: "top-0 left-1/2 -translate-x-1/2" },
   { id: "intelecto", label: "INT", nome: "Intelecto", pos: "top-[30%] right-0 translate-x-3" },
   { id: "vigor", label: "VIG", nome: "Vigor", pos: "bottom-3 right-3" },
   { id: "presenca", label: "PRE", nome: "Presenca", pos: "bottom-3 left-3" },
-  { id: "forca", label: "FOR", nome: "Forca", pos: "top-[30%] left-0 -translate-x-3" },
+  { id: "forca", label: "FOR", nome: "Forca", pos: "top-[30%] left-0 -translate-x-3" }
 ] as const;
-
-const DEFAULT_ATTRS = {
-  forca: 1,
-  agilidade: 1,
-  vigor: 1,
-  intelecto: 1,
-  presenca: 1,
-};
-
-const DEFAULT_STATUS = {
-  vida: { atual: 10, max: 10 },
-  sanidade: { atual: 10, max: 10 },
-  pe: { atual: 10, max: 10 },
-};
-
-const FALLBACK_PERICIAS = [
-  { nome: "Acrobacia", atributo: "agilidade" },
-  { nome: "Adestramento", atributo: "presenca" },
-  { nome: "Artes", atributo: "presenca" },
-  { nome: "Atletismo", atributo: "forca" },
-  { nome: "Atualidades", atributo: "intelecto" },
-  { nome: "Ciencias", atributo: "intelecto" },
-  { nome: "Crime", atributo: "agilidade" },
-  { nome: "Diplomacia", atributo: "presenca" },
-  { nome: "Enganacao", atributo: "presenca" },
-  { nome: "Fortitude", atributo: "vigor" },
-  { nome: "Furtividade", atributo: "agilidade" },
-  { nome: "Iniciativa", atributo: "agilidade" },
-  { nome: "Intimidacao", atributo: "presenca" },
-  { nome: "Intuicao", atributo: "presenca" },
-  { nome: "Investigacao", atributo: "intelecto" },
-  { nome: "Luta", atributo: "forca" },
-  { nome: "Medicina", atributo: "intelecto" },
-  { nome: "Ocultismo", atributo: "intelecto" },
-  { nome: "Percepcao", atributo: "presenca" },
-  { nome: "Pilotagem", atributo: "agilidade" },
-  { nome: "Pontaria", atributo: "agilidade" },
-  { nome: "Profissao", atributo: "intelecto" },
-  { nome: "Reflexos", atributo: "agilidade" },
-  { nome: "Religiao", atributo: "presenca" },
-  { nome: "Sobrevivencia", atributo: "intelecto" },
-  { nome: "Tatica", atributo: "intelecto" },
-  { nome: "Tecnologia", atributo: "intelecto" },
-  { nome: "Vontade", atributo: "presenca" },
-];
-
-type ModalType = "habilidades" | "armas" | null;
-
-function normalizeFicha(record: any) {
-  const dados = {
-    ...(record?.dados ?? {}),
-    habilidades: Array.isArray(record?.dados?.habilidades) ? record.dados.habilidades : [],
-    armas: Array.isArray(record?.dados?.armas) ? record.dados.armas : [],
-    pericias: record?.dados?.pericias ?? {},
-    defesa: {
-      passiva: 10,
-      bloqueio: 0,
-      esquiva: 0,
-      ...(record?.dados?.defesa ?? {}),
-    },
-    atributos: {
-      ...DEFAULT_ATTRS,
-      ...(record?.dados?.atributos ?? {}),
-    },
-    status: {
-      ...DEFAULT_STATUS,
-      ...(record?.dados?.status ?? {}),
-      vida: { ...DEFAULT_STATUS.vida, ...(record?.dados?.status?.vida ?? {}) },
-      sanidade: {
-        ...DEFAULT_STATUS.sanidade,
-        ...(record?.dados?.status?.sanidade ?? {}),
-      },
-      pe: { ...DEFAULT_STATUS.pe, ...(record?.dados?.status?.pe ?? {}) },
-    },
-    avatar_url: record?.dados?.avatar_url ?? record?.avatar_url ?? "",
-  };
-
-  return {
-    ...record,
-    dados,
-  };
-}
 
 function uid() {
   return Date.now() + Math.floor(Math.random() * 1000);
+}
+
+function normalizeNumber(value: any, fallback = 0) {
+  return Number.isFinite(Number(value)) ? Number(value) : fallback;
+}
+
+function normalizeFicha(record: any) {
+  const status = record?.dados?.status ?? {};
+  const pe = status.pe ?? status.estamina ?? DEFAULT_STATUS.pe;
+
+  return {
+    ...record,
+    dados: {
+      ...(record?.dados ?? {}),
+      nivel: normalizeNumber(record?.dados?.nivel, 1),
+      nex: normalizeNumber(record?.dados?.nex, 5),
+      origem: record?.dados?.origem ?? "",
+      classe: record?.dados?.classe ?? "",
+      raca: record?.dados?.raca ?? "",
+      deslocamento: record?.dados?.deslocamento ?? "9m",
+      avatar_url: record?.dados?.avatar_url ?? record?.avatar_url ?? "",
+      habilidades: Array.isArray(record?.dados?.habilidades) ? record.dados.habilidades : [],
+      armas: Array.isArray(record?.dados?.armas) ? record.dados.armas : [],
+      pericias: record?.dados?.pericias ?? {},
+      atributos: {
+        ...DEFAULT_ATTRS,
+        ...(record?.dados?.atributos ?? {})
+      },
+      status: {
+        vida: { ...DEFAULT_STATUS.vida, ...(status.vida ?? {}) },
+        sanidade: { ...DEFAULT_STATUS.sanidade, ...(status.sanidade ?? {}) },
+        pe: { ...DEFAULT_STATUS.pe, ...pe }
+      },
+      defesa: {
+        passiva: 10,
+        bloqueio: 0,
+        esquiva: 0,
+        bonus: 0,
+        bloqueio_bonus: 0,
+        esquiva_bonus: 0,
+        ...(record?.dados?.defesa ?? {})
+      }
+    }
+  };
+}
+
+function getOptionName(option: any) {
+  return typeof option === "string" ? option : option?.nome ?? "";
+}
+
+function findOption(list: any[] = [], name: string) {
+  return list.find((item) => getOptionName(item) === name) ?? null;
+}
+
+function buildAutomaticData(ficha: any, sistema: any) {
+  const attrsBase = { ...DEFAULT_ATTRS, ...(ficha?.dados?.atributos ?? {}) };
+  const classe = findOption(sistema?.classes ?? [], ficha?.dados?.classe ?? "");
+  const origem = findOption(sistema?.origens ?? [], ficha?.dados?.origem ?? "");
+  const raca = findOption(sistema?.racas ?? [], ficha?.dados?.raca ?? "");
+  const attrs = { ...attrsBase };
+
+  Object.entries(raca?.atributos ?? {}).forEach(([key, value]) => {
+    attrs[key as keyof typeof attrs] = normalizeNumber(attrs[key as keyof typeof attrs], 0) + normalizeNumber(value, 0);
+  });
+
+  const nex = Math.max(0, normalizeNumber(ficha?.dados?.nex, 5));
+  const nivel = Math.max(1, normalizeNumber(ficha?.dados?.nivel, 1));
+  const className = getOptionName(classe).toLowerCase();
+  const isDnd = ficha?.sistema_preset === "dnd5e";
+  const statusCurrent = ficha?.dados?.status ?? DEFAULT_STATUS;
+
+  const vidaMax = isDnd
+    ? normalizeNumber(classe?.vidaBase, 10) + Math.max(0, nivel - 1) * normalizeNumber(classe?.vidaPorNivel, 6) + attrs.vigor * 2
+    : normalizeNumber(classe?.vidaBase, className.includes("combat") ? 18 : className.includes("ocult") ? 12 : 15) + nex + attrs.vigor * 3;
+
+  const peMax = isDnd
+    ? normalizeNumber(classe?.recursoBase, 3) + Math.max(0, nivel - 1) * normalizeNumber(classe?.recursoPorNivel, 2) + attrs.intelecto + Math.max(0, attrs.presenca - 1)
+    : normalizeNumber(classe?.recursoBase, className.includes("ocult") ? 12 : className.includes("especial") ? 9 : 7) + nex + attrs.presenca * 2;
+
+  const sanidadeMax = isDnd
+    ? normalizeNumber(classe?.sanidadeBase, 10) + Math.max(0, nivel - 1) * normalizeNumber(classe?.sanidadePorNivel, 1) + attrs.presenca * 2
+    : normalizeNumber(classe?.sanidadeBase, className.includes("ocult") ? 14 : 10) + nex * 2 + attrs.presenca * 3;
+
+  const defesaBonus = normalizeNumber(ficha?.dados?.defesa?.bonus, 0);
+  const bloqueioBonus = normalizeNumber(ficha?.dados?.defesa?.bloqueio_bonus, 0);
+  const esquivaBonus = normalizeNumber(ficha?.dados?.defesa?.esquiva_bonus, 0);
+  const defesaPassiva = 10 + attrs.agilidade + normalizeNumber(classe?.defesaBonus, 0) + defesaBonus;
+  const bloqueio = attrs.vigor + attrs.forca + normalizeNumber(classe?.bloqueioBonus, 0) + bloqueioBonus;
+  const esquiva = attrs.agilidade + normalizeNumber(classe?.esquivaBonus, 0) + esquivaBonus;
+
+  const autoPericias: Record<string, number> = {};
+  [origem, classe, raca].forEach((entry) => {
+    (entry?.proficiencias ?? []).forEach((pericia: string) => {
+      autoPericias[pericia] = Math.max(autoPericias[pericia] ?? 0, 2);
+    });
+  });
+
+  const autoHabilidades = [
+    ...(origem
+      ? [
+          {
+            id: `origem-${origem.nome}`,
+            nome: origem.nome,
+            dado: "Origem",
+            desc: origem.poder ?? "Origem selecionada.",
+            subcat: "Origem",
+            fonte: ficha?.sistema_preset
+          }
+        ]
+      : []),
+    ...((classe?.habilidades ?? []).map((habilidade: string) => ({
+      id: `classe-${habilidade}`,
+      nome: habilidade,
+      dado: "Classe",
+      desc: `${getOptionName(classe)} concede ${habilidade}.`,
+      subcat: "Classe",
+      fonte: ficha?.sistema_preset
+    })) ?? []),
+    ...(raca
+      ? [
+          {
+            id: `raca-${raca.nome}`,
+            nome: raca.nome,
+            dado: "Raca",
+            desc: raca.poder ?? "Raca selecionada.",
+            subcat: "Raca",
+            fonte: ficha?.sistema_preset
+          }
+        ]
+      : [])
+  ];
+
+  return {
+    attrs,
+    autoPericias,
+    autoHabilidades,
+    status: {
+      vida: { max: vidaMax, atual: Math.min(normalizeNumber(statusCurrent.vida?.atual, vidaMax), vidaMax) },
+      sanidade: { max: sanidadeMax, atual: Math.min(normalizeNumber(statusCurrent.sanidade?.atual, sanidadeMax), sanidadeMax) },
+      pe: { max: peMax, atual: Math.min(normalizeNumber(statusCurrent.pe?.atual, peMax), peMax) }
+    },
+    defesa: {
+      passiva: defesaPassiva,
+      bloqueio,
+      esquiva
+    },
+    deslocamento: raca?.deslocamento ?? ficha?.dados?.deslocamento ?? "9m"
+  };
+}
+
+function EmptyState({ message }: { message: string }) {
+  return <div className="aq-empty-state">{message}</div>;
+}
+
+function SelectWithCustom({
+  label,
+  value,
+  options,
+  customPlaceholder,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  customPlaceholder: string;
+  onChange: (value: string) => void;
+}) {
+  const [customMode, setCustomMode] = useState(Boolean(value) && !options.includes(value));
+
+  useEffect(() => {
+    if (value && !options.includes(value)) {
+      setCustomMode(true);
+      return;
+    }
+    if (!value && customMode) {
+      return;
+    }
+    if (options.includes(value)) {
+      setCustomMode(false);
+    }
+  }, [customMode, options, value]);
+
+  return (
+    <div>
+      <div className="aq-kicker">{label}</div>
+      <select
+        value={customMode ? CUSTOM_OPTION : value}
+        onChange={(e) => {
+          if (e.target.value === CUSTOM_OPTION) {
+            setCustomMode(true);
+            onChange("");
+            return;
+          }
+          setCustomMode(false);
+          onChange(e.target.value);
+        }}
+        className="aq-input mt-2"
+      >
+        <option value="">Selecione</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+        <option value={CUSTOM_OPTION}>Personalizado</option>
+      </select>
+      {customMode ? (
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={customPlaceholder}
+          className="aq-input mt-2"
+        />
+      ) : null}
+    </div>
+  );
 }
 
 function StatBar({
@@ -119,13 +261,13 @@ function StatBar({
   value,
   max,
   fill,
-  onChange,
+  onChange
 }: {
   label: string;
   value: number;
   max: number;
   fill: string;
-  onChange: (next: { atual?: number; max?: number }) => void;
+  onChange: (nextValue: number) => void;
 }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
 
@@ -137,33 +279,25 @@ function StatBar({
           <input
             type="number"
             value={value}
-            onChange={(e) => onChange({ atual: parseInt(e.target.value, 10) || 0 })}
+            onChange={(e) => onChange(parseInt(e.target.value, 10) || 0)}
             className="w-12 bg-transparent text-right outline-none"
           />
           <span className="text-[var(--aq-text-subtle)]">/</span>
-          <input
-            type="number"
-            value={max}
-            onChange={(e) => onChange({ max: parseInt(e.target.value, 10) || 0 })}
-            className="w-12 bg-transparent text-right outline-none text-[var(--aq-text)]"
-          />
+          <span className="w-12 text-right text-[var(--aq-text)]">{max}</span>
         </div>
       </div>
       <div className="flex items-center gap-2 rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.75)] px-2 py-1">
         <button
-          onClick={() => onChange({ atual: Math.max(0, value - 1) })}
+          onClick={() => onChange(Math.max(0, value - 1))}
           className="px-3 text-lg font-black text-[var(--aq-text-subtle)] transition-colors hover:text-[var(--aq-accent)]"
         >
           -
         </button>
         <div className="h-4 flex-1 overflow-hidden rounded-full bg-[rgba(10,15,24,0.95)]">
-          <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${pct}%`, background: fill }}
-          />
+          <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, background: fill }} />
         </div>
         <button
-          onClick={() => onChange({ atual: Math.min(max, value + 1) })}
+          onClick={() => onChange(Math.min(max, value + 1))}
           className="px-3 text-lg font-black text-[var(--aq-text-subtle)] transition-colors hover:text-[var(--aq-accent)]"
         >
           +
@@ -171,10 +305,6 @@ function StatBar({
       </div>
     </div>
   );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return <div className="aq-empty-state">{message}</div>;
 }
 
 export default function FichaPersonagemPage() {
@@ -187,10 +317,8 @@ export default function FichaPersonagemPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"pericias" | "habilidades" | "armas">(
-    "pericias",
-  );
-  const [modalOpen, setModalOpen] = useState<ModalType>(null);
+  const [activeTab, setActiveTab] = useState<"pericias" | "habilidades" | "armas">("pericias");
+  const [modalOpen, setModalOpen] = useState<"habilidades" | "armas" | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
@@ -202,9 +330,7 @@ export default function FichaPersonagemPage() {
     const carregarFicha = async () => {
       try {
         const { data, error } = await supabase.from("fichas").select("*").eq("id", id).single();
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
         setFicha(normalizeFicha(data));
       } catch (error) {
         console.error("Erro ao carregar ficha:", error);
@@ -217,57 +343,76 @@ export default function FichaPersonagemPage() {
   }, [id]);
 
   const sistema = useMemo(() => {
-    if (!ficha?.sistema_preset) {
-      return PRESETS.ordem_paranormal as any;
-    }
+    if (!ficha?.sistema_preset) return PRESETS.ordem_paranormal as any;
     return PRESETS[ficha.sistema_preset as keyof typeof PRESETS] as any;
   }, [ficha?.sistema_preset]);
 
-  const pericias = useMemo(() => {
-    return Array.isArray(sistema?.pericias) && sistema.pericias.length > 0
-      ? sistema.pericias
-      : FALLBACK_PERICIAS;
-  }, [sistema]);
+  const derived = useMemo(() => buildAutomaticData(ficha, sistema), [ficha, sistema]);
+
+  useEffect(() => {
+    if (!ficha) return;
+    const nextStatus = derived.status;
+    const nextDefesa = derived.defesa;
+    const nextDeslocamento = derived.deslocamento;
+
+    const changed =
+      ficha.dados.status.vida.max !== nextStatus.vida.max ||
+      ficha.dados.status.sanidade.max !== nextStatus.sanidade.max ||
+      ficha.dados.status.pe.max !== nextStatus.pe.max ||
+      ficha.dados.status.vida.atual !== nextStatus.vida.atual ||
+      ficha.dados.status.sanidade.atual !== nextStatus.sanidade.atual ||
+      ficha.dados.status.pe.atual !== nextStatus.pe.atual ||
+      ficha.dados.defesa.passiva !== nextDefesa.passiva ||
+      ficha.dados.defesa.bloqueio !== nextDefesa.bloqueio ||
+      ficha.dados.defesa.esquiva !== nextDefesa.esquiva ||
+      ficha.dados.deslocamento !== nextDeslocamento;
+
+    if (!changed) return;
+
+    setFicha((current: any) => ({
+      ...current,
+      dados: {
+        ...current.dados,
+        deslocamento: nextDeslocamento,
+        status: nextStatus,
+        defesa: {
+          ...current.dados.defesa,
+          ...nextDefesa
+        }
+      }
+    }));
+  }, [derived, ficha]);
+
+  const pericias = useMemo(() => (Array.isArray(sistema?.pericias) ? sistema.pericias : []), [sistema]);
 
   const habilidadesCatalogo = useMemo(() => {
     const categorias = Array.isArray(sistema?.categorias_hab) ? sistema.categorias_hab : [];
     return categorias.flatMap((categoria: any) => {
       const items = Array.isArray(sistema?.[categoria.id]) ? sistema[categoria.id] : [];
-      return items.map((item: any) => ({
-        ...item,
-        categoriaId: categoria.id,
-        categoriaNome: categoria.nome,
-      }));
+      return items.map((item: any) => ({ ...item, categoriaId: categoria.id, categoriaNome: categoria.nome }));
     });
   }, [sistema]);
 
   const modalItems = useMemo(() => {
     const source = modalOpen === "armas" ? sistema?.armas ?? [] : habilidadesCatalogo;
     const query = searchTerm.trim().toLowerCase();
-    if (!query) {
-      return source;
-    }
-
-    return source.filter((item: any) => {
-      return [item.nome, item.desc, item.tipo, item.subcat, item.categoriaNome]
+    if (!query) return source;
+    return source.filter((item: any) =>
+      [item.nome, item.desc, item.tipo, item.subcat, item.categoriaNome]
         .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    });
+        .some((value) => String(value).toLowerCase().includes(query))
+    );
   }, [habilidadesCatalogo, modalOpen, searchTerm, sistema]);
 
-  const atributos = ficha?.dados?.atributos ?? DEFAULT_ATTRS;
+  const combinedHabilidades = useMemo(
+    () => [...derived.autoHabilidades, ...(ficha?.dados?.habilidades ?? [])],
+    [derived.autoHabilidades, ficha?.dados?.habilidades]
+  );
 
   const setFichaValue = (path: string, value: any) => {
     setFicha((current: any) => {
-      if (!current) {
-        return current;
-      }
-
-      const next = {
-        ...current,
-        dados: { ...current.dados },
-      };
-
+      if (!current) return current;
+      const next = { ...current, dados: { ...current.dados } };
       const keys = path.split(".");
       let target = next.dados;
 
@@ -283,79 +428,67 @@ export default function FichaPersonagemPage() {
   };
 
   const updateItem = (collection: "habilidades" | "armas", itemId: number, patch: Record<string, any>) => {
-    setFicha((current: any) => {
-      if (!current) {
-        return current;
+    setFicha((current: any) => ({
+      ...current,
+      dados: {
+        ...current.dados,
+        [collection]: current.dados[collection].map((item: any) => (item.id === itemId ? { ...item, ...patch } : item))
       }
-
-      return {
-        ...current,
-        dados: {
-          ...current.dados,
-          [collection]: current.dados[collection].map((item: any) =>
-            item.id === itemId ? { ...item, ...patch } : item,
-          ),
-        },
-      };
-    });
+    }));
   };
 
   const removeItem = (collection: "habilidades" | "armas", itemId: number) => {
-    setFicha((current: any) => {
-      if (!current) {
-        return current;
+    setFicha((current: any) => ({
+      ...current,
+      dados: {
+        ...current.dados,
+        [collection]: current.dados[collection].filter((item: any) => item.id !== itemId)
       }
-
-      return {
-        ...current,
-        dados: {
-          ...current.dados,
-          [collection]: current.dados[collection].filter((item: any) => item.id !== itemId),
-        },
-      };
-    });
+    }));
   };
 
   const addCompendiumItem = (item: any) => {
     if (modalOpen === "armas") {
-      const novaArma = {
-        id: uid(),
-        nome: item.nome,
-        tipo: item.tipo ?? "Tatica",
-        habilidade: item.habilidade ?? "Luta",
-        dano: item.dano ?? "1d6",
-        critico: item.critico ?? "20",
-        alcance: item.alcance ?? "Adjacente",
-        categoria: item.categoria ?? 0,
-        desc: item.desc ?? "",
-        melhorias: "",
-        maldicoes: "",
-        notas: "",
-      };
-
       setFicha((current: any) => ({
         ...current,
         dados: {
           ...current.dados,
-          armas: [...current.dados.armas, novaArma],
-        },
+          armas: [
+            ...current.dados.armas,
+            {
+              id: uid(),
+              nome: item.nome,
+              tipo: item.tipo ?? "Tatica",
+              habilidade: item.habilidade ?? "Luta",
+              dano: item.dano ?? "1d6",
+              critico: item.critico ?? "20",
+              alcance: item.alcance ?? "Adjacente",
+              categoria: item.categoria ?? 0,
+              desc: item.desc ?? "",
+              melhorias: "",
+              maldicoes: "",
+              notas: ""
+            }
+          ]
+        }
       }));
     } else {
-      const novaHabilidade = {
-        id: uid(),
-        nome: item.nome,
-        dado: item.dado ?? "",
-        desc: item.desc ?? "",
-        subcat: item.subcat ?? item.categoriaNome ?? "",
-        fonte: item.fonte ?? ficha?.sistema_preset ?? "",
-      };
-
       setFicha((current: any) => ({
         ...current,
         dados: {
           ...current.dados,
-          habilidades: [...current.dados.habilidades, novaHabilidade],
-        },
+          habilidades: [
+            ...current.dados.habilidades,
+            {
+              id: uid(),
+              nome: item.nome,
+              dado: item.dado ?? "",
+              desc: item.desc ?? "",
+              subcat: item.subcat ?? item.categoriaNome ?? "",
+              fonte: item.fonte ?? ficha?.sistema_preset ?? ""
+            }
+          ]
+        }
       }));
     }
 
@@ -364,23 +497,27 @@ export default function FichaPersonagemPage() {
   };
 
   const salvarFicha = async () => {
-    if (!id || !ficha) {
-      return;
-    }
-
+    if (!id || !ficha) return;
     setSaving(true);
     try {
       const payload = {
         nome_personagem: ficha.nome_personagem,
+        sistema_preset: ficha.sistema_preset,
         avatar_url: ficha.dados.avatar_url || null,
-        dados: ficha.dados,
+        dados: {
+          ...ficha.dados,
+          status: derived.status,
+          defesa: {
+            ...ficha.dados.defesa,
+            ...derived.defesa
+          },
+          deslocamento: derived.deslocamento
+        }
       };
 
       const { error } = await supabase.from("fichas").update(payload).eq("id", id);
-      if (error) {
-        throw error;
-      }
-      alert("Ficha sincronizada com o Omnis.");
+      if (error) throw error;
+      alert("Ficha sincronizada com a mesa.");
     } catch (error: any) {
       alert(`Falha ao salvar: ${error.message}`);
     } finally {
@@ -390,27 +527,22 @@ export default function FichaPersonagemPage() {
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file || !id) {
-      return;
-    }
+    if (!file || !id) return;
 
     setUploading(true);
     try {
-      const path = `retratos/${id}-${Date.now()}.png`;
+      const ext = file.name.split(".").pop() || "png";
+      const path = `retratos/${id}-${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("avatares").upload(path, file, { upsert: true });
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       const { data } = supabase.storage.from("avatares").getPublicUrl(path);
-      const publicUrl = data.publicUrl;
       setFicha((current: any) => ({
         ...current,
-        avatar_url: publicUrl,
+        avatar_url: data.publicUrl,
         dados: {
           ...current.dados,
-          avatar_url: publicUrl,
-        },
+          avatar_url: data.publicUrl
+        }
       }));
     } catch (error: any) {
       alert(`Falha no upload: ${error.message}`);
@@ -420,11 +552,7 @@ export default function FichaPersonagemPage() {
   };
 
   if (!id || id === "undefined") {
-    return (
-      <div className="aq-page flex items-center justify-center">
-        <div className="aq-panel px-8 py-10 text-center text-red-400">ID invalido na URL.</div>
-      </div>
-    );
+    return <div className="aq-page flex items-center justify-center"><div className="aq-panel px-8 py-10 text-center text-red-400">ID invalido na URL.</div></div>;
   }
 
   if (loading) {
@@ -439,14 +567,16 @@ export default function FichaPersonagemPage() {
   }
 
   if (!ficha) {
-    return (
-      <div className="aq-page flex items-center justify-center">
-        <div className="aq-panel px-8 py-10 text-center text-red-400">
-          Registro de ficha nao localizado no Omnis.
-        </div>
-      </div>
-    );
+    return <div className="aq-page flex items-center justify-center"><div className="aq-panel px-8 py-10 text-center text-red-400">Registro de ficha nao localizado.</div></div>;
   }
+
+  const classOptions = (sistema?.classes ?? []).map(getOptionName);
+  const originOptions = (sistema?.origens ?? []).map(getOptionName);
+  const raceOptions = (sistema?.racas ?? []).map(getOptionName);
+  const labels =
+    ficha.sistema_preset === "dnd5e"
+      ? { progresso: "Nivel", recurso: "Recursos", compendio: "Ferramentas de classe e magia" }
+      : { progresso: "NEX", recurso: "Pontos de Esforco", compendio: "Compendio paranormal e arsenal" };
 
   return (
     <main className={`aq-page overflow-y-auto pb-20 ${inter.className}`}>
@@ -460,7 +590,7 @@ export default function FichaPersonagemPage() {
             className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.28em] text-[var(--aq-accent)] transition-colors hover:text-white"
           >
             <ArrowLeft size={14} />
-            Voltar ao Omnis
+            Voltar
           </button>
           <button onClick={salvarFicha} disabled={saving} className="aq-button-primary disabled:opacity-60">
             {saving ? "Sincronizando..." : "Sincronizar"}
@@ -476,13 +606,7 @@ export default function FichaPersonagemPage() {
                 onClick={() => fileInputRef.current?.click()}
                 className="group relative flex h-32 w-32 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.8)]"
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                />
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                 {ficha.dados.avatar_url ? (
                   <img src={ficha.dados.avatar_url} alt="Retrato" className="h-full w-full object-cover" />
                 ) : (
@@ -504,33 +628,50 @@ export default function FichaPersonagemPage() {
                   />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <div className="aq-kicker">Origem</div>
-                    <input
-                      value={ficha.dados.origem ?? ""}
-                      onChange={(e) => setFichaValue("origem", e.target.value)}
-                      placeholder="Defina a origem"
-                      className="aq-input mt-2"
-                    />
-                  </div>
-                  <div>
-                    <div className="aq-kicker">Classe</div>
-                    <input
-                      value={ficha.dados.classe ?? ""}
-                      onChange={(e) => setFichaValue("classe", e.target.value)}
-                      placeholder="Defina a classe"
-                      className="aq-input mt-2"
-                    />
-                  </div>
+                <div>
+                  <div className="aq-kicker">Sistema</div>
+                  <select
+                    value={ficha.sistema_preset ?? "ordem_paranormal"}
+                    onChange={(e) => setFicha((current: any) => normalizeFicha({ ...current, sistema_preset: e.target.value }))}
+                    className="aq-input mt-2"
+                  >
+                    <option value="ordem_paranormal">Ordem Paranormal</option>
+                    <option value="dnd5e">D&D 5e</option>
+                  </select>
                 </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <SelectWithCustom
+                    label="Origem"
+                    value={ficha.dados.origem ?? ""}
+                    options={originOptions}
+                    customPlaceholder="Origem personalizada"
+                    onChange={(value) => setFichaValue("origem", value)}
+                  />
+                  <SelectWithCustom
+                    label="Classe"
+                    value={ficha.dados.classe ?? ""}
+                    options={classOptions}
+                    customPlaceholder="Classe personalizada"
+                    onChange={(value) => setFichaValue("classe", value)}
+                  />
+                </div>
+
+                <SelectWithCustom
+                  label="Raca"
+                  value={ficha.dados.raca ?? ""}
+                  options={raceOptions}
+                  customPlaceholder="Raca personalizada"
+                  onChange={(value) => setFichaValue("raca", value)}
+                />
               </div>
             </div>
           </div>
 
           <div className="aq-panel flex flex-col items-center p-6">
-            <div className={`mb-6 text-center text-2xl font-black tracking-[0.24em] text-[var(--aq-title)] ${cinzel.className}`}>
-              ATRIBUTOS
+            <div className={`mb-6 text-center text-2xl font-black tracking-[0.24em] text-[var(--aq-title)] ${cinzel.className}`}>ATRIBUTOS</div>
+            <div className="mb-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] px-4 py-3 text-center text-xs text-[var(--aq-text-muted)]">
+              Bonus automaticos de raca ja entram nos calculos de vida, defesa e pericias.
             </div>
             <div className="relative h-[320px] w-[320px]">
               <div className="absolute inset-0 rounded-full border border-[var(--aq-border)] opacity-60" />
@@ -542,10 +683,8 @@ export default function FichaPersonagemPage() {
                 >
                   <input
                     type="number"
-                    value={atributos[attribute.id as keyof typeof atributos] ?? 0}
-                    onChange={(e) =>
-                      setFichaValue(`atributos.${attribute.id}`, parseInt(e.target.value, 10) || 0)
-                    }
+                    value={ficha.dados.atributos[attribute.id] ?? 0}
+                    onChange={(e) => setFichaValue(`atributos.${attribute.id}`, parseInt(e.target.value, 10) || 0)}
                     className="w-14 bg-transparent text-center text-4xl font-black text-[var(--aq-title)] outline-none"
                   />
                   <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--aq-text-muted)]">
@@ -560,24 +699,26 @@ export default function FichaPersonagemPage() {
           <div className="aq-panel space-y-5 p-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <div className="aq-kicker">NEX</div>
+                <div className="aq-kicker">{labels.progresso}</div>
                 <div className="mt-2 flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.78)] px-4 py-3">
                   <input
                     type="number"
-                    value={ficha.dados.nex ?? 5}
-                    onChange={(e) => setFichaValue("nex", parseInt(e.target.value, 10) || 0)}
+                    value={ficha.sistema_preset === "dnd5e" ? ficha.dados.nivel ?? 1 : ficha.dados.nex ?? 5}
+                    onChange={(e) =>
+                      ficha.sistema_preset === "dnd5e"
+                        ? setFichaValue("nivel", parseInt(e.target.value, 10) || 1)
+                        : setFichaValue("nex", parseInt(e.target.value, 10) || 0)
+                    }
                     className="w-16 bg-transparent text-2xl font-black text-[var(--aq-title)] outline-none"
                   />
-                  <span className="text-lg font-black text-[var(--aq-text-muted)]">%</span>
+                  <span className="text-lg font-black text-[var(--aq-text-muted)]">
+                    {ficha.sistema_preset === "dnd5e" ? "lv" : "%"}
+                  </span>
                 </div>
               </div>
               <div>
                 <div className="aq-kicker">Deslocamento</div>
-                <input
-                  value={ficha.dados.deslocamento ?? "9m"}
-                  onChange={(e) => setFichaValue("deslocamento", e.target.value)}
-                  className="aq-input mt-2"
-                />
+                <input value={ficha.dados.deslocamento ?? "9m"} readOnly className="aq-input mt-2 opacity-80" />
               </div>
             </div>
 
@@ -586,27 +727,21 @@ export default function FichaPersonagemPage() {
               value={ficha.dados.status.vida.atual}
               max={ficha.dados.status.vida.max}
               fill="linear-gradient(90deg, rgba(239,68,68,0.92), rgba(185,28,28,0.95))"
-              onChange={(next) =>
-                setFichaValue("status.vida", { ...ficha.dados.status.vida, ...next })
-              }
+              onChange={(value) => setFichaValue("status.vida", { ...ficha.dados.status.vida, atual: value })}
             />
             <StatBar
               label="Sanidade"
               value={ficha.dados.status.sanidade.atual}
               max={ficha.dados.status.sanidade.max}
-              fill="linear-gradient(90deg, rgba(59,130,246,0.92), rgba(74,217,217,0.92))"
-              onChange={(next) =>
-                setFichaValue("status.sanidade", { ...ficha.dados.status.sanidade, ...next })
-              }
+              fill="linear-gradient(90deg, rgba(139,92,246,0.92), rgba(59,130,246,0.92))"
+              onChange={(value) => setFichaValue("status.sanidade", { ...ficha.dados.status.sanidade, atual: value })}
             />
             <StatBar
-              label="Pontos de Esforco"
+              label={labels.recurso}
               value={ficha.dados.status.pe.atual}
               max={ficha.dados.status.pe.max}
               fill="linear-gradient(90deg, rgba(74,217,217,0.92), rgba(30,107,107,0.95))"
-              onChange={(next) =>
-                setFichaValue("status.pe", { ...ficha.dados.status.pe, ...next })
-              }
+              onChange={(value) => setFichaValue("status.pe", { ...ficha.dados.status.pe, atual: value })}
             />
           </div>
         </section>
@@ -617,41 +752,59 @@ export default function FichaPersonagemPage() {
               <Shield className="text-[var(--aq-accent)]" />
               <div>
                 <div className="aq-kicker">Defesa</div>
-                <input
-                  type="number"
-                  value={ficha.dados.defesa.passiva ?? 10}
-                  onChange={(e) => setFichaValue("defesa.passiva", parseInt(e.target.value, 10) || 0)}
-                  className="mt-1 w-16 bg-transparent text-3xl font-black text-[var(--aq-title)] outline-none"
-                />
+                <div className="mt-1 text-3xl font-black text-[var(--aq-title)]">{ficha.dados.defesa.passiva}</div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">
+                  Base 10 + AGI + bonus
+                </div>
               </div>
             </div>
-            {[
-              { label: "Bloqueio", path: "defesa.bloqueio" },
-              { label: "Esquiva", path: "defesa.esquiva" },
-            ].map((field) => (
-              <div key={field.path}>
-                <div className="aq-kicker">{field.label}</div>
-                <input
-                  type="number"
-                  value={field.path.endsWith("bloqueio") ? ficha.dados.defesa.bloqueio : ficha.dados.defesa.esquiva}
-                  onChange={(e) => setFichaValue(field.path, parseInt(e.target.value, 10) || 0)}
-                  className="aq-input mt-2"
-                />
+            <div>
+              <div className="aq-kicker">Bonus Defesa</div>
+              <input
+                type="number"
+                value={ficha.dados.defesa.bonus ?? 0}
+                onChange={(e) => setFichaValue("defesa.bonus", parseInt(e.target.value, 10) || 0)}
+                className="aq-input mt-2"
+              />
+            </div>
+            <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] p-4 text-sm text-[var(--aq-text-muted)]">
+              <div className="mb-2 flex items-center gap-2 text-[var(--aq-accent)]">
+                <Sparkles size={14} />
+                <span className="aq-kicker">Defesa Funcional</span>
               </div>
-            ))}
+              <div>Bloqueio: {ficha.dados.defesa.bloqueio}</div>
+              <div>Esquiva: {ficha.dados.defesa.esquiva}</div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="aq-panel p-5">
+              <div className="aq-kicker">Bonus Bloqueio</div>
+              <input
+                type="number"
+                value={ficha.dados.defesa.bloqueio_bonus ?? 0}
+                onChange={(e) => setFichaValue("defesa.bloqueio_bonus", parseInt(e.target.value, 10) || 0)}
+                className="aq-input mt-2"
+              />
+            </div>
+            <div className="aq-panel p-5">
+              <div className="aq-kicker">Bonus Esquiva</div>
+              <input
+                type="number"
+                value={ficha.dados.defesa.esquiva_bonus ?? 0}
+                onChange={(e) => setFichaValue("defesa.esquiva_bonus", parseInt(e.target.value, 10) || 0)}
+                className="aq-input mt-2"
+              />
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
             {[
               { id: "pericias", label: "Pericias" },
               { id: "habilidades", label: "Habilidades" },
-              { id: "armas", label: "Inventario" },
+              { id: "armas", label: "Inventario" }
             ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as typeof activeTab)}
-                className={activeTab === tab.id ? "aq-button-primary" : "aq-button-secondary"}
-              >
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={activeTab === tab.id ? "aq-button-primary" : "aq-button-secondary"}>
                 {tab.label}
               </button>
             ))}
@@ -661,42 +814,38 @@ export default function FichaPersonagemPage() {
             {activeTab === "pericias" && (
               <div className="space-y-4">
                 <div className="grid grid-cols-12 gap-2 px-3 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--aq-text-muted)]">
-                  <div className="col-span-5">Pericia</div>
+                  <div className="col-span-4">Pericia</div>
                   <div className="col-span-2 text-center">Atributo</div>
+                  <div className="col-span-1 text-center">Auto</div>
                   <div className="col-span-1 text-center">Total</div>
                   <div className="col-span-2 text-center">Treino</div>
                   <div className="col-span-2 text-center">Outros</div>
                 </div>
                 <div className="aq-scrollbar max-h-[600px] space-y-2 overflow-y-auto pr-2">
                   {pericias.map((pericia: any) => {
-                    const treino = ficha.dados.pericias?.[pericia.nome]?.treino || 0;
-                    const outros = ficha.dados.pericias?.[pericia.nome]?.outros || 0;
+                    const manual = ficha.dados.pericias?.[pericia.nome] ?? {};
+                    const treino = normalizeNumber(manual.treino, 0);
+                    const outros = normalizeNumber(manual.outros, 0);
+                    const auto = normalizeNumber(derived.autoPericias[pericia.nome], 0);
                     const atributo = pericia.atributo;
-                    const total = (atributos[atributo as keyof typeof atributos] || 0) + treino + outros;
-                    const trained = treino > 0;
+                    const total = normalizeNumber(derived.attrs[atributo], 0) + treino + auto + outros;
 
                     return (
-                      <div
-                        key={pericia.nome}
-                        className="grid grid-cols-12 items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] px-3 py-2"
-                      >
-                        <div className={`col-span-5 flex items-center gap-3 text-sm font-bold ${trained ? "text-[var(--aq-accent)]" : "text-[var(--aq-title)]"}`}>
-                          <Dices size={14} className={trained ? "text-[var(--aq-accent)]" : "text-[var(--aq-text-subtle)]"} />
+                      <div key={pericia.nome} className="grid grid-cols-12 items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] px-3 py-2">
+                        <div className="col-span-4 flex items-center gap-3 text-sm font-bold text-[var(--aq-title)]">
+                          <Dices size={14} className="text-[var(--aq-text-subtle)]" />
                           {pericia.nome}
                         </div>
                         <div className="col-span-2 text-center text-[11px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
                           {atributo.slice(0, 3)}
                         </div>
-                        <div className="col-span-1 text-center text-sm font-black text-[var(--aq-title)]">
-                          {total}
-                        </div>
+                        <div className="col-span-1 text-center text-sm font-black text-[var(--aq-accent)]">{auto}</div>
+                        <div className="col-span-1 text-center text-sm font-black text-[var(--aq-title)]">{total}</div>
                         <div className="col-span-2 flex justify-center">
                           <input
                             type="number"
                             value={treino}
-                            onChange={(e) =>
-                              setFichaValue(`pericias.${pericia.nome}.treino`, parseInt(e.target.value, 10) || 0)
-                            }
+                            onChange={(e) => setFichaValue(`pericias.${pericia.nome}.treino`, parseInt(e.target.value, 10) || 0)}
                             className="aq-input w-14 text-center"
                           />
                         </div>
@@ -704,9 +853,7 @@ export default function FichaPersonagemPage() {
                           <input
                             type="number"
                             value={outros}
-                            onChange={(e) =>
-                              setFichaValue(`pericias.${pericia.nome}.outros`, parseInt(e.target.value, 10) || 0)
-                            }
+                            onChange={(e) => setFichaValue(`pericias.${pericia.nome}.outros`, parseInt(e.target.value, 10) || 0)}
                             className="aq-input w-14 text-center"
                           />
                         </div>
@@ -721,12 +868,8 @@ export default function FichaPersonagemPage() {
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className={`text-xl font-black text-[var(--aq-title)] ${cinzel.className}`}>
-                      Habilidades e Poderes
-                    </h2>
-                    <p className="mt-1 text-sm text-[var(--aq-text-muted)]">
-                      Adicione entradas do compendio e mantenha o resumo sempre a vista.
-                    </p>
+                    <h2 className={`text-xl font-black text-[var(--aq-title)] ${cinzel.className}`}>Habilidades</h2>
+                    <p className="mt-1 text-sm text-[var(--aq-text-muted)]">{labels.compendio}</p>
                   </div>
                   <button onClick={() => setModalOpen("habilidades")} className="aq-button-primary">
                     <Plus size={14} />
@@ -734,40 +877,38 @@ export default function FichaPersonagemPage() {
                   </button>
                 </div>
 
-                {ficha.dados.habilidades.length === 0 ? (
+                {combinedHabilidades.length === 0 ? (
                   <EmptyState message="Nenhuma habilidade registrada ainda." />
                 ) : (
                   <div className="aq-scrollbar max-h-[620px] space-y-3 overflow-y-auto pr-2">
-                    {ficha.dados.habilidades.map((habilidade: any) => (
-                      <article key={habilidade.id} className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.65)] p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-base font-black text-[var(--aq-title)]">
-                                {habilidade.nome}
-                              </h3>
-                              {habilidade.dado ? <span className="aq-pill">{habilidade.dado}</span> : null}
-                              {habilidade.subcat ? <span className="aq-pill aq-pill-muted">{habilidade.subcat}</span> : null}
-                            </div>
-                            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aq-text)]">
-                              {habilidade.desc || "Sem descricao adicional."}
-                            </p>
-                            {habilidade.fonte ? (
-                              <p className="mt-3 text-[11px] uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">
-                                Fonte: {habilidade.fonte}
+                    {combinedHabilidades.map((habilidade: any) => {
+                      const automatic = typeof habilidade.id === "string";
+                      return (
+                        <article key={habilidade.id} className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.65)] p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-base font-black text-[var(--aq-title)]">{habilidade.nome}</h3>
+                                {habilidade.dado ? <span className="aq-pill">{habilidade.dado}</span> : null}
+                                {habilidade.subcat ? <span className="aq-pill aq-pill-muted">{habilidade.subcat}</span> : null}
+                                {automatic ? <span className="aq-pill aq-pill-muted">Auto</span> : null}
+                              </div>
+                              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aq-text)]">
+                                {habilidade.desc || "Sem descricao adicional."}
                               </p>
+                            </div>
+                            {!automatic ? (
+                              <button
+                                onClick={() => removeItem("habilidades", habilidade.id)}
+                                className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:border-red-400 hover:text-red-400"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                             ) : null}
                           </div>
-                          <button
-                            onClick={() => removeItem("habilidades", habilidade.id)}
-                            className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:border-red-400 hover:text-red-400"
-                            title="Remover habilidade"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </article>
-                    ))}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -777,12 +918,8 @@ export default function FichaPersonagemPage() {
               <div className="space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h2 className={`text-xl font-black text-[var(--aq-title)] ${cinzel.className}`}>
-                      Inventario Tatico
-                    </h2>
-                    <p className="mt-1 text-sm text-[var(--aq-text-muted)]">
-                      Mantenha armas, modificacoes, maldicoes e observacoes no mesmo painel.
-                    </p>
+                    <h2 className={`text-xl font-black text-[var(--aq-title)] ${cinzel.className}`}>Inventario</h2>
+                    <p className="mt-1 text-sm text-[var(--aq-text-muted)]">Mapeie armas, notas e modificacoes da ficha.</p>
                   </div>
                   <button onClick={() => setModalOpen("armas")} className="aq-button-primary">
                     <Plus size={14} />
@@ -806,14 +943,10 @@ export default function FichaPersonagemPage() {
                               />
                               <span className="aq-pill aq-pill-muted">{arma.tipo || "Equipamento"}</span>
                             </div>
-                            <p className="mt-2 text-sm text-[var(--aq-text-muted)]">
-                              Edite os detalhes e mantenha o arsenal pronto para a mesa.
-                            </p>
                           </div>
                           <button
                             onClick={() => removeItem("armas", arma.id)}
                             className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:border-red-400 hover:text-red-400"
-                            title="Remover arma"
                           >
                             <Trash2 size={14} />
                           </button>
@@ -826,7 +959,7 @@ export default function FichaPersonagemPage() {
                             { label: "Dano", key: "dano" },
                             { label: "Critico", key: "critico" },
                             { label: "Alcance", key: "alcance" },
-                            { label: "Categoria", key: "categoria" },
+                            { label: "Categoria", key: "categoria" }
                           ].map((field) => (
                             <div key={field.key}>
                               <div className="aq-kicker">{field.label}</div>
@@ -842,8 +975,8 @@ export default function FichaPersonagemPage() {
                         <div className="mt-4 grid gap-4 xl:grid-cols-3">
                           {[
                             { label: "Descricao", key: "desc" },
-                            { label: "Melhorias / Modificacoes", key: "melhorias" },
-                            { label: "Maldicoes / Paranormal", key: "maldicoes" },
+                            { label: "Melhorias", key: "melhorias" },
+                            { label: "Maldicoes", key: "maldicoes" }
                           ].map((field) => (
                             <div key={field.key}>
                               <div className="aq-kicker">{field.label}</div>
@@ -854,15 +987,6 @@ export default function FichaPersonagemPage() {
                               />
                             </div>
                           ))}
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="aq-kicker">Notas Gerais</div>
-                          <textarea
-                            value={arma.notas ?? ""}
-                            onChange={(e) => updateItem("armas", arma.id, { notas: e.target.value })}
-                            className="aq-input mt-2 min-h-[90px] resize-y"
-                          />
                         </div>
                       </article>
                     ))}
@@ -925,9 +1049,7 @@ export default function FichaPersonagemPage() {
                           {item.tipo ? <span className="aq-pill aq-pill-muted">{item.tipo}</span> : null}
                           {item.categoriaNome ? <span className="aq-pill aq-pill-muted">{item.categoriaNome}</span> : null}
                         </div>
-                        {item.desc ? (
-                          <p className="mt-2 text-sm leading-relaxed text-[var(--aq-text)]">{item.desc}</p>
-                        ) : null}
+                        {item.desc ? <p className="mt-2 text-sm leading-relaxed text-[var(--aq-text)]">{item.desc}</p> : null}
                       </div>
                       <span className="aq-button-secondary shrink-0">Adicionar</span>
                     </div>
