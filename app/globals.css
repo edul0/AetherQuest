@@ -44,7 +44,8 @@ body {
     linear-gradient(180deg, rgba(2, 6, 11, 0.96), rgba(5, 10, 16, 1));
   overflow-x: hidden;
   overflow-y: visible;
-  touch-action: manipulation;
+  touch-action: auto;
+  -webkit-overflow-scrolling: touch;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -63,11 +64,21 @@ body {
   min-height: 100vh;
   width: 100%;
   overflow: visible;
+  touch-action: pan-y;
   background:
     radial-gradient(circle at 20% 10%, rgba(74, 217, 217, 0.08), transparent 26%),
     radial-gradient(circle at 80% 85%, rgba(26, 43, 76, 0.2), transparent 28%),
     var(--aq-bg);
   color: var(--aq-text);
+}
+
+@media (max-width: 767px) {
+  html,
+  body,
+  .aq-page {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
 }
 
 .aq-shell {
