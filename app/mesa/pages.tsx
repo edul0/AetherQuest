@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Cinzel, Inter } from "next/font/google";
 import {
   ArrowLeft,
@@ -18,8 +19,16 @@ import { FichaVTTSnapshot, Token } from "../../src/lib/types";
 import Chat from "../../src/components/vtt/Chat";
 import SceneNav from "../../src/components/vtt/SceneNav";
 import TokenPanel from "../../src/components/vtt/Tokenpanel";
-import VTTCanvas from "../../src/components/vtt/VTTCanvas";
 import VTTControls from "../../src/components/vtt/VTTControls";
+
+const VTTCanvas = dynamic(() => import("../../src/components/vtt/VTTCanvas"), {
+  ssr: false,
+  loading: () => (
+    <div className="fixed inset-0 flex items-center justify-center bg-[#050a10]">
+      <div className="font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)]">Carregando mapa...</div>
+    </div>
+  ),
+});
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
