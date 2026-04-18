@@ -31,6 +31,7 @@ body {
     radial-gradient(circle at bottom right, rgba(26, 43, 76, 0.2), transparent 30%),
     linear-gradient(180deg, rgba(2, 6, 11, 0.96), rgba(5, 10, 16, 1));
   overflow-x: hidden;
+  overflow-y: auto;
   touch-action: manipulation;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -59,7 +60,7 @@ body {
   position: relative;
   z-index: 1;
   margin: 0 auto;
-  width: min(100%, 1280px);
+  width: min(100%, 1440px);
 }
 
 .aq-panel {
