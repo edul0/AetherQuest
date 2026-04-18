@@ -10,7 +10,6 @@ import {
   Plus,
   Search,
   Shield,
-  Sparkles,
   Trash2,
   X,
   Zap,
@@ -18,6 +17,8 @@ import {
 import { PRESETS } from "../../../src/lib/constants";
 import { supabase } from "../../../src/lib/supabase";
 import { AttributeDefinition, AttributeMap, ChoiceOption, Skill, SystemPreset } from "../../../src/lib/types";
+import IdentityBriefing from "../../../src/components/ficha/IdentityBriefing";
+import WeaponModsEditor from "../../../src/components/ficha/WeaponModsEditor";
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -160,19 +161,6 @@ function buildDerivedAbilities(
   });
 
   return automaticas;
-}
-
-function appendCatalogItem(currentValue: string, nextLabel: string) {
-  const cleanCurrent = currentValue?.trim() ?? "";
-  const lines = cleanCurrent
-    ? cleanCurrent.split("\n").map((line) => line.replace(/^- /, "").trim()).filter(Boolean)
-    : [];
-
-  if (!lines.includes(nextLabel)) {
-    lines.push(nextLabel);
-  }
-
-  return lines.map((line) => `- ${line}`).join("\n");
 }
 
 function normalizeFicha(record: any) {
@@ -773,7 +761,26 @@ export default function FichaPersonagemPage() {
         </div>
       </header>
 
-      <div className="aq-shell mt-8 grid gap-8 px-6 md:px-8 lg:grid-cols-12">
+      <div className="aq-shell mt-8 space-y-8 px-6 md:px-8">
+        <IdentityBriefing
+          title="Origem da Ficha"
+          subtitle="Escolha o sistema, depois feche a identidade base do personagem com raca, origem, classe e caminho. A ficha e a mesa leem esse bloco como o nucleo do personagem, entao tudo daqui precisa estar claro e coerente."
+          tags={[
+            preset.nome,
+            selectedRace ? getChoiceLabel(selectedRace.nome, ficha.dados.raca_custom) : "",
+            selectedOrigin ? getChoiceLabel(selectedOrigin.nome, ficha.dados.origem_custom) : "",
+            selectedClass ? getChoiceLabel(selectedClass.nome, ficha.dados.classe_custom) : "",
+            selectedPath ? getChoiceLabel(selectedPath.nome, ficha.dados.trilha_custom) : "",
+          ]}
+          details={[
+            { label: "Sistema", value: preset.nome },
+            { label: "Raca / Linhagem", value: selectedRace ? getChoiceLabel(selectedRace.nome, ficha.dados.raca_custom) : "" },
+            { label: "Origem", value: selectedOrigin ? getChoiceLabel(selectedOrigin.nome, ficha.dados.origem_custom) : "" },
+            { label: "Classe / Trilha", value: selectedPath ? getChoiceLabel(selectedPath.nome, ficha.dados.trilha_custom) : selectedClass ? getChoiceLabel(selectedClass.nome, ficha.dados.classe_custom) : "" },
+          ]}
+        />
+
+        <div className="grid gap-8 lg:grid-cols-12">
         <section className="space-y-8 lg:col-span-5">
           <div className="aq-panel p-5">
             <div className="flex flex-col gap-5 md:flex-row">
@@ -1302,58 +1309,14 @@ export default function FichaPersonagemPage() {
                           />
                         </div>
 
-                        <div className="mt-4 grid gap-4 xl:grid-cols-2">
-                          <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-4">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <div className="aq-kicker">Melhorias / Modificacoes</div>
-                                <p className="mt-1 text-xs text-[var(--aq-text-muted)]">Clique para adicionar e depois ajuste manualmente se quiser.</p>
-                              </div>
-                              <Sparkles size={16} className="text-[var(--aq-accent)]" />
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {(preset.melhoriasCatalogo ?? []).map((entry) => (
-                                <button
-                                  key={entry}
-                                  onClick={() => updateItem("armas", arma.id, { melhorias: appendCatalogItem(arma.melhorias ?? "", entry) })}
-                                  className="aq-button-secondary !px-3 !py-2"
-                                >
-                                  {entry}
-                                </button>
-                              ))}
-                            </div>
-                            <textarea
-                              value={arma.melhorias ?? ""}
-                              onChange={(e) => updateItem("armas", arma.id, { melhorias: e.target.value })}
-                              className="aq-input mt-3 min-h-[110px] resize-y"
-                            />
-                          </div>
-
-                          <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-4">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <div className="aq-kicker">Maldicoes / Paranormal</div>
-                                <p className="mt-1 text-xs text-[var(--aq-text-muted)]">Itens especiais ficam separados do bloco de modificacoes.</p>
-                              </div>
-                              <Sparkles size={16} className="text-[var(--aq-accent)]" />
-                            </div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {(preset.maldicoesCatalogo ?? []).map((entry) => (
-                                <button
-                                  key={entry}
-                                  onClick={() => updateItem("armas", arma.id, { maldicoes: appendCatalogItem(arma.maldicoes ?? "", entry) })}
-                                  className="aq-button-secondary !px-3 !py-2"
-                                >
-                                  {entry}
-                                </button>
-                              ))}
-                            </div>
-                            <textarea
-                              value={arma.maldicoes ?? ""}
-                              onChange={(e) => updateItem("armas", arma.id, { maldicoes: e.target.value })}
-                              className="aq-input mt-3 min-h-[110px] resize-y"
-                            />
-                          </div>
+                        <div className="mt-4">
+                          <WeaponModsEditor
+                            melhoriaValue={arma.melhorias ?? ""}
+                            maldicaoValue={arma.maldicoes ?? ""}
+                            melhoriaOptions={preset.melhoriasCatalogo ?? []}
+                            maldicaoOptions={preset.maldicoesCatalogo ?? []}
+                            onChange={(field, value) => updateItem("armas", arma.id, { [field]: value })}
+                          />
                         </div>
 
                         <div className="mt-4">
@@ -1372,6 +1335,7 @@ export default function FichaPersonagemPage() {
             )}
           </div>
         </section>
+        </div>
       </div>
 
       {modalOpen ? (
