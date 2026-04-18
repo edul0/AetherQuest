@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Dice5, MessageSquareText } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "@/src/lib/supabase";
 
 export default function Chat({ salaId }: { salaId: string }) {
   const [messages, setMessages] = useState<any[]>([]);
