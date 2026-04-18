@@ -58,6 +58,7 @@ const DEFAULT_DEFESA = {
 };
 
 type ModalType = "habilidades" | "armas" | null;
+type SelectionMenuType = "sistema" | "raca" | "origem" | "classe" | "trilha" | null;
 
 function uid() {
   return Date.now() + Math.floor(Math.random() * 1000);
@@ -95,6 +96,30 @@ function getChoiceByName(options: ChoiceOption[] = [], nome?: string) {
 
 function getChoiceLabel(nome?: string, customValue?: string) {
   return nome === "Personalizada" ? customValue || "Personalizada" : nome || "";
+}
+
+function getPathLabel(systemPreset?: string) {
+  if (systemPreset === "ordem_paranormal") {
+    return "Trilha";
+  }
+
+  if (systemPreset === "memorias_postumas") {
+    return "Estilo de Luta";
+  }
+
+  return "Caminho / Arquétipo";
+}
+
+function getPathMenuTitle(systemPreset?: string) {
+  if (systemPreset === "ordem_paranormal") {
+    return "Trilhas";
+  }
+
+  if (systemPreset === "memorias_postumas") {
+    return "Estilos de Luta";
+  }
+
+  return "Caminhos / Arquétipos";
 }
 
 function getPathOptions(classOption: ChoiceOption | null) {
@@ -306,6 +331,7 @@ export default function FichaPersonagemPage() {
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<"pericias" | "habilidades" | "armas">("pericias");
   const [modalOpen, setModalOpen] = useState<ModalType>(null);
+  const [selectionMenu, setSelectionMenu] = useState<SelectionMenuType>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [compendiumFilter, setCompendiumFilter] = useState("all");
 
@@ -421,6 +447,71 @@ export default function FichaPersonagemPage() {
         .some((value) => String(value).toLowerCase().includes(query));
     });
   }, [compendiumFilter, habilidadeCatalogo, modalOpen, preset.armas, searchTerm]);
+
+  const selectionMenuConfig = useMemo(() => {
+    switch (selectionMenu) {
+      case "sistema":
+        return {
+          title: "Sistemas",
+          description: "Troque o sistema num menu proprio para manter a ficha limpa e entender o que muda antes de aplicar.",
+          items: Object.entries(PRESETS).map(([key, value]) => ({
+            nome: value.nome,
+            grupo: key,
+            desc: value.attributeAssignmentText ?? value.loreNotes?.[0]?.texto ?? "Sistema completo com atributos, pericias e progressao proprios.",
+          })),
+          selectedName: preset.nome,
+          selectedCustom: "",
+          onApply: (item: ChoiceOption) => {
+            const presetKey = Object.entries(PRESETS).find(([, value]) => value.nome === item.nome)?.[0];
+            if (presetKey) {
+              handleSystemChange(presetKey);
+            }
+          },
+        };
+      case "raca":
+        return {
+          title: "Racas",
+          description: "Selecione a raca em um menu dedicado e veja os detalhes antes de aplicar.",
+          items: preset.racas,
+          selectedName: ficha?.dados?.raca,
+          selectedCustom: ficha?.dados?.raca_custom,
+          onApply: (item: ChoiceOption) =>
+            setFicha((current: any) => ({ ...current, dados: { ...current.dados, raca: item.nome, raca_custom: item.custom ? current.dados.raca_custom : "" } })),
+        };
+      case "origem":
+        return {
+          title: "Origens",
+          description: "Cada origem abre num menu proprio com descricao, poder e pericias.",
+          items: preset.origens,
+          selectedName: ficha?.dados?.origem,
+          selectedCustom: ficha?.dados?.origem_custom,
+          onApply: (item: ChoiceOption) =>
+            setFicha((current: any) => ({ ...current, dados: { ...current.dados, origem: item.nome, origem_custom: item.custom ? current.dados.origem_custom : "" } })),
+        };
+      case "classe":
+        return {
+          title: "Classes",
+          description: "Escolha a classe por menu dedicado para manter a ficha limpa.",
+          items: preset.classes,
+          selectedName: ficha?.dados?.classe,
+          selectedCustom: ficha?.dados?.classe_custom,
+          onApply: (item: ChoiceOption) =>
+            setFicha((current: any) => ({ ...current, dados: { ...current.dados, classe: item.nome, classe_custom: item.custom ? current.dados.classe_custom : "" } })),
+        };
+      case "trilha":
+        return {
+          title: getPathMenuTitle(ficha?.sistema_preset),
+          description: "Abra apenas quando quiser escolher o estilo, trilha ou caminho ligado a classe atual.",
+          items: availablePaths,
+          selectedName: ficha?.dados?.trilha,
+          selectedCustom: ficha?.dados?.trilha_custom,
+          onApply: (item: ChoiceOption) =>
+            setFicha((current: any) => ({ ...current, dados: { ...current.dados, trilha: item.nome, trilha_custom: item.custom ? current.dados.trilha_custom : "" } })),
+        };
+      default:
+        return null;
+    }
+  }, [availablePaths, ficha?.dados?.classe, ficha?.dados?.classe_custom, ficha?.dados?.origem, ficha?.dados?.origem_custom, ficha?.dados?.raca, ficha?.dados?.raca_custom, ficha?.dados?.trilha, ficha?.dados?.trilha_custom, ficha?.sistema_preset, preset.attributeAssignmentText, preset.loreNotes, preset.nome, preset.classes, preset.origens, preset.racas, selectionMenu]);
 
   const setFichaValue = (path: string, value: any) => {
     setFicha((current: any) => {
@@ -839,7 +930,7 @@ export default function FichaPersonagemPage() {
   }
 
   return (
-    <main className={`aq-page overflow-y-auto pb-20 ${inter.className}`}>
+    <main className={`aq-page pb-20 ${inter.className}`}>
       <div className="aq-orb aq-orb-cyan" />
       <div className="aq-orb aq-orb-indigo" />
 
@@ -867,7 +958,7 @@ export default function FichaPersonagemPage() {
         </div>
       </header>
 
-      <div className="aq-shell mt-8 space-y-8 px-6 md:px-8">
+      <div className="aq-shell mt-8 space-y-8 px-4 md:px-8">
         <IdentityBriefing
           title="Origem da Ficha"
           subtitle="Escolha o sistema, depois feche a identidade base do personagem com raca, origem, classe e caminho. A ficha e a mesa leem esse bloco como o nucleo do personagem, entao tudo daqui precisa estar claro e coerente."
@@ -882,12 +973,12 @@ export default function FichaPersonagemPage() {
             { label: "Sistema", value: preset.nome },
             { label: "Raca / Linhagem", value: selectedRace ? getChoiceLabel(selectedRace.nome, ficha.dados.raca_custom) : "" },
             { label: "Origem", value: selectedOrigin ? getChoiceLabel(selectedOrigin.nome, ficha.dados.origem_custom) : "" },
-            { label: "Classe / Trilha", value: selectedPath ? getChoiceLabel(selectedPath.nome, ficha.dados.trilha_custom) : selectedClass ? getChoiceLabel(selectedClass.nome, ficha.dados.classe_custom) : "" },
+            { label: `Classe / ${getPathLabel(ficha.sistema_preset)}`, value: selectedPath ? getChoiceLabel(selectedPath.nome, ficha.dados.trilha_custom) : selectedClass ? getChoiceLabel(selectedClass.nome, ficha.dados.classe_custom) : "" },
           ]}
         />
 
-        <div className="grid gap-8 lg:grid-cols-12">
-        <section className="space-y-8 lg:col-span-5">
+        <div className="grid gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
+        <section className="space-y-8">
           <div className="aq-panel p-5">
             <div className="flex flex-col gap-5 md:flex-row">
               <div
@@ -931,17 +1022,10 @@ export default function FichaPersonagemPage() {
                   </div>
                   <div>
                     <div className="aq-kicker">Sistema</div>
-                    <select
-                      value={ficha.sistema_preset}
-                      onChange={(e) => handleSystemChange(e.target.value)}
-                      className="aq-input mt-2"
-                    >
-                      {Object.entries(PRESETS).map(([key, value]) => (
-                        <option key={key} value={key}>
-                          {value.nome}
-                        </option>
-                      ))}
-                    </select>
+                    <button onClick={() => setSelectionMenu("sistema")} className="aq-panel mt-2 w-full p-3 text-left transition-all hover:border-[var(--aq-border-strong)]">
+                      <div className="text-sm font-black text-[var(--aq-title)]">{preset.nome}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">Abrir menu de sistema</div>
+                    </button>
                   </div>
                   <div>
                     <div className="aq-kicker">{progressLabel}</div>
@@ -957,17 +1041,10 @@ export default function FichaPersonagemPage() {
                   </div>
                   <div>
                     <div className="aq-kicker">Raca / Linhagem</div>
-                    <select
-                      value={ficha.dados.raca}
-                      onChange={(e) => setFichaValue("raca", e.target.value)}
-                      className="aq-input mt-2"
-                    >
-                      {preset.racas.map((option) => (
-                        <option key={option.nome} value={option.nome}>
-                          {option.nome}
-                        </option>
-                      ))}
-                    </select>
+                    <button onClick={() => setSelectionMenu("raca")} className="aq-panel mt-2 w-full p-3 text-left transition-all hover:border-[var(--aq-border-strong)]">
+                      <div className="text-sm font-black text-[var(--aq-title)]">{getChoiceLabel(ficha.dados.raca, ficha.dados.raca_custom) || "Escolher raca"}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">Abrir menu de raca</div>
+                    </button>
                     {selectedRace?.custom ? (
                       <input
                         value={ficha.dados.raca_custom ?? ""}
@@ -979,17 +1056,10 @@ export default function FichaPersonagemPage() {
                   </div>
                   <div>
                     <div className="aq-kicker">Origem</div>
-                    <select
-                      value={ficha.dados.origem}
-                      onChange={(e) => setFichaValue("origem", e.target.value)}
-                      className="aq-input mt-2"
-                    >
-                      {preset.origens.map((option) => (
-                        <option key={option.nome} value={option.nome}>
-                          {option.nome}
-                        </option>
-                      ))}
-                    </select>
+                    <button onClick={() => setSelectionMenu("origem")} className="aq-panel mt-2 w-full p-3 text-left transition-all hover:border-[var(--aq-border-strong)]">
+                      <div className="text-sm font-black text-[var(--aq-title)]">{getChoiceLabel(ficha.dados.origem, ficha.dados.origem_custom) || "Escolher origem"}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">Abrir menu de origem</div>
+                    </button>
                     {selectedOrigin?.custom ? (
                       <input
                         value={ficha.dados.origem_custom ?? ""}
@@ -1000,18 +1070,11 @@ export default function FichaPersonagemPage() {
                     ) : null}
                   </div>
                   <div className="sm:col-span-2">
-                    <div className="aq-kicker">Classe / Trilha</div>
-                    <select
-                      value={ficha.dados.classe}
-                      onChange={(e) => setFichaValue("classe", e.target.value)}
-                      className="aq-input mt-2"
-                    >
-                      {preset.classes.map((option) => (
-                        <option key={option.nome} value={option.nome}>
-                          {option.nome}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="aq-kicker">{`Classe / ${getPathLabel(ficha.sistema_preset)}`}</div>
+                    <button onClick={() => setSelectionMenu("classe")} className="aq-panel mt-2 w-full p-3 text-left transition-all hover:border-[var(--aq-border-strong)]">
+                      <div className="text-sm font-black text-[var(--aq-title)]">{getChoiceLabel(ficha.dados.classe, ficha.dados.classe_custom) || "Escolher classe"}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">Abrir menu de classe</div>
+                    </button>
                     {selectedClass?.custom ? (
                       <input
                         value={ficha.dados.classe_custom ?? ""}
@@ -1023,18 +1086,11 @@ export default function FichaPersonagemPage() {
                   </div>
                   {availablePaths.length > 0 ? (
                     <div className="sm:col-span-2">
-                      <div className="aq-kicker">{ficha.sistema_preset === "ordem_paranormal" ? "Trilha" : "Caminho / Arquétipo"}</div>
-                      <select
-                        value={ficha.dados.trilha ?? ""}
-                        onChange={(e) => setFichaValue("trilha", e.target.value)}
-                        className="aq-input mt-2"
-                      >
-                        {availablePaths.map((option) => (
-                          <option key={option.nome} value={option.nome}>
-                            {option.nome}
-                          </option>
-                        ))}
-                      </select>
+                    <div className="aq-kicker">{getPathLabel(ficha.sistema_preset)}</div>
+                      <button onClick={() => setSelectionMenu("trilha")} className="aq-panel mt-2 w-full p-3 text-left transition-all hover:border-[var(--aq-border-strong)]">
+                        <div className="text-sm font-black text-[var(--aq-title)]">{getChoiceLabel(ficha.dados.trilha, ficha.dados.trilha_custom) || `Escolher ${getPathLabel(ficha.sistema_preset).toLowerCase()}`}</div>
+                        <div className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">{`Abrir menu de ${getPathLabel(ficha.sistema_preset).toLowerCase()}`}</div>
+                      </button>
                       {selectedPath?.custom ? (
                         <input
                           value={ficha.dados.trilha_custom ?? ""}
@@ -1060,47 +1116,11 @@ export default function FichaPersonagemPage() {
                       {selectedOrigin?.poder ? <p><strong className="text-[var(--aq-title)]">Origem:</strong> {selectedOrigin.poder}</p> : null}
                       {selectedRace?.desc ? <p className="mt-2"><strong className="text-[var(--aq-title)]">Raca:</strong> {selectedRace.desc}</p> : null}
                       {selectedClass?.desc ? <p className="mt-2"><strong className="text-[var(--aq-title)]">Classe:</strong> {selectedClass.desc}</p> : null}
-                      {selectedPath?.desc ? <p className="mt-2"><strong className="text-[var(--aq-title)]">Caminho:</strong> {selectedPath.desc}</p> : null}
+                      {selectedPath?.desc ? <p className="mt-2"><strong className="text-[var(--aq-title)]">{`${getPathLabel(ficha.sistema_preset)}:`}</strong> {selectedPath.desc}</p> : null}
                     </div>
                   ) : null}
                 </div>
 
-                <div className="grid gap-4">
-                  <ChoiceLibrary
-                    title="Racas"
-                    description="Abra cada raca para ver bonus, pericias e descricao antes de aplicar na ficha."
-                    items={preset.racas}
-                    selectedName={ficha.dados.raca}
-                    selectedCustom={ficha.dados.raca_custom}
-                    onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, raca: item.nome, raca_custom: item.custom ? current.dados.raca_custom : "" } }))}
-                  />
-                  <ChoiceLibrary
-                    title="Origens"
-                    description="Veja o que cada origem concede e aplique direto quando decidir."
-                    items={preset.origens}
-                    selectedName={ficha.dados.origem}
-                    selectedCustom={ficha.dados.origem_custom}
-                    onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, origem: item.nome, origem_custom: item.custom ? current.dados.origem_custom : "" } }))}
-                  />
-                  <ChoiceLibrary
-                    title="Classes"
-                    description="Cada classe mostra a proposta e seus beneficios centrais antes de entrar na ficha."
-                    items={preset.classes}
-                    selectedName={ficha.dados.classe}
-                    selectedCustom={ficha.dados.classe_custom}
-                    onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, classe: item.nome, classe_custom: item.custom ? current.dados.classe_custom : "" } }))}
-                  />
-                  {availablePaths.length > 0 ? (
-                    <ChoiceLibrary
-                      title={ficha.sistema_preset === "ordem_paranormal" ? "Trilhas" : "Caminhos"}
-                      description="Abra os caminhos para comparar e adicionar o que melhor encaixa no personagem."
-                      items={availablePaths}
-                      selectedName={ficha.dados.trilha}
-                      selectedCustom={ficha.dados.trilha_custom}
-                      onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, trilha: item.nome, trilha_custom: item.custom ? current.dados.trilha_custom : "" } }))}
-                    />
-                  ) : null}
-                </div>
               </div>
             </div>
           </div>
@@ -1211,7 +1231,7 @@ export default function FichaPersonagemPage() {
           </div>
         </section>
 
-        <section className="space-y-6 lg:col-span-7">
+        <section className="space-y-6">
           <div className="aq-panel grid gap-4 p-5 md:grid-cols-[1.2fr_repeat(3,1fr)]">
             <div className="flex items-center gap-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] p-4">
               <Shield className="text-[var(--aq-accent)]" />
@@ -1274,7 +1294,7 @@ export default function FichaPersonagemPage() {
                   <div className="col-span-2 text-center">Treino</div>
                   <div className="col-span-2 text-center">Outros</div>
                 </div>
-                <div className="aq-scrollbar max-h-[600px] space-y-2 overflow-y-auto pr-2">
+                <div className="space-y-2">
                   {(preset.pericias ?? []).map((pericia) => {
                     const treino = ficha.dados.pericias?.[pericia.nome]?.treino || 0;
                     const outros = ficha.dados.pericias?.[pericia.nome]?.outros || 0;
@@ -1369,7 +1389,7 @@ export default function FichaPersonagemPage() {
                   {ficha.dados.habilidades.length === 0 ? (
                     <EmptyState message="Nenhuma habilidade manual registrada ainda." />
                   ) : (
-                    <div className="aq-scrollbar max-h-[400px] space-y-3 overflow-y-auto pr-2">
+                    <div className="space-y-3">
                       {ficha.dados.habilidades.map((habilidade: any) => (
                         <article key={habilidade.id} className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.65)] p-4">
                           <div className="flex items-start justify-between gap-4">
@@ -1438,7 +1458,7 @@ export default function FichaPersonagemPage() {
                 {ficha.dados.armas.length === 0 ? (
                   <EmptyState message="Nenhuma arma ou equipamento cadastrado." />
                 ) : (
-                  <div className="aq-scrollbar max-h-[680px] space-y-4 overflow-y-auto pr-2">
+                  <div className="space-y-4">
                     {ficha.dados.armas.map((arma: any) => (
                       <article key={arma.id} className="rounded-3xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.7)] p-5">
                         <div className="mb-5 flex items-start justify-between gap-4">
@@ -1595,6 +1615,34 @@ export default function FichaPersonagemPage() {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {selectionMenu && selectionMenuConfig ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(2,6,11,0.82)] p-6 backdrop-blur-md">
+          <div className="aq-panel aq-scrollbar max-h-[85vh] w-full max-w-3xl overflow-y-auto p-5">
+            <div className="mb-4 flex items-center justify-between gap-4 border-b border-[var(--aq-border)] pb-4">
+              <div>
+                <div className="aq-kicker">Selecao Dedicada</div>
+                <h3 className={`mt-1 text-2xl font-black text-[var(--aq-title)] ${cinzel.className}`}>{selectionMenuConfig.title}</h3>
+              </div>
+              <button onClick={() => setSelectionMenu(null)} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+
+            <ChoiceLibrary
+              title={selectionMenuConfig.title}
+              description={selectionMenuConfig.description}
+              items={selectionMenuConfig.items}
+              selectedName={selectionMenuConfig.selectedName}
+              selectedCustom={selectionMenuConfig.selectedCustom}
+              onApply={(item) => {
+                selectionMenuConfig.onApply(item);
+                setSelectionMenu(null);
+              }}
+            />
           </div>
         </div>
       ) : null}
