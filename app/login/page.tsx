@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Cinzel } from "next/font/google";
-import { supabase } from "../src/lib/supabase";
+import { supabase } from '../../src/lib/supabase';
 import { Swords, Shield, Scroll, ChevronRight, Sparkles } from "lucide-react";
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
