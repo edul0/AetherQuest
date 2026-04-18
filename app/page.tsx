@@ -1,31 +1,91 @@
 "use client";
 import { useRouter } from 'next/navigation';
 import { Cinzel, Inter } from 'next/font/google';
+import { Play, Map, BookOpen, Settings2 } from 'lucide-react';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
-const inter = Inter({ subsets: ['latin'], weight: ['400'] });
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500'] });
 
 export default function HomePage() {
   const router = useRouter();
 
   return (
-    <main className={`min-h-screen bg-[#090e17] flex flex-col items-center justify-center text-center p-4 ${inter.className}`}>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_#1a2b4c33_0%,_transparent_100%)] pointer-events-none" />
-      
-      <div className="z-10 flex flex-col items-center">
-        <h1 className={`${cinzel.className} text-5xl md:text-7xl text-[#4ad9d9] font-black mb-4 tracking-widest drop-shadow-[0_0_15px_rgba(74,217,217,0.4)]`}>
-          AETHERQUEST
-        </h1>
-        <p className="text-[#6b7b94] mb-12 text-sm md:text-base tracking-widest uppercase">
-          Sistema de Mesa Virtual Avançado
-        </p>
+    <main className={`min-h-screen bg-[#050a10] text-[#8b9bb4] flex flex-col justify-center px-8 md:px-24 py-12 relative overflow-hidden ${inter.className}`}>
+      {/* Efeitos de Luz de Fundo */}
+      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-[#4ad9d9]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#1a2b4c]/20 rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="max-w-6xl mx-auto w-full z-10 flex flex-col pt-20">
         
-        <button 
-          onClick={() => router.push('/fichas')}
-          className="bg-[#4ad9d9] text-[#090e17] px-10 py-4 rounded-lg text-xs font-black uppercase tracking-[0.3em] hover:bg-white hover:scale-105 transition-all shadow-[0_0_20px_rgba(74,217,217,0.3)]"
-        >
-          Entrar no Sistema
-        </button>
+        {/* Título Principal */}
+        <div className="mb-8">
+          <div className="w-16 h-0.5 bg-[#4ad9d9] mb-8 opacity-50"></div>
+          <h1 className={`${cinzel.className} text-6xl md:text-8xl font-black tracking-widest drop-shadow-lg flex flex-wrap`}>
+            <span className="text-[#f0ebd8]">AETHER</span>
+            <span className="text-[#4ad9d9] drop-shadow-[0_0_20px_rgba(74,217,217,0.3)]">QUEST</span>
+          </h1>
+        </div>
+
+        {/* Subtítulo */}
+        <p className="max-w-xl text-base md:text-lg leading-relaxed text-[#8b9bb4] mb-12">
+          O Tabletop Virtual focado no essencial. Explore masmorras, role dados e guie seus jogadores em tempo real, de qualquer dispositivo.
+        </p>
+
+        {/* Botões de Ação */}
+        <div className="flex flex-wrap gap-6 mb-24">
+          <button 
+            onClick={() => router.push('/fichas')}
+            className="flex items-center gap-3 bg-[#1e6b6b] hover:bg-[#4ad9d9] text-white hover:text-[#050a10] px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(30,107,107,0.4)] hover:shadow-[0_0_30px_rgba(74,217,217,0.6)]"
+          >
+            <Play size={14} className="fill-current" />
+            Iniciar Jornada
+          </button>
+          
+          <button 
+            onClick={() => router.push('/fichas')}
+            className="px-8 py-3.5 rounded-full border border-[#2a3b52] text-[#8b9bb4] text-xs font-bold uppercase tracking-widest hover:border-[#4ad9d9] hover:text-[#4ad9d9] bg-[#0a0f18]/50 transition-all"
+          >
+            Campanhas
+          </button>
+        </div>
+
+        <div className="w-full h-px bg-gradient-to-r from-[#2a3b52] to-transparent mb-16 opacity-50"></div>
+
+        {/* Seção de Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-24">
+          
+          <div className="flex flex-col">
+            <Map className="text-[#4ad9d9] mb-6" size={28} strokeWidth={1.5} />
+            <h3 className={`${cinzel.className} text-xl text-[#f0ebd8] font-bold tracking-widest mb-4`}>
+              MUNDO<br/>COMPARTILHADO
+            </h3>
+            <p className="text-sm text-[#6b7b94] leading-relaxed">
+              Grid dinâmico e movimentação de tokens em tempo real. O que o Mestre vê, o grupo vê.
+            </p>
+          </div>
+
+          <div className="flex flex-col">
+            <BookOpen className="text-[#4ad9d9] mb-6" size={28} strokeWidth={1.5} />
+            <h3 className={`${cinzel.className} text-xl text-[#f0ebd8] font-bold tracking-widest mb-4`}>
+              COMPÊNDIO<br/>VELOZ
+            </h3>
+            <p className="text-sm text-[#6b7b94] leading-relaxed">
+              Acesse fichas e anotações sem perder a visão do tabuleiro. Interface desenhada para fluidez.
+            </p>
+          </div>
+
+          <div className="flex flex-col">
+            <Settings2 className="text-[#f0ebd8] mb-6" size={28} strokeWidth={1.5} />
+            <h3 className={`${cinzel.className} text-xl text-[#f0ebd8] font-bold tracking-widest mb-4`}>
+              MESTRE NO<br/>CONTROLE
+            </h3>
+            <p className="text-sm text-[#6b7b94] leading-relaxed">
+              Ferramentas de upload de mapas e rolagem de dados acessíveis com apenas um toque na tela.
+            </p>
+          </div>
+
+        </div>
+
       </div>
     </main>
   );
