@@ -38,26 +38,37 @@ export default function FichaPersonagemPage() {
   const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [newSkill, setNewSkill] = useState({ nome: "", dado: "", desc: "" });
 
-  useEffect(() => { carregarFicha(); }, [id]);
+  useEffect(() => { 
+    if (id) {
+      carregarFicha(); 
+    }
+  }, [id]);
 
   const carregarFicha = async () => {
-    const { data } = await supabase.from('fichas').select('*').eq('id', id).single();
-    if (data) {
-      if (!data.dados.habilidades) data.dados.habilidades = [];
-      if (!data.dados.armas) data.dados.armas = [];
-      if (!data.dados.pericias) data.dados.pericias = {};
-      if (!data.dados.defesa) data.dados.defesa = { passiva: 10, bloqueio: 0, esquiva: 0 };
-      if (!data.dados.atributos) data.dados.atributos = { forca: 1, agilidade: 1, vigor: 1, intelecto: 1, presenca: 1 };
-      if (!data.dados.status) {
-         data.dados.status = {
-             vida: { atual: 10, max: 10 }, sanidade: { atual: 10, max: 10 }, estamina: { atual: 10, max: 10 }
-         };
+    try {
+      const { data, error } = await supabase.from('fichas').select('*').eq('id', id).single();
+      if (error) throw error;
+      
+      if (data) {
+        if (!data.dados.habilidades) data.dados.habilidades = [];
+        if (!data.dados.armas) data.dados.armas = [];
+        if (!data.dados.pericias) data.dados.pericias = {};
+        if (!data.dados.defesa) data.dados.defesa = { passiva: 10, bloqueio: 0, esquiva: 0 };
+        if (!data.dados.atributos) data.dados.atributos = { forca: 1, agilidade: 1, vigor: 1, intelecto: 1, presenca: 1 };
+        if (!data.dados.status) {
+           data.dados.status = {
+               vida: { atual: 10, max: 10 }, sanidade: { atual: 10, max: 10 }, estamina: { atual: 10, max: 10 }
+           };
+        }
+        setFicha(data);
+        const sys = PRESETS[data.sistema_preset as keyof typeof PRESETS];
+        if (sys && sys.categorias_hab) setActiveTab(sys.categorias_hab[0].id);
       }
-      setFicha(data);
-      const sys = PRESETS[data.sistema_preset as keyof typeof PRESETS];
-      if (sys && sys.categorias_hab) setActiveTab(sys.categorias_hab[0].id);
+    } catch (error) {
+      console.error("Erro ao carregar ficha:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const recalcularMaximos = (dadosAtuais: any, sistema: string) => {
@@ -132,15 +143,31 @@ export default function FichaPersonagemPage() {
     setIsAddingSkill(false);
   };
 
-  if (loading) return <div className="min-h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9] font-mono tracking-widest animate-pulse">Sincronizando Realidade...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#090e17] flex items-center justify-center text-[#4ad9d9] font-mono tracking-widest animate-pulse">
+        Sincronizando Realidade...
+      </div>
+    );
+  }
+
+  if (!ficha) {
+    return (
+      <div className="min-h-screen bg-[#090e17] flex flex-col items-center justify-center text-[#8b9bb4]">
+        <h2 className="text-xl mb-4 font-bold text-red-500">Erro: Ficha não encontrada.</h2>
+        <button onClick={() => router.push('/fichas')} className="text-[#4ad9d9] hover:underline uppercase tracking-widest text-xs">Voltar ao Hub</button>
+      </div>
+    );
+  }
 
   const isOP = ficha.sistema_preset === 'ordem_paranormal';
   const noArrows = "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
   const inputClass = "bg-transparent text-[#f0ebd8] text-sm outline-none border-b border-[#2a3b52] focus:border-[#4ad9d9] hover:border-[#6b7b94] transition-colors p-1 w-full";
   const currentSys = PRESETS[ficha.sistema_preset as keyof typeof PRESETS] as any;
+  const containerClasses = "min-h-screen w-full bg-[#090e17] text-[#8b9bb4] relative pb-32 selection:bg-[#4ad9d9]/30 selection:text-white " + inter.className;
 
   return (
-    <main className={`min-h-screen w-full bg-[#090e17] text-[#8b9bb4] relative pb-32 ${inter.className} selection:bg-[#4ad9d9]/30 selection:text-white`}>
+    <main className={containerClasses}>
       
       {/* HEADER NAVBAR - TEMA AETHERQUEST */}
       <header className="bg-[#090e17]/90 backdrop-blur-sm border-b border-[#2a3b52] p-4 px-8 flex justify-between items-center sticky top-0 z-50">
@@ -242,4 +269,209 @@ export default function FichaPersonagemPage() {
                      <span className="text-sm font-bold pr-3 bg-[#050a10] text-[#4ad9d9]/70">%</span>
                    </div>
                  </div>
-                 <div className="flex flex-col items-center justify-center
+                 <div className="flex flex-col items-center justify-center">
+                   <div className="border border-[#2a3b52] bg-[#0a0f18] rounded-lg h-9 px-4 min-w-[110px] flex items-center justify-center font-bold text-[#f0ebd8] text-sm shadow-inner">
+                      <input type="text" value={ficha.dados.deslocamento || "9m / 6q"} onChange={(e) => atualizarFicha('deslocamento', e.target.value)} className="bg-transparent text-center outline-none w-full"/>
+                   </div>
+                   <span className="text-[8px] uppercase text-[#6b7b94] mt-1 font-bold tracking-widest">DESLOCAMENTO</span>
+                 </div>
+              </div>
+            </div>
+
+            {/* COLUNA DIREITA */}
+            <div className="xl:col-span-8 space-y-8">
+              
+              {/* BARRAS & DEFESAS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-[#131b26]/60 p-6 rounded-2xl border border-[#2a3b52] shadow-xl">
+                
+                <div className="space-y-5">
+                  {[
+                    { key: 'vida', label: 'VIDA', color: 'bg-red-600', fill: '#dc2626' },
+                    { key: 'sanidade', label: 'SANIDADE', color: 'bg-purple-600', fill: '#a855f7' }, 
+                    { key: 'estamina', label: 'ESFORÇO', color: 'bg-yellow-500', fill: '#eab308' } 
+                  ].map(s => {
+                    const stat = ficha.dados.status?.[s.key] || { atual: 10, max: 10 };
+                    const pct = Math.max(0, Math.min(100, (stat.atual / stat.max) * 100));
+                    
+                    return (
+                      <div key={s.key} className="flex items-center gap-4 group">
+                         <div className="w-24 text-right flex-shrink-0">
+                           <span className="text-[10px] font-black uppercase tracking-widest text-[#6b7b94]">{s.label}</span>
+                         </div>
+                         <div className="flex-1 flex border border-[#2a3b52] rounded bg-[#0a0f18] overflow-hidden h-11 shadow-inner relative">
+                           <button onClick={() => atualizarFicha(`status.${s.key}.atual`, Math.max(0, stat.atual - 1))} className="px-4 text-[#6b7b94] hover:text-[#f0ebd8] hover:bg-[#2a3b52] font-bold transition-colors z-20">-</button>
+                           <div className="flex-1 flex items-center justify-center relative">
+                              <div className="absolute top-0 left-0 h-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: s.fill, opacity: 0.8 }}></div>
+                              <div className="relative z-10 flex items-center font-black text-white text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
+                                <input type="number" value={stat.atual} onChange={(e) => atualizarFicha(`status.${s.key}.atual`, Math.max(0, Math.min(stat.max, parseInt(e.target.value)||0)))} className={`bg-transparent text-right w-11 outline-none ${noArrows}`} />
+                                <span className="opacity-80">/{stat.max}</span>
+                              </div>
+                           </div>
+                           <button onClick={() => atualizarFicha(`status.${s.key}.atual`, Math.min(stat.max, stat.atual + 1))} className="px-4 text-[#6b7b94] hover:text-[#f0ebd8] hover:bg-[#2a3b52] transition-colors z-20 font-bold">+</button>
+                         </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-6">
+                  <div className="flex items-end gap-6 justify-center md:justify-start pt-1">
+                    <div className="flex items-center gap-3 bg-[#0a0f18] p-2 pr-4 rounded-xl border border-[#2a3b52] shadow-inner">
+                      <div className="relative flex items-center justify-center w-14 h-16 bg-[#131b26] border border-[#4ad9d9]/30 rounded-lg shadow-inner">
+                        <Shield className="absolute text-[#4ad9d9] w-full h-full opacity-10 p-2" strokeWidth={1}/>
+                        <input type="number" value={ficha.dados.defesa?.passiva || 10} onChange={(e) => atualizarFicha('defesa.passiva', parseInt(e.target.value)||0)} className={`bg-transparent text-[#f0ebd8] font-black text-2xl text-center w-full z-10 outline-none relative -top-0.5 ${noArrows}`} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={`${cinzel.className} text-[14px] font-black text-[#4ad9d9] tracking-widest leading-none`}>DEFESA</span>
+                        <span className="text-[9px] text-[#6b7b94] font-mono mt-0.5">= 10 + AGI + Equip</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-black text-[#6b7b94] tracking-widest mb-1.5 uppercase">BLOQUEIO</span>
+                      <input type="number" value={ficha.dados.defesa?.bloqueio || 0} onChange={(e) => atualizarFicha('defesa.bloqueio', parseInt(e.target.value)||0)} className={`w-16 bg-[#0a0f18] border border-[#2a3b52] text-center text-[#f0ebd8] py-1.5 rounded-lg font-bold outline-none focus:border-[#4ad9d9] ${noArrows}`} />
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[10px] font-black text-[#6b7b94] tracking-widest mb-1.5 uppercase">ESQUIVA</span>
+                      <input type="number" value={ficha.dados.defesa?.esquiva || 0} onChange={(e) => atualizarFicha('defesa.esquiva', parseInt(e.target.value)||0)} className={`w-16 bg-[#0a0f18] border border-[#2a3b52] text-center text-[#f0ebd8] py-1.5 rounded-lg font-bold outline-none focus:border-[#4ad9d9] ${noArrows}`} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 bg-[#0a0f18]/50 p-3 rounded-lg border border-[#2a3b52]">
+                    {[ { label: 'PROTEÇÃO', caminho: 'protecao' }, { label: 'RESISTÊNCIAS', caminho: 'resistencias' } ].map(r => (
+                      <div key={r.label} className="flex items-end gap-3">
+                        <span className="text-[10px] font-black text-[#6b7b94] tracking-widest w-24 text-right mb-1">{r.label}</span>
+                        <input type="text" value={ficha.dados[r.caminho] || ''} onChange={(e) => atualizarFicha(r.caminho, e.target.value)} className="flex-1 bg-transparent border-b border-[#2a3b52] text-[#f0ebd8] text-xs outline-none focus:border-[#4ad9d9] p-1" placeholder="Nenhuma" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* MENU DE ABAS */}
+              <div className="border-b border-[#2a3b52] flex overflow-x-auto scrollbar-hide pt-1 bg-[#131b26]/50 rounded-t-xl">
+                {currentSys?.categorias_hab ? (
+                  currentSys.categorias_hab.map((cat:any) => (
+                    <button key={cat.id} onClick={() => setActiveTab(cat.id)} className={`px-7 py-3 text-[11px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === cat.id ? 'text-[#4ad9d9] border-b-2 border-[#4ad9d9] bg-[#4ad9d9]/10' : 'text-[#6b7b94] hover:text-[#f0ebd8] hover:bg-white/5'}`}>
+                      {cat.nome}
+                    </button>
+                  ))
+                ) : (
+                  ['pericias', 'comum', 'rituais', 'armas'].map(id => (
+                    <button key={id} onClick={() => setActiveTab(id)} className={`px-7 py-3 text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === id ? 'text-[#4ad9d9] border-b-2 border-[#4ad9d9] bg-[#4ad9d9]/10' : 'text-[#6b7b94] hover:text-[#f0ebd8]'}`}>{id}</button>
+                  ))
+                )}
+              </div>
+
+              <div className="py-2">
+                
+                {/* ABA 1: PERÍCIAS */}
+                {activeTab === 'pericias' && (
+                  <div className="bg-[#131b26]/60 border border-[#2a3b52] rounded-b-xl rounded-t-none p-6 shadow-xl">
+                    <div className="flex justify-between items-center border-b border-[#2a3b52] pb-3 mb-5 px-3">
+                      <span className="text-[11px] font-black text-[#6b7b94] w-1/3 uppercase tracking-widest">PERÍCIA</span>
+                      <div className="flex w-2/3 justify-between text-center items-center">
+                        <span className="text-[10px] font-black text-[#6b7b94] w-20 uppercase tracking-widest">ATR</span>
+                        <span className="text-[10px] font-black text-[#4ad9d9] w-20 uppercase tracking-widest">TOTAL</span>
+                        <span className="text-[10px] font-black text-[#6b7b94] w-20 uppercase tracking-widest">TREINO</span>
+                        <span className="text-[10px] font-black text-[#6b7b94] w-20 uppercase tracking-widest">OUTROS</span>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1 max-h-[500px] overflow-y-auto pr-2 scrollbar-aq">
+                      {PERICIAS_ORDEM.map(p => {
+                        const treinado = ficha.dados.pericias?.[p.nome]?.treino || 0;
+                        const outros = ficha.dados.pericias?.[p.nome]?.outros || 0;
+                        const atrVal = ficha.dados.atributos?.[p.atr] || 0;
+                        const total = treinado + outros;
+                        const isTrained = treinado > 0;
+
+                        return (
+                          <div key={p.nome} className={`flex justify-between items-center py-2 px-3 rounded-lg hover:bg-white/5 transition-colors ${isTrained ? 'text-[#f0ebd8]' : 'text-[#6b7b94]'}`}>
+                            <div className="w-1/3 flex items-center gap-2">
+                              <Zap size={14} className="text-[#2a3b52] hover:text-[#4ad9d9] cursor-pointer"/>
+                              <span className={`text-sm ${isTrained ? 'font-bold text-[#4ad9d9]' : 'font-medium'}`}>{p.nome}</span>
+                            </div>
+                            <div className="flex w-2/3 justify-between text-center items-center font-mono text-xs">
+                              <span className="w-20 text-[#6b7b94]">{atrVal} {p.atr.substring(0,3).toUpperCase()}</span>
+                              <span className={`w-20 font-black text-sm ${isTrained ? 'text-[#4ad9d9]' : 'text-[#6b7b94]'}`}>+{total}</span>
+                              <input type="number" value={treinado} onChange={(e) => atualizarFicha(`pericias.${p.nome}.treino`, parseInt(e.target.value)||0)} className={`w-20 bg-[#0a0f18] border border-[#2a3b52] rounded-md text-center py-1 outline-none focus:border-[#4ad9d9] focus:text-[#f0ebd8] ${isTrained ? 'text-[#4ad9d9]' : 'text-[#6b7b94]'} ${noArrows}`} />
+                              <input type="number" value={outros} onChange={(e) => atualizarFicha(`pericias.${p.nome}.outros`, parseInt(e.target.value)||0)} className={`w-20 bg-[#0a0f18] border border-[#2a3b52] rounded-md text-center py-1 outline-none focus:border-[#4ad9d9] focus:text-[#f0ebd8] ${isTrained ? 'text-[#4ad9d9]' : 'text-[#6b7b94]'} ${noArrows}`} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ABA: HABILIDADES, RITUAIS */}
+                {activeTab !== 'pericias' && activeTab !== 'armas' && (
+                  <div className="space-y-5">
+                     <div className="flex justify-between items-center bg-[#131b26]/50 p-3 rounded-lg border border-[#2a3b52]">
+                       <h4 className="text-[11px] font-black uppercase text-[#6b7b94] tracking-widest">
+                          {currentSys?.categorias_hab?.find((c:any) => c.id === activeTab)?.nome || 'Poderes'}
+                       </h4>
+                       <button onClick={() => setIsAddingSkill(!isAddingSkill)} className="bg-[#4ad9d9] text-[#090e17] px-5 py-2 rounded text-[10px] font-bold uppercase hover:bg-white transition-all shadow-[0_0_15px_rgba(74,217,217,0.2)]">Adicionar</button>
+                     </div>
+
+                     {isAddingSkill && (
+                       <div className="bg-[#0a0f18] border border-[#4ad9d9]/30 p-5 rounded-xl space-y-4 shadow-inner">
+                         <div className="flex items-center gap-2 mb-2">
+                           <span className="text-xs text-[#4ad9d9] font-bold uppercase">Preset do Livro:</span>
+                           <select onChange={(e) => {
+                               const habData = currentSys?.[activeTab]?.find((h: any) => h.nome === e.target.value);
+                               if (habData) setNewSkill({ nome: habData.nome, dado: habData.dado || "", desc: habData.desc || "" });
+                           }} className="bg-[#131b26] border border-[#2a3b52] text-[#f0ebd8] text-xs px-2 py-1 outline-none cursor-pointer rounded">
+                             <option value="">Digitar Manualmente...</option>
+                             {currentSys?.[activeTab]?.map((a:any) => <option key={a.nome} value={a.nome}>{a.nome}</option>)}
+                           </select>
+                         </div>
+                         <input type="text" placeholder="Nome" value={newSkill.nome} onChange={(e) => setNewSkill({...newSkill, nome: e.target.value})} className={inputClass} />
+                         <input type="text" placeholder="Custo / Dado" value={newSkill.dado} onChange={(e) => setNewSkill({...newSkill, dado: e.target.value})} className={inputClass} />
+                         <textarea placeholder="Descrição completa..." value={newSkill.desc} onChange={(e) => setNewSkill({...newSkill, desc: e.target.value})} className={`${inputClass} resize-none`} rows={3}/>
+                         <div className="flex justify-end gap-2 mt-2">
+                           <button onClick={() => setIsAddingSkill(false)} className="text-[#6b7b94] text-[10px] font-bold uppercase px-4 py-2 hover:text-[#f0ebd8]">Cancelar</button>
+                           <button onClick={adicionarHabilidade} className="bg-[#4ad9d9] text-[#090e17] py-2 rounded text-[10px] font-bold uppercase px-6 hover:bg-white transition-all">Guardar</button>
+                         </div>
+                       </div>
+                     )}
+
+                     <div className="space-y-4">
+                       {ficha.dados.habilidades?.filter((h:any) => h.cat === activeTab).map((h:any) => (
+                         <div key={h.id} className="bg-[#0a0f18] border border-[#1a2b4c] rounded-xl p-5 group relative hover:border-[#4ad9d9]/50 transition-colors shadow-md">
+                           <button onClick={() => atualizarFicha('habilidades', ficha.dados.habilidades.filter((x:any) => x.id !== h.id))} className="absolute top-4 right-4 text-[#2a3b52] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16}/></button>
+                           <div className="flex gap-4 items-end mb-3 border-b border-[#1a2b4c] pb-2">
+                             <h5 className={`${cinzel.className} font-black text-[#f0ebd8] text-xl tracking-tight`}>{h.nome}</h5>
+                             {h.dado && <span className="bg-[#131b26] border border-[#2a3b52] text-[#4ad9d9] px-3 py-1 rounded-full text-[10px] font-mono shadow-inner">{h.dado}</span>}
+                           </div>
+                           <p className="text-sm text-[#8b9bb4] whitespace-pre-wrap leading-relaxed pr-8 font-medium">{h.desc}</p>
+                         </div>
+                       ))}
+                       {ficha.dados.habilidades?.filter((h:any) => h.cat === activeTab).length === 0 && (
+                         <div className="text-center py-16 text-[#2a3b52] border border-[#1a2b4c] rounded-xl bg-[#0a0f18] font-bold uppercase tracking-widest text-xs">Vazio. Adiciona novas habilidades.</div>
+                       )}
+                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24 text-center bg-[#0a0f18] rounded-2xl border border-[#2a3b52]">
+             <span className="text-[#4ad9d9] font-black text-xl mb-3">Layout D&D 5e Ativo</span>
+             <span className="text-[#6b7b94] italic text-sm max-w-md">O sistema de D&D usa um layout simplificado em blocos. Mude o sistema no topo para "Ordem Paranormal" para ver o design completo C.R.I.S.</span>
+          </div>
+        )}
+      </div>
+
+      <style jsx global>{`
+        .scrollbar-aq::-webkit-scrollbar { width: 5px; }
+        .scrollbar-aq::-webkit-scrollbar-track { background: #0a0f18; border-radius: 10px; }
+        .scrollbar-aq::-webkit-scrollbar-thumb { background: #1a2b4c; border-radius: 10px; }
+        .scrollbar-aq::-webkit-scrollbar-thumb:hover { background: #4ad9d9; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+      `}</style>
+    </main>
+  );
+}
