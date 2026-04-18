@@ -46,7 +46,7 @@ function HPBar({
       </div>
       <div
         className="h-2 rounded-full overflow-hidden"
-        style={{ background: "#050a14", border: "1px solid #1e3a5f" }}
+        style={{ background: "#0a0f18", border: "1px solid #1a2b4c" }}
       >
         <div
           className="h-full rounded-full transition-all duration-500"
@@ -76,17 +76,17 @@ function DamageControl({
       {/* Spinner de valor */}
       <div
         className="flex items-center flex-1 rounded-lg overflow-hidden"
-        style={{ background: "#050a14", border: "1px solid #1e3a5f" }}
+        style={{ background: "#0a0f18", border: "1px solid #1a2b4c" }}
       >
         <button
           onClick={() => onChange(Math.max(1, value - 1))}
           className="px-2 py-2 transition-colors"
-          style={{ color: "#4a6a8a" }}
+          style={{ color: "#6b7b94" }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.color = "#4ad9d9")
           }
           onMouseLeave={(e) =>
-            (e.currentTarget.style.color = "#4a6a8a")
+            (e.currentTarget.style.color = "#6b7b94")
           }
         >
           <ChevronLeft size={12} />
@@ -102,12 +102,12 @@ function DamageControl({
         <button
           onClick={() => onChange(value + 1)}
           className="px-2 py-2 transition-colors"
-          style={{ color: "#4a6a8a" }}
+          style={{ color: "#6b7b94" }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.color = "#4ad9d9")
           }
           onMouseLeave={(e) =>
-            (e.currentTarget.style.color = "#4a6a8a")
+            (e.currentTarget.style.color = "#6b7b94")
           }
         >
           <ChevronRight size={12} />
@@ -279,16 +279,16 @@ export default function TokenPanel({
     <div
       className="fixed right-4 top-1/2 -translate-y-1/2 w-72 z-50 rounded-2xl overflow-hidden"
       style={{
-        background: "rgba(13, 27, 46, 0.97)",
+        background: "rgba(10, 15, 24, 0.97)",
         backdropFilter: "blur(16px)",
-        border: "1px solid #1e3a5f",
+        border: "1px solid #1a2b4c",
         boxShadow: "0 0 40px rgba(74, 217, 217, 0.06), 0 24px 64px rgba(0,0,0,0.6)",
       }}
     >
       {/* ── Header ── */}
       <div
         className="flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: "1px solid #1e3a5f", background: "rgba(5,10,20,0.6)" }}
+        style={{ borderBottom: "1px solid #1a2b4c", background: "rgba(5,10,16,0.72)" }}
       >
         <div className="flex items-center gap-2">
           <div
@@ -305,9 +305,9 @@ export default function TokenPanel({
         <button
           onClick={onClose}
           className="transition-colors"
-          style={{ color: "#4a6a8a" }}
+          style={{ color: "#6b7b94" }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "#4ad9d9")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#4a6a8a")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
         >
           <X size={14} />
         </button>
@@ -319,7 +319,7 @@ export default function TokenPanel({
         <div>
           <p
             className="text-[9px] uppercase tracking-widest font-black mb-1"
-            style={{ color: "#4a6a8a" }}
+            style={{ color: "#6b7b94" }}
           >
             Nome
           </p>
@@ -349,7 +349,7 @@ export default function TokenPanel({
                 <div>
                   <p
                     className="text-[9px] uppercase tracking-wider"
-                    style={{ color: "#4a7a9a" }}
+                    style={{ color: "#8b9bb4" }}
                   >
                     Ficha vinculada
                   </p>
@@ -358,7 +358,7 @@ export default function TokenPanel({
                   </p>
                   <p
                     className="text-[9px] uppercase tracking-wider"
-                    style={{ color: "#4a6a8a" }}
+                    style={{ color: "#6b7b94" }}
                   >
                     {fichaData.sistema_preset?.replace("_", " ")}
                   </p>
@@ -369,9 +369,9 @@ export default function TokenPanel({
                 disabled={loading}
                 title="Desvincular ficha"
                 className="transition-colors disabled:opacity-40"
-                style={{ color: "#4a6a8a" }}
+                style={{ color: "#6b7b94" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#4a6a8a")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
               >
                 <LinkOff size={14} />
               </button>
@@ -398,13 +398,13 @@ export default function TokenPanel({
             </div>
 
             {/* Separador */}
-            <div style={{ borderTop: "1px solid #1e3a5f" }} />
+            <div style={{ borderTop: "1px solid #1a2b4c" }} />
 
             {/* Controles de dano/cura */}
             <div>
               <p
                 className="text-[9px] uppercase tracking-widest font-black mb-2"
-                style={{ color: "#4a6a8a" }}
+                style={{ color: "#6b7b94" }}
               >
                 <Swords size={9} className="inline mr-1" />
                 Efeito de Combate
@@ -423,17 +423,17 @@ export default function TokenPanel({
           <div className="text-center py-5">
             <div
               className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
-              style={{ background: "rgba(30,58,95,0.4)", border: "1px solid #1e3a5f" }}
+              style={{ background: "rgba(26,43,76,0.34)", border: "1px solid #1a2b4c" }}
             >
-              <Link2 size={20} style={{ color: "#2a4a6a" }} />
+              <Link2 size={20} style={{ color: "#6b7b94" }} />
             </div>
             <p
               className="text-[10px] uppercase tracking-widest mb-1 font-black"
-              style={{ color: "#2a4a6a" }}
+              style={{ color: "#8b9bb4" }}
             >
               Token burro
             </p>
-            <p className="text-[10px] mb-4" style={{ color: "#3a5a7a" }}>
+            <p className="text-[10px] mb-4" style={{ color: "#6b7b94" }}>
               Vincule uma ficha para ativar<br />HP bar e sincronização Realtime.
             </p>
             <button
@@ -464,7 +464,7 @@ export default function TokenPanel({
           <div className="space-y-2">
             <div
               className="flex items-center justify-between pb-2"
-              style={{ borderBottom: "1px solid #1e3a5f" }}
+              style={{ borderBottom: "1px solid #1a2b4c" }}
             >
               <span
                 className="text-[9px] uppercase tracking-widest font-black"
@@ -474,9 +474,9 @@ export default function TokenPanel({
               </span>
               <button
                 onClick={() => setShowVincular(false)}
-                style={{ color: "#4a6a8a" }}
+                style={{ color: "#6b7b94" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#e2e8f0")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#4a6a8a")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
               >
                 <X size={12} />
               </button>
@@ -484,12 +484,12 @@ export default function TokenPanel({
 
             <div
               className="max-h-44 overflow-y-auto space-y-1 pr-0.5"
-              style={{ scrollbarWidth: "thin", scrollbarColor: "#1e3a5f transparent" }}
+              style={{ scrollbarWidth: "thin", scrollbarColor: "#1a2b4c transparent" }}
             >
               {fichasList.length === 0 ? (
                 <p
                   className="text-[10px] text-center py-4 uppercase tracking-widest"
-                  style={{ color: "#2a4a6a" }}
+                  style={{ color: "#6b7b94" }}
                 >
                   Nenhuma ficha encontrada
                 </p>
@@ -501,8 +501,8 @@ export default function TokenPanel({
                     disabled={loading}
                     className="w-full text-left rounded-lg px-3 py-2.5 transition-all disabled:opacity-40 group"
                     style={{
-                      background: "rgba(5,10,20,0.8)",
-                      border: "1px solid #1e3a5f",
+                      background: "rgba(5,10,16,0.8)",
+                      border: "1px solid #1a2b4c",
                     }}
                     onMouseEnter={(e) => {
                       (e.currentTarget as HTMLElement).style.background =
@@ -512,15 +512,15 @@ export default function TokenPanel({
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLElement).style.background =
-                        "rgba(5,10,20,0.8)";
+                        "rgba(5,10,16,0.8)";
                       (e.currentTarget as HTMLElement).style.borderColor =
-                        "#1e3a5f";
+                        "#1a2b4c";
                     }}
                   >
                     <p className="text-[11px] font-bold text-white">{f.nome_personagem}</p>
                     <p
                       className="text-[9px] uppercase tracking-wider mt-0.5"
-                      style={{ color: "#4a6a8a" }}
+                      style={{ color: "#6b7b94" }}
                     >
                       {f.sistema_preset?.replace("_", " ")}
                     </p>
@@ -535,11 +535,11 @@ export default function TokenPanel({
       {/* ── Footer ── */}
       <div
         className="px-4 py-2.5"
-        style={{ borderTop: "1px solid #1e3a5f", background: "rgba(5,10,20,0.6)" }}
+        style={{ borderTop: "1px solid #1a2b4c", background: "rgba(5,10,16,0.72)" }}
       >
         <p
           className="text-[8px] text-center uppercase tracking-widest"
-          style={{ color: "#1e3a5f" }}
+          style={{ color: "#41556f" }}
         >
           ⚡ Supabase Realtime · Sync bidirecional
         </p>
