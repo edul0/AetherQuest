@@ -184,7 +184,7 @@ function buildAutomaticData(ficha: any, sistema: any) {
       bloqueio,
       esquiva
     },
-    deslocamento: raca?.deslocamento ?? ficha?.dados?.deslocamento ?? "9m"
+    deslocamento: ficha?.dados?.deslocamento ?? raca?.deslocamento ?? "9m"
   };
 }
 
@@ -303,6 +303,15 @@ function StatBar({
           +
         </button>
       </div>
+    </div>
+  );
+}
+
+function CalcPill({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.6)] px-4 py-3">
+      <div className="aq-kicker">{label}</div>
+      <div className="mt-2 text-lg font-black text-[var(--aq-title)]">{value}</div>
     </div>
   );
 }
@@ -551,6 +560,20 @@ export default function FichaPersonagemPage() {
     }
   };
 
+  const apagarFicha = async () => {
+    if (!id) return;
+    const confirmed = window.confirm("Tem certeza que deseja apagar esta ficha?");
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase.from("fichas").delete().eq("id", id);
+      if (error) throw error;
+      router.push("/fichas");
+    } catch (error: any) {
+      alert(`Falha ao apagar ficha: ${error.message}`);
+    }
+  };
+
   if (!id || id === "undefined") {
     return <div className="aq-page flex items-center justify-center"><div className="aq-panel px-8 py-10 text-center text-red-400">ID invalido na URL.</div></div>;
   }
@@ -592,9 +615,18 @@ export default function FichaPersonagemPage() {
             <ArrowLeft size={14} />
             Voltar
           </button>
-          <button onClick={salvarFicha} disabled={saving} className="aq-button-primary disabled:opacity-60">
-            {saving ? "Sincronizando..." : "Sincronizar"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={apagarFicha}
+              className="rounded-full border border-red-500/40 bg-[rgba(127,29,29,0.25)] px-5 py-3 text-xs font-black uppercase tracking-[0.24em] text-red-300 transition-colors hover:bg-[rgba(127,29,29,0.4)] hover:text-white"
+            >
+              <Trash2 size={14} className="mr-2 inline" />
+              Apagar
+            </button>
+            <button onClick={salvarFicha} disabled={saving} className="aq-button-primary disabled:opacity-60">
+              {saving ? "Sincronizando..." : "Sincronizar"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -718,7 +750,11 @@ export default function FichaPersonagemPage() {
               </div>
               <div>
                 <div className="aq-kicker">Deslocamento</div>
-                <input value={ficha.dados.deslocamento ?? "9m"} readOnly className="aq-input mt-2 opacity-80" />
+                <input
+                  value={ficha.dados.deslocamento ?? "9m"}
+                  onChange={(e) => setFichaValue("deslocamento", e.target.value)}
+                  className="aq-input mt-2"
+                />
               </div>
             </div>
 
@@ -795,6 +831,21 @@ export default function FichaPersonagemPage() {
                 onChange={(e) => setFichaValue("defesa.esquiva_bonus", parseInt(e.target.value, 10) || 0)}
                 className="aq-input mt-2"
               />
+            </div>
+          </div>
+
+          <div className="aq-panel space-y-4 p-5">
+            <div className="aq-kicker">Calculos da Ficha</div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <CalcPill label="Atributos Finais" value={`FOR ${derived.attrs.forca} | AGI ${derived.attrs.agilidade} | VIG ${derived.attrs.vigor} | INT ${derived.attrs.intelecto} | PRE ${derived.attrs.presenca}`} />
+              <CalcPill label="Defesa" value={`10 + AGI ${derived.attrs.agilidade} + bonus ${ficha.dados.defesa.bonus ?? 0} = ${ficha.dados.defesa.passiva}`} />
+              <CalcPill label="Bloqueio" value={`VIG ${derived.attrs.vigor} + FOR ${derived.attrs.forca} + bonus ${ficha.dados.defesa.bloqueio_bonus ?? 0} = ${ficha.dados.defesa.bloqueio}`} />
+              <CalcPill label="Esquiva" value={`AGI ${derived.attrs.agilidade} + bonus ${ficha.dados.defesa.esquiva_bonus ?? 0} = ${ficha.dados.defesa.esquiva}`} />
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <CalcPill label="Vida Max" value={ficha.dados.status.vida.max} />
+              <CalcPill label={labels.recurso} value={ficha.dados.status.pe.max} />
+              <CalcPill label="Sanidade Max" value={ficha.dados.status.sanidade.max} />
             </div>
           </div>
 
@@ -1062,5 +1113,4 @@ export default function FichaPersonagemPage() {
       ) : null}
     </main>
   );
-  
 }
