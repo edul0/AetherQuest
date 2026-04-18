@@ -1,92 +1,188 @@
 "use client";
-import React, { useState } from 'react';
-import { Cinzel, Inter } from 'next/font/google';
-import { supabase } from '../../src/lib/supabase';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Cinzel } from "next/font/google";
+import { supabase } from "../src/lib/supabase";
+import { Swords, Shield, Scroll, ChevronRight, Sparkles } from "lucide-react";
 
-const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
-const inter = Inter({ subsets: ['latin'], weight: ['400', '600'] });
+const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 
-export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [loading, setLoading] = useState(false);
+export default function LandingPage() {
   const router = useRouter();
+  const [checking, setChecking] = useState(true);
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    if (isRegistering) {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      if (error) alert("Erro no registro: " + error.message);
-      else alert("Registro concluído! Você já pode entrar.");
-    } else {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
-        alert("Erro no login: " + error.message);
+  // Se já tiver sessão ativa, manda direto pro hub de fichas
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.replace("/fichas");
       } else {
-        router.push('/');
+        setChecking(false);
       }
-    }
-    setLoading(false);
-  };
+    };
+    checkSession();
+  }, [router]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#050a14] flex items-center justify-center">
+        <span
+          className="text-[11px] uppercase tracking-[0.4em] animate-pulse"
+          style={{ color: "#4ad9d9", fontFamily: "monospace" }}
+        >
+          Verificando sessão...
+        </span>
+      </div>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-[#090e17] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute inset-0 z-0 opacity-30 pointer-events-none flex items-center justify-center">
-        <div className="w-[50%] h-[50%] bg-[#1a2b4c] rounded-full blur-[150px]" />
+    <main
+      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
+      style={{ background: "#050a14" }}
+    >
+      {/* ── Fundo atmosférico ── */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
+      >
+        {/* Gradiente central */}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-[0.04]"
+          style={{ background: "radial-gradient(circle, #4ad9d9 0%, transparent 70%)" }}
+        />
+        {/* Grade decorativa */}
+        <svg
+          className="absolute inset-0 w-full h-full opacity-[0.03]"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#4ad9d9" strokeWidth="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+        </svg>
+        {/* Linha horizontal central */}
+        <div
+          className="absolute left-0 right-0 h-px opacity-10"
+          style={{ top: "50%", background: "linear-gradient(90deg, transparent, #4ad9d9, transparent)" }}
+        />
       </div>
 
-      <div className="z-10 bg-[#131b26]/80 backdrop-blur-md p-10 rounded-2xl border border-[#2a3b52] shadow-2xl w-full max-w-sm text-center">
-        <h1 className={`${cinzel.className} text-[#f0ebd8] text-3xl font-black tracking-widest mb-2`}>
-          AETHER<span className="text-[#4ad9d9] font-light">QUEST</span>
+      {/* ── Conteúdo principal ── */}
+      <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-2xl">
+
+        {/* Badge superior */}
+        <div
+          className="flex items-center gap-2 px-3 py-1 rounded-full mb-10"
+          style={{
+            background: "rgba(74,217,217,0.05)",
+            border: "1px solid rgba(74,217,217,0.15)",
+          }}
+        >
+          <Sparkles size={10} style={{ color: "#4ad9d9" }} />
+          <span
+            className="text-[9px] uppercase tracking-[0.3em] font-black"
+            style={{ color: "#4ad9d9" }}
+          >
+            Virtual Tabletop · RPG
+          </span>
+        </div>
+
+        {/* Logo / Título */}
+        <h1
+          className={`${cinzel.className} text-6xl md:text-8xl font-black mb-4 leading-none`}
+          style={{
+            color: "#e8f4fd",
+            textShadow: "0 0 60px rgba(74,217,217,0.12)",
+            letterSpacing: "0.05em",
+          }}
+        >
+          AETHER
+          <br />
+          <span style={{ color: "#4ad9d9" }}>QUEST</span>
         </h1>
-        <p className={`${inter.className} text-[#8b9bb4] text-sm mb-8`}>
-          {isRegistering ? "Registre-se para a jornada." : "Identifique-se, viajante."}
+
+        {/* Linha decorativa */}
+        <div
+          className="w-24 h-px my-6"
+          style={{ background: "linear-gradient(90deg, transparent, #4ad9d9, transparent)" }}
+        />
+
+        {/* Subtítulo */}
+        <p
+          className="text-sm md:text-base leading-relaxed mb-12 max-w-md"
+          style={{ color: "#4a7a9a", fontFamily: "monospace" }}
+        >
+          Fichas inteligentes. Mesas sincronizadas.
+          <br />
+          Aventuras que não param na tela.
         </p>
 
-        <form onSubmit={handleAuth} className="flex flex-col gap-4">
-          <input
-            type="email"
-            placeholder="E-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className={`${inter.className} bg-[#0a0f18] border border-[#2a3b52] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-[#4ad9d9] transition-colors`}
-          />
-          <input
-            type="password"
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className={`${inter.className} bg-[#0a0f18] border border-[#2a3b52] text-white px-4 py-3 rounded-lg focus:outline-none focus:border-[#4ad9d9] transition-colors`}
-          />
-          
-          <button 
-            type="submit"
-            disabled={loading}
-            className={`${inter.className} w-full mt-4 bg-gradient-to-r from-[#218b8b] to-[#1a6666] hover:from-[#2aabab] hover:to-[#218b8b] text-white font-semibold py-3 rounded-lg transition-all shadow-[0_0_15px_rgba(33,139,139,0.3)] tracking-widest text-sm uppercase disabled:opacity-50`}
+        {/* ── CTAs ── */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          {/* Botão principal: Entrar */}
+          <button
+            onClick={() => router.push("/login")}
+            className="group flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-sm uppercase tracking-widest transition-all duration-200"
+            style={{
+              background: "#4ad9d9",
+              color: "#050a14",
+              boxShadow: "0 0 24px rgba(74,217,217,0.25)",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.boxShadow =
+                "0 0 40px rgba(74,217,217,0.45)";
+              (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.boxShadow =
+                "0 0 24px rgba(74,217,217,0.25)";
+              (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
+            }}
           >
-            {loading ? 'Aguarde...' : (isRegistering ? 'Registrar' : 'Entrar')}
+            Entrar na Mesa
+            <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
-        </form>
+        </div>
 
-        <button 
-          type="button"
-          onClick={() => setIsRegistering(!isRegistering)}
-          className={`${inter.className} w-full mt-6 text-[#4ad9d9] text-xs hover:text-white transition-colors underline`}
+        {/* ── Feature pills ── */}
+        <div className="flex flex-wrap justify-center gap-3 mt-16">
+          {[
+            { icon: Scroll, label: "Fichas Dinâmicas" },
+            { icon: Shield, label: "Ordem Paranormal" },
+            { icon: Swords, label: "D&D 5e" },
+          ].map(({ icon: Icon, label }) => (
+            <div
+              key={label}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{
+                background: "rgba(13,27,46,0.8)",
+                border: "1px solid #1e3a5f",
+              }}
+            >
+              <Icon size={11} style={{ color: "#4ad9d9" }} />
+              <span
+                className="text-[10px] font-black uppercase tracking-widest"
+                style={{ color: "#4a7a9a" }}
+              >
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Rodapé ── */}
+      <div className="absolute bottom-6 left-0 right-0 text-center">
+        <p
+          className="text-[9px] uppercase tracking-[0.3em]"
+          style={{ color: "#1e3a5f" }}
         >
-          {isRegistering ? 'Já possui conta? Entre aqui.' : 'Novo no reino? Registre-se.'}
-        </button>
+          AetherQuest · Powered by Supabase & Next.js
+        </p>
       </div>
     </main>
   );
