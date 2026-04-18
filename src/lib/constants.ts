@@ -1,5 +1,5 @@
 import { ORDEM_PARANORMAL } from "./data/ordem";
-import { ChoiceOption, SystemPreset } from "./types";
+import { CatalogEntry, ChoiceOption, SystemPreset } from "./types";
 
 const ORDEM_CLASSES: ChoiceOption[] = [
   {
@@ -85,22 +85,22 @@ const ORDEM_RACES: ChoiceOption[] = [
   },
 ];
 
-const ORDEM_MELHORIAS = [
-  "Calibre grosso",
-  "Cruel",
-  "Certeira",
-  "Tatica",
-  "Reforcada",
-  "Silenciada",
+const ORDEM_MELHORIAS: CatalogEntry[] = [
+  { nome: "Calibre grosso", desc: "Aumenta o impacto do disparo e torna a arma mais destrutiva." },
+  { nome: "Cruel", desc: "Focada em finalizacao e agressividade, favorece dano bruto." },
+  { nome: "Certeira", desc: "Ajustada para precisao e constancia em ataques." },
+  { nome: "Tatica", desc: "Adaptada para manobras e uso inteligente em combate." },
+  { nome: "Reforcada", desc: "Estrutura robusta para suportar pancada, desgaste e recuo." },
+  { nome: "Silenciada", desc: "Reduz ruido e assinatura da arma em cena tensa." },
 ];
 
-const ORDEM_MALDICOES = [
-  "Sangrenta",
-  "Energetica",
-  "Sombria",
-  "Ritualistica",
-  "Repulsora",
-  "Lancinante",
+const ORDEM_MALDICOES: CatalogEntry[] = [
+  { nome: "Sangrenta", desc: "A arma drena violencia da cena e responde melhor a ferimentos." },
+  { nome: "Energetica", desc: "Canaliza energia instavel e pode explodir em impacto." },
+  { nome: "Sombria", desc: "Carrega um eco escuro que favorece emboscada e medo." },
+  { nome: "Ritualistica", desc: "Serve melhor como foco para efeitos rituais e interacoes ocultas." },
+  { nome: "Repulsora", desc: "Empurra, desestabiliza ou afasta alvos no contato." },
+  { nome: "Lancinante", desc: "Amplifica perfuracao e dano persistente em ataques bem colocados." },
 ];
 
 const DND5E: SystemPreset = {
@@ -270,8 +270,19 @@ const DND5E: SystemPreset = {
     { id: 3, nome: "Adaga", tipo: "Simples", habilidade: "agilidade", dano: "1d4", critico: "19-20", alcance: "Curto", categoria: 0, desc: "Leve e facil de esconder." },
     { id: 4, nome: "Cajado Arcano", tipo: "Arcano", habilidade: "intelecto", dano: "1d6", critico: "20", alcance: "Adjacente", categoria: 0, desc: "Canaliza energia magica." },
   ],
-  melhoriasCatalogo: ["Obra-prima", "Prateada", "Foco arcano", "Mira precisa", "Empunhadura reforcada"],
-  maldicoesCatalogo: ["Amaldicoada", "Vorpal fragmentada", "Sombria", "Raio crepitante"],
+  melhoriasCatalogo: [
+    { nome: "Obra-prima", desc: "Acabamento superior, mais confiavel e elegante em uso." },
+    { nome: "Prateada", desc: "Tratamento especial para enfrentar alvos sobrenaturais ou malditos." },
+    { nome: "Foco arcano", desc: "Melhora a canalizacao magica e a estabilidade de feitiços." },
+    { nome: "Mira precisa", desc: "Favorece ataques de longa distancia e disparos calculados." },
+    { nome: "Empunhadura reforcada", desc: "Seguranca e controle extra em golpes e recuo." },
+  ],
+  maldicoesCatalogo: [
+    { nome: "Amaldicoada", desc: "A arma carrega um efeito sombrio de origem desconhecida." },
+    { nome: "Vorpal fragmentada", desc: "Rasga pontos criticos com violencia anormal." },
+    { nome: "Sombria", desc: "Absorve luz e parece mais perigosa em ambientes escuros." },
+    { nome: "Raio crepitante", desc: "Solta descargas instaveis durante o uso." },
+  ],
   resourceLabels: {
     vida: "Vida",
     pe: "Recurso",
