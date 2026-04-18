@@ -2,12 +2,13 @@
 
 import React, { useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { CatalogEntry } from "../../lib/types";
 
 type WeaponModsEditorProps = {
   melhoriaValue: string;
   maldicaoValue: string;
-  melhoriaOptions: string[];
-  maldicaoOptions: string[];
+  melhoriaOptions: CatalogEntry[];
+  maldicaoOptions: CatalogEntry[];
   onChange: (field: "melhorias" | "maldicoes", value: string) => void;
 };
 
@@ -39,9 +40,11 @@ export default function WeaponModsEditor({
   onChange,
 }: WeaponModsEditorProps) {
   const [activePanel, setActivePanel] = useState<"melhorias" | "maldicoes">("melhorias");
+  const [selectedEntryName, setSelectedEntryName] = useState<string>("");
   const activeValue = activePanel === "melhorias" ? melhoriaValue : maldicaoValue;
   const activeOptions = activePanel === "melhorias" ? melhoriaOptions : maldicaoOptions;
   const activeTokens = useMemo(() => tokenListFromBlock(activeValue), [activeValue]);
+  const selectedEntry = activeOptions.find((entry) => entry.nome === selectedEntryName) ?? activeOptions[0] ?? null;
 
   return (
     <div className="rounded-3xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-4">
@@ -80,19 +83,36 @@ export default function WeaponModsEditor({
       <div className="mt-4 flex flex-wrap gap-2">
         {activeOptions.map((entry) => (
           <button
-            key={`${activePanel}-${entry}`}
-            onClick={() =>
-              onChange(
-                activePanel,
-                appendLineBlock(activePanel === "melhorias" ? melhoriaValue : maldicaoValue, entry),
-              )
-            }
-            className="aq-button-secondary !px-3 !py-2"
+            key={`${activePanel}-${entry.nome}`}
+            onClick={() => setSelectedEntryName(entry.nome)}
+            className={`aq-button-secondary !px-3 !py-2 ${selectedEntry?.nome === entry.nome ? "!border-[var(--aq-border-strong)] !text-[var(--aq-accent)]" : ""}`}
           >
-            {entry}
+            {entry.nome}
           </button>
         ))}
       </div>
+
+      {selectedEntry ? (
+        <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-black uppercase tracking-[0.18em] text-[var(--aq-title)]">{selectedEntry.nome}</div>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--aq-text)]">{selectedEntry.desc}</p>
+            </div>
+            <button
+              onClick={() =>
+                onChange(
+                  activePanel,
+                  appendLineBlock(activePanel === "melhorias" ? melhoriaValue : maldicaoValue, selectedEntry.nome),
+                )
+              }
+              className="aq-button-primary"
+            >
+              Adicionar efeito
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-4 grid gap-4 xl:grid-cols-2">
         <div>
