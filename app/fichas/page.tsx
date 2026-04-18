@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-// Caminho correto para o Hub (volta 2 casas)
 import { supabase } from '../../src/lib/supabase';
 import { Cinzel, Inter } from 'next/font/google';
 import { Plus, Shield, Swords } from 'lucide-react';
@@ -19,28 +18,44 @@ export default function FichasHubPage() {
   }, []);
 
   const carregarFichas = async () => {
-    const { data } = await supabase.from('fichas').select('id, nome_personagem, sistema_preset, dados');
-    if (data) setFichas(data);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.from('fichas').select('id, nome_personagem, sistema_preset, dados');
+      if (error) throw error;
+      if (data) setFichas(data);
+    } catch (err: any) {
+      console.error("Erro ao carregar fichas:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const criarNovaFicha = async () => {
-    const novaFicha = {
-      nome_personagem: "Novo Personagem",
-      sistema_preset: "ordem_paranormal",
-      dados: {
-        nex: 5,
-        atributos: { forca: 1, agilidade: 1, vigor: 1, intelecto: 1, presenca: 1 },
-        status: {
-          vida: { atual: 10, max: 10 },
-          sanidade: { atual: 10, max: 10 },
-          estamina: { atual: 10, max: 10 }
+    try {
+      const novaFicha = {
+        nome_personagem: "Novo Personagem",
+        sistema_preset: "ordem_paranormal",
+        dados: {
+          nex: 5,
+          atributos: { forca: 1, agilidade: 1, vigor: 1, intelecto: 1, presenca: 1 },
+          status: {
+            vida: { atual: 10, max: 10 },
+            sanidade: { atual: 10, max: 10 },
+            estamina: { atual: 10, max: 10 }
+          }
         }
-      }
-    };
+      };
 
-    const { data } = await supabase.from('fichas').insert([novaFicha]).select().single();
-    if (data) router.push(`/fichas/${data.id}`);
+      const { data, error } = await supabase.from('fichas').insert([novaFicha]).select().single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        router.push(`/fichas/${data.id}`);
+      }
+    } catch (err: any) {
+      console.error("Erro ao criar ficha:", err);
+      alert(`❌ ERRO NO BANCO DE DADOS:\n${err.message}\n\n(Se o erro falar sobre "Row Level Security", vá no painel do Supabase, clique em Authentication -> Policies e desative o RLS da tabela 'fichas' para testes).`);
+    }
   };
 
   if (loading) {
