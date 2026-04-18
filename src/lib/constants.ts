@@ -1,18 +1,28 @@
-import { ORDEM_PARANORMAL } from './data/ordem';
-import { SystemPreset } from './types';
+import { DND5E } from "./data/dnd5e";
+import { ORDEM_PARANORMAL } from "./data/ordem";
+import { SystemPreset } from "./types";
 
 export const PRESETS: Record<string, SystemPreset> = {
-  ordem_paranormal: ORDEM_PARANORMAL as any,
-  dnd5e: {
-    origens: [{ nome: "Herói do Povo", poder: "Acolhimento Rústico", proficiencias: ["Sobrevivência"] }],
-    classes: ["Bárbaro", "Guerreiro", "Mago"],
-    categorias_hab: [ { id: 'comum', nome: 'Características' }, { id: 'magias', nome: 'Magias' }, { id: 'armas', nome: 'Inventário' } ],
-    armas: [ { id: 1, nome: "Espada Longa", tipo: "Marcial", habilidade: "Força", dano: "1d8", critico: "20", alcance: "1,5m", categoria: 0, desc: "Espada de lâmina reta." } ]
+  ordem_paranormal: {
+    ...ORDEM_PARANORMAL,
+    classes: [
+      { nome: "Combatente", vidaBase: 18, recursoBase: 8, sanidadeBase: 10, defesaBonus: 1, bloqueioBonus: 2, esquivaBonus: 0, habilidades: ["Ataque Especial"], proficiencias: ["Luta", "Fortitude"] },
+      { nome: "Especialista", vidaBase: 15, recursoBase: 10, sanidadeBase: 12, defesaBonus: 0, bloqueioBonus: 0, esquivaBonus: 1, habilidades: ["Perito"], proficiencias: ["Investigacao", "Tecnologia"] },
+      { nome: "Ocultista", vidaBase: 12, recursoBase: 12, sanidadeBase: 14, defesaBonus: 0, bloqueioBonus: 0, esquivaBonus: 0, habilidades: ["Escolhido pelo Outro Lado"], proficiencias: ["Ocultismo", "Vontade"] }
+    ],
+    racas: [
+      { nome: "Humano", poder: "Adaptavel e pronto para qualquer missao.", proficiencias: ["Percepcao"], atributos: { presenca: 1 }, deslocamento: "9m" },
+      { nome: "Marcado", poder: "Ligacao com o paranormal e sensibilidade a rituais.", proficiencias: ["Ocultismo"], atributos: { presenca: 1, intelecto: 1 }, deslocamento: "9m" },
+      { nome: "Veterano", poder: "Treinamento bruto e resistencia de campo.", proficiencias: ["Fortitude"], atributos: { vigor: 1, forca: 1 }, deslocamento: "9m" },
+      { nome: "Experimento Paranormal", poder: "Corpo alterado e dons anormais.", proficiencias: ["Reflexos"], atributos: { agilidade: 1, vigor: 1 }, deslocamento: "10,5m" }
+    ]
   } as any,
+  dnd5e: DND5E as any,
   memorias_postumas: {
     origens: [{ nome: "Sobrevivente", poder: "Instinto", proficiencias: [] }],
-    classes: ["Vanguarda", "Suporte"],
-    categorias_hab: [ { id: 'comum', nome: 'Habilidades Base' } ],
+    classes: [{ nome: "Vanguarda" }, { nome: "Suporte" }],
+    racas: [{ nome: "Eco" }],
+    categorias_hab: [{ id: "comum", nome: "Habilidades Base" }],
     armas: []
   } as any
 };
