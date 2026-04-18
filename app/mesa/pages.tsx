@@ -14,14 +14,14 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { supabase } from "../../src/lib/supabase";
-import { FichaVTTSnapshot, Token } from "../../src/lib/types";
-import Chat from "../../src/components/vtt/Chat";
-import SceneNav from "../../src/components/vtt/SceneNav";
-import TokenPanel from "../../src/components/vtt/Tokenpanel";
-import VTTControls from "../../src/components/vtt/VTTControls";
+import { supabase } from "@/src/lib/supabase";
+import { FichaVTTSnapshot, Token } from "@/src/lib/types";
+import Chat from "@/src/components/vtt/Chat";
+import SceneNav from "@/src/components/vtt/SceneNav";
+import TokenPanel from "@/src/components/vtt/Tokenpanel";
+import VTTControls from "@/src/components/vtt/VTTControls";
 
-const VTTCanvas = dynamic(() => import("../../src/components/vtt/VTTCanvas"), {
+const VTTCanvas = dynamic(() => import("@/src/components/vtt/VTTCanvas"), {
   ssr: false,
   loading: () => (
     <div className="fixed inset-0 flex items-center justify-center bg-[#050a10]">
