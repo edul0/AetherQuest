@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '../../../src/lib/supabase';
+import { supabase } from '../../src/lib/supabase';
 import { Cinzel, Inter } from 'next/font/google';
 import { Camera, Plus, ArrowLeft, Trash2, Minus, Shield, Zap } from 'lucide-react';
 import { PRESETS } from '../../../src/lib/constants';
