@@ -83,10 +83,10 @@ body {
   justify-content: center;
   gap: 0.55rem;
   border-radius: 9999px;
-  padding: 0.8rem 1.2rem;
-  font-size: 0.72rem;
+  padding: 0.68rem 1rem;
+  font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   transition:
     transform 140ms ease,
@@ -101,6 +101,13 @@ body {
   background: linear-gradient(135deg, rgba(74, 217, 217, 0.92), rgba(30, 107, 107, 0.9));
   color: #021317;
   box-shadow: 0 0 24px rgba(74, 217, 217, 0.2);
+}
+
+.aq-button-compact {
+  gap: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
 }
 
 .aq-button-primary:hover {
