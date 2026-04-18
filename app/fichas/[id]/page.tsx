@@ -6,6 +6,7 @@ import { Cinzel, Inter } from "next/font/google";
 import {
   ArrowLeft,
   Camera,
+  Dice5,
   Dices,
   Plus,
   Search,
@@ -19,6 +20,7 @@ import { supabase } from "../../../src/lib/supabase";
 import { AttributeDefinition, AttributeMap, ChoiceOption, Skill, SystemPreset } from "../../../src/lib/types";
 import IdentityBriefing from "../../../src/components/ficha/IdentityBriefing";
 import WeaponModsEditor from "../../../src/components/ficha/WeaponModsEditor";
+import ChoiceLibrary from "../../../src/components/ficha/ChoiceLibrary";
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -59,6 +61,24 @@ type ModalType = "habilidades" | "armas" | null;
 
 function uid() {
   return Date.now() + Math.floor(Math.random() * 1000);
+}
+
+function rollDiceExpression(formula: string) {
+  const matches = Array.from(formula.matchAll(/(\d+)d(\d+)/gi));
+  const rolls: number[] = [];
+
+  matches.forEach((match) => {
+    const count = Number(match[1] ?? 0);
+    const sides = Number(match[2] ?? 0);
+    for (let index = 0; index < count; index += 1) {
+      rolls.push(Math.floor(Math.random() * sides) + 1);
+    }
+  });
+
+  return {
+    total: rolls.reduce((sum, value) => sum + value, 0),
+    rolls,
+  };
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -443,6 +463,52 @@ export default function FichaPersonagemPage() {
     }));
   };
 
+  const createManualAbility = () => {
+    setFicha((current: any) => ({
+      ...current,
+      dados: {
+        ...current.dados,
+        habilidades: [
+          ...current.dados.habilidades,
+          {
+            id: uid(),
+            nome: "Nova habilidade",
+            dado: "",
+            desc: "",
+            subcat: "Manual",
+            fonte: "Personalizada",
+          },
+        ],
+      },
+    }));
+  };
+
+  const createCustomWeapon = () => {
+    setFicha((current: any) => ({
+      ...current,
+      dados: {
+        ...current.dados,
+        armas: [
+          ...current.dados.armas,
+          {
+            id: uid(),
+            nome: "Arma personalizada",
+            tipo: "Custom",
+            habilidade: "forca",
+            dano: "1d6",
+            critico: "20",
+            alcance: "Adjacente",
+            categoria: 0,
+            desc: "",
+            melhorias: "",
+            maldicoes: "",
+            notas: "",
+          },
+        ],
+      },
+    }));
+  };
+
   const handleSystemChange = (nextPresetId: string) => {
     const nextPreset = getPreset(nextPresetId);
     const nextRace = nextPreset.racas?.[0]?.nome ?? "";
@@ -686,6 +752,37 @@ export default function FichaPersonagemPage() {
     }
   };
 
+  const deletarFicha = async () => {
+    if (!id) {
+      return;
+    }
+
+    const confirmDelete = window.confirm("Deseja excluir esta ficha permanentemente?");
+    if (!confirmDelete) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("fichas").delete().eq("id", id);
+      if (error) {
+        throw error;
+      }
+      router.push("/fichas");
+    } catch (error: any) {
+      alert(`Falha ao excluir: ${error.message}`);
+    }
+  };
+
+  const rolarStatusBase = (key: "vida" | "sanidade" | "pe") => {
+    const rollConfig = (preset.statusRolls ?? []).find((entry) => entry.key === key);
+    if (!rollConfig) {
+      return;
+    }
+
+    const result = rollDiceExpression(rollConfig.formula);
+    setFichaValue(`rolagens_status.${key}`, result.total);
+  };
+
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !id) {
@@ -755,9 +852,18 @@ export default function FichaPersonagemPage() {
             <ArrowLeft size={14} />
             Voltar ao Omnis
           </button>
-          <button onClick={salvarFicha} disabled={saving} className="aq-button-primary disabled:opacity-60">
-            {saving ? "Sincronizando..." : "Sincronizar"}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={deletarFicha}
+              className="rounded-full border border-red-500/30 p-3 text-red-300 transition-colors hover:border-red-400 hover:text-red-200"
+              title="Excluir ficha"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button onClick={salvarFicha} disabled={saving} className="aq-button-primary disabled:opacity-60">
+              {saving ? "Sincronizando..." : "Sincronizar"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -958,6 +1064,43 @@ export default function FichaPersonagemPage() {
                     </div>
                   ) : null}
                 </div>
+
+                <div className="grid gap-4">
+                  <ChoiceLibrary
+                    title="Racas"
+                    description="Abra cada raca para ver bonus, pericias e descricao antes de aplicar na ficha."
+                    items={preset.racas}
+                    selectedName={ficha.dados.raca}
+                    selectedCustom={ficha.dados.raca_custom}
+                    onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, raca: item.nome, raca_custom: item.custom ? current.dados.raca_custom : "" } }))}
+                  />
+                  <ChoiceLibrary
+                    title="Origens"
+                    description="Veja o que cada origem concede e aplique direto quando decidir."
+                    items={preset.origens}
+                    selectedName={ficha.dados.origem}
+                    selectedCustom={ficha.dados.origem_custom}
+                    onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, origem: item.nome, origem_custom: item.custom ? current.dados.origem_custom : "" } }))}
+                  />
+                  <ChoiceLibrary
+                    title="Classes"
+                    description="Cada classe mostra a proposta e seus beneficios centrais antes de entrar na ficha."
+                    items={preset.classes}
+                    selectedName={ficha.dados.classe}
+                    selectedCustom={ficha.dados.classe_custom}
+                    onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, classe: item.nome, classe_custom: item.custom ? current.dados.classe_custom : "" } }))}
+                  />
+                  {availablePaths.length > 0 ? (
+                    <ChoiceLibrary
+                      title={ficha.sistema_preset === "ordem_paranormal" ? "Trilhas" : "Caminhos"}
+                      description="Abra os caminhos para comparar e adicionar o que melhor encaixa no personagem."
+                      items={availablePaths}
+                      selectedName={ficha.dados.trilha}
+                      selectedCustom={ficha.dados.trilha_custom}
+                      onApply={(item) => setFicha((current: any) => ({ ...current, dados: { ...current.dados, trilha: item.nome, trilha_custom: item.custom ? current.dados.trilha_custom : "" } }))}
+                    />
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
@@ -1045,12 +1188,20 @@ export default function FichaPersonagemPage() {
                         <div className="text-sm font-black text-[var(--aq-title)]">{roll.label}</div>
                         <div className="mt-1 text-xs text-[var(--aq-text-muted)]">{`${roll.formula} + ${roll.atributo}`}</div>
                       </div>
-                      <input
-                        type="number"
-                        value={ficha.dados.rolagens_status?.[roll.key] ?? 0}
-                        onChange={(e) => setFichaValue(`rolagens_status.${roll.key}`, parseInt(e.target.value, 10) || 0)}
-                        className="aq-input w-24 text-center"
-                      />
+                      <div className="flex items-center gap-2">
+                        <div className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] px-3 py-2 text-sm font-black text-[var(--aq-title)]">
+                          +{effectiveAttributes[roll.atributo] ?? 0}
+                        </div>
+                        <input
+                          type="number"
+                          value={ficha.dados.rolagens_status?.[roll.key] ?? 0}
+                          onChange={(e) => setFichaValue(`rolagens_status.${roll.key}`, parseInt(e.target.value, 10) || 0)}
+                          className="aq-input w-24 text-center"
+                        />
+                        <button onClick={() => rolarStatusBase(roll.key)} className="aq-button-secondary !px-3 !py-2" title={`Rolar ${roll.formula}`}>
+                          <Dice5 size={14} />
+                        </button>
+                      </div>
                     </div>
                     {roll.hint ? <p className="mt-2 text-xs text-[var(--aq-text-muted)]">{roll.hint}</p> : null}
                   </div>
@@ -1181,10 +1332,16 @@ export default function FichaPersonagemPage() {
                     <h2 className={`text-xl font-black text-[var(--aq-title)] ${cinzel.className}`}>Habilidades e Poderes</h2>
                     <p className="mt-1 text-sm text-[var(--aq-text-muted)]">As habilidades automaticas ficam separadas das habilidades adicionadas manualmente.</p>
                   </div>
-                  <button onClick={() => setModalOpen("habilidades")} className="aq-button-primary">
-                    <Plus size={14} />
-                    Adicionar
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={createManualAbility} className="aq-button-secondary">
+                      <Plus size={14} />
+                      Criar Manual
+                    </button>
+                    <button onClick={() => setModalOpen("habilidades")} className="aq-button-primary">
+                      <Plus size={14} />
+                      Biblioteca
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -1218,11 +1375,31 @@ export default function FichaPersonagemPage() {
                           <div className="flex items-start justify-between gap-4">
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="text-base font-black text-[var(--aq-title)]">{habilidade.nome}</h3>
-                                {habilidade.dado ? <span className="aq-pill">{habilidade.dado}</span> : null}
                                 {habilidade.subcat ? <span className="aq-pill aq-pill-muted">{habilidade.subcat}</span> : null}
                               </div>
-                              <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aq-text)]">{habilidade.desc || "Sem descricao adicional."}</p>
+                              <input
+                                value={habilidade.nome}
+                                onChange={(e) => updateItem("habilidades", habilidade.id, { nome: e.target.value })}
+                                className="w-full bg-transparent text-base font-black text-[var(--aq-title)] outline-none"
+                              />
+                              <input
+                                value={habilidade.subcat ?? ""}
+                                onChange={(e) => updateItem("habilidades", habilidade.id, { subcat: e.target.value })}
+                                placeholder="Categoria / trilha / origem"
+                                className="aq-input mt-3"
+                              />
+                              <input
+                                value={habilidade.dado ?? ""}
+                                onChange={(e) => updateItem("habilidades", habilidade.id, { dado: e.target.value })}
+                                placeholder="Custo / dado"
+                                className="aq-input mt-3"
+                              />
+                              <textarea
+                                value={habilidade.desc || ""}
+                                onChange={(e) => updateItem("habilidades", habilidade.id, { desc: e.target.value })}
+                                className="aq-input mt-3 min-h-[100px] resize-y"
+                                placeholder="Descreva a habilidade manualmente"
+                              />
                             </div>
                             <button
                               onClick={() => removeItem("habilidades", habilidade.id)}
@@ -1246,10 +1423,16 @@ export default function FichaPersonagemPage() {
                     <h2 className={`text-xl font-black text-[var(--aq-title)] ${cinzel.className}`}>Inventario Tatico</h2>
                     <p className="mt-1 text-sm text-[var(--aq-text-muted)]">Melhorias e maldicoes entram por menu rapido e continuam editaveis.</p>
                   </div>
-                  <button onClick={() => setModalOpen("armas")} className="aq-button-primary">
-                    <Plus size={14} />
-                    Nova Arma
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={createCustomWeapon} className="aq-button-secondary">
+                      <Plus size={14} />
+                      Arma Manual
+                    </button>
+                    <button onClick={() => setModalOpen("armas")} className="aq-button-primary">
+                      <Plus size={14} />
+                      Biblioteca
+                    </button>
+                  </div>
                 </div>
 
                 {ficha.dados.armas.length === 0 ? (
