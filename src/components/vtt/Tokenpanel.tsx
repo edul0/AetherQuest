@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
-import { supabase } from "../../lib/supabase";
-import { Token, FichaVTTSnapshot } from "../../lib/types";
+import { supabase } from "@/src/lib/supabase";
+import { Token, FichaVTTSnapshot } from "@/src/lib/types";
 import {
   X,
   Link2,
