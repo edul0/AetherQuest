@@ -8,5 +8,5 @@ type LoginPageProps = {
 };
 
 export default function LoginPage({ searchParams }: LoginPageProps) {
-  return <LoginScreen nextPath={searchParams?.next || "/mesa"} recoveryType={searchParams?.type} />;
+  return <LoginScreen nextPath={searchParams?.next || "/fichas"} recoveryType={searchParams?.type} />;
 }
