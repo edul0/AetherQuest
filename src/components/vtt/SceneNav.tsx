@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Cinzel, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Map, Plus } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
-const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
 export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
@@ -46,32 +45,34 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
   };
 
   return (
-    <div className="fixed left-0 top-0 z-50 flex w-full items-center gap-4 overflow-x-auto border-b border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-4 py-3 shadow-lg backdrop-blur-md">
-      <div className={`${cinzel.className} mr-2 flex items-center gap-2 text-sm font-bold tracking-[0.22em] text-[var(--aq-accent)]`}>
-        <Map size={18} />
-        LOCAIS
+    <div className="fixed left-3 top-[86px] z-40 flex max-w-[calc(100vw-96px)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.86)] px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.35)] backdrop-blur-xl md:left-5 md:top-5 md:max-w-[calc(100vw-420px)] md:px-4">
+      <div className="flex shrink-0 items-center gap-2 rounded-full border border-[rgba(74,217,217,0.18)] bg-[rgba(74,217,217,0.07)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-accent)] md:text-[11px]">
+        <Map size={15} />
+        <span className="hidden sm:inline">Locais</span>
       </div>
 
-      {cenas.map((cena) => (
-        <button
-          key={cena.id}
-          onClick={() => onSelectCena(cena)}
-          className={`${inter.className} whitespace-nowrap rounded-full px-5 py-2 text-xs font-semibold tracking-[0.18em] transition-all ${
-            cenaAtivaId === cena.id
-              ? "border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)] shadow-[0_0_15px_rgba(74,217,217,0.18)]"
-              : "border border-transparent bg-transparent text-[var(--aq-text-muted)] hover:bg-[rgba(26,43,76,0.32)] hover:text-[var(--aq-title)]"
-          }`}
-        >
-          {cena.nome}
-        </button>
-      ))}
+      <div className={`aq-scrollbar flex items-center gap-2 overflow-x-auto ${inter.className}`}>
+        {cenas.map((cena) => (
+          <button
+            key={cena.id}
+            onClick={() => onSelectCena(cena)}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] transition-all md:px-5 md:text-[11px] ${
+              cenaAtivaId === cena.id
+                ? "border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)] shadow-[0_0_15px_rgba(74,217,217,0.16)]"
+                : "border border-transparent bg-transparent text-[var(--aq-text-muted)] hover:border-[rgba(74,217,217,0.12)] hover:bg-[rgba(26,43,76,0.28)] hover:text-[var(--aq-title)]"
+            }`}
+          >
+            {cena.nome}
+          </button>
+        ))}
+      </div>
 
       <button
         onClick={criarNovaCena}
-        className="ml-auto shrink-0 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.82)] p-2 text-[var(--aq-accent)] transition-colors hover:bg-[rgba(74,217,217,0.14)]"
+        className="ml-1 shrink-0 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.82)] p-2 text-[var(--aq-accent)] transition-colors hover:bg-[rgba(74,217,217,0.14)]"
         title="Criar Novo Local"
       >
-        <Plus size={16} />
+        <Plus size={15} />
       </button>
     </div>
   );
