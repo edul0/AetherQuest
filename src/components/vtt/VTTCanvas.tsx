@@ -215,17 +215,16 @@ export default function VTTCanvas({
       return null;
     }
 
-    const targetWidth = windowSize.w * (isMobile ? 0.98 : 0.9);
-    const targetHeight = (stageHeight - (isMobile ? 110 : 60)) * (isMobile ? 0.97 : 0.9);
-    const autoScale = clamp(Math.min(targetWidth / image.width, targetHeight / image.height), 0.82, 3.2);
+    const targetWidth = windowSize.w * (isMobile ? 1.02 : 1);
+    const targetHeight = stageHeight * (isMobile ? 1 : 1);
+    const autoScale = clamp(Math.max(targetWidth / image.width, targetHeight / image.height), 0.9, 4);
     const effectiveScale = autoScale * scenePreferences.mapScale;
     const effectiveWidth = image.width * effectiveScale;
     const effectiveHeight = image.height * effectiveScale;
     const baseOffsetX = (windowSize.w - effectiveWidth) / 2;
-    const baseOffsetY = Math.max(isMobile ? 84 : 62, (stageHeight - effectiveHeight) / 2 - (isMobile ? 12 : 0));
+    const baseOffsetY = (stageHeight - effectiveHeight) / 2;
 
     return {
-      autoScale,
       effectiveScale,
       effectiveWidth,
       effectiveHeight,
@@ -234,10 +233,42 @@ export default function VTTCanvas({
     };
   }, [image, isMobile, scenePreferences.mapScale, stageHeight, windowSize.w]);
 
-  const effectiveMapOffsetX = (mapFraming?.baseOffsetX ?? 0) + scenePreferences.mapOffsetX;
-  const effectiveMapOffsetY = (mapFraming?.baseOffsetY ?? 0) + scenePreferences.mapOffsetY;
+  const clampedSceneOffsets = useMemo(() => {
+    if (!mapFraming) {
+      return { x: scenePreferences.mapOffsetX, y: scenePreferences.mapOffsetY };
+    }
+
+    const minX = -(mapFraming.effectiveWidth * 0.35);
+    const maxX = mapFraming.effectiveWidth * 0.35;
+    const minY = -(mapFraming.effectiveHeight * 0.35);
+    const maxY = mapFraming.effectiveHeight * 0.35;
+
+    return {
+      x: clamp(scenePreferences.mapOffsetX, minX, maxX),
+      y: clamp(scenePreferences.mapOffsetY, minY, maxY),
+    };
+  }, [mapFraming, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY]);
+
+  const effectiveMapOffsetX = (mapFraming?.baseOffsetX ?? 0) + clampedSceneOffsets.x;
+  const effectiveMapOffsetY = (mapFraming?.baseOffsetY ?? 0) + clampedSceneOffsets.y;
   const effectiveMapWidth = mapFraming?.effectiveWidth ?? (image?.width || windowSize.w) * scenePreferences.mapScale;
   const effectiveMapHeight = mapFraming?.effectiveHeight ?? (image?.height || stageHeight) * scenePreferences.mapScale;
+
+  useEffect(() => {
+    if (
+      clampedSceneOffsets.x !== scenePreferences.mapOffsetX ||
+      clampedSceneOffsets.y !== scenePreferences.mapOffsetY
+    ) {
+      window.dispatchEvent(
+        new CustomEvent("aq-map-offset", {
+          detail: {
+            x: clampedSceneOffsets.x,
+            y: clampedSceneOffsets.y,
+          },
+        }),
+      );
+    }
+  }, [clampedSceneOffsets.x, clampedSceneOffsets.y, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY]);
 
   useEffect(() => {
     onFichasMapChange?.(fichasMap);
@@ -672,9 +703,16 @@ export default function VTTCanvas({
               <Minus size={15} />
             </button>
             <button
-              onClick={() => setCamera(DEFAULT_CAMERA)}
+              onClick={() => {
+                setCamera(DEFAULT_CAMERA);
+                window.dispatchEvent(
+                  new CustomEvent("aq-map-offset", {
+                    detail: { x: 0, y: 0 },
+                  }),
+                );
+              }}
               className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
-              title="Resetar camera"
+              title="Recentralizar mapa"
             >
               <RotateCcw size={15} />
             </button>
