@@ -30,6 +30,8 @@ const COLORS = {
 };
 
 const DEFAULT_CAMERA = { x: 0, y: 0, scale: 1 };
+const MOBILE_ROSTER_HEIGHT = 176;
+const DESKTOP_ROSTER_HEIGHT = 228;
 
 type Point = { x: number; y: number };
 
@@ -207,6 +209,8 @@ export default function VTTCanvas({
 
   const fichaIds = tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id));
   const fichasMap = useTokenFichaSync(fichaIds);
+  const rosterHeight = windowSize.w < 768 ? MOBILE_ROSTER_HEIGHT : DESKTOP_ROSTER_HEIGHT;
+  const stageHeight = Math.max(windowSize.h - rosterHeight, 320);
 
   useEffect(() => {
     onFichasMapChange?.(fichasMap);
@@ -316,7 +320,7 @@ export default function VTTCanvas({
 
   const applyZoom = useCallback((factor: number, anchor?: { x: number; y: number }) => {
     const nextScale = clamp(camera.scale * factor, 0.4, 2.8);
-    const pivot = anchor ?? { x: windowSize.w / 2, y: windowSize.h / 2 };
+    const pivot = anchor ?? { x: windowSize.w / 2, y: stageHeight / 2 };
     const worldX = (pivot.x - camera.x) / camera.scale;
     const worldY = (pivot.y - camera.y) / camera.scale;
 
@@ -325,7 +329,7 @@ export default function VTTCanvas({
       x: pivot.x - worldX * nextScale,
       y: pivot.y - worldY * nextScale,
     });
-  }, [camera, windowSize.h, windowSize.w]);
+  }, [camera, stageHeight, windowSize.w]);
 
   const handleWheel = useCallback(
     (event: any) => {
@@ -460,7 +464,7 @@ export default function VTTCanvas({
     const left = (-camera.x / camera.scale) - grid * 2;
     const right = ((windowSize.w - camera.x) / camera.scale) + grid * 2;
     const top = (-camera.y / camera.scale) - grid * 2;
-    const bottom = ((windowSize.h - camera.y) / camera.scale) + grid * 2;
+    const bottom = ((stageHeight - camera.y) / camera.scale) + grid * 2;
 
     const startX = Math.floor(left / grid) * grid;
     const endX = Math.ceil(right / grid) * grid;
@@ -494,16 +498,16 @@ export default function VTTCanvas({
     }
 
     return lines;
-  }, [camera.scale, camera.x, camera.y, scenePreferences.gridOpacity, scenePreferences.gridSize, scenePreferences.showGrid, windowSize.h, windowSize.w]);
+  }, [camera.scale, camera.x, camera.y, scenePreferences.gridOpacity, scenePreferences.gridSize, scenePreferences.showGrid, stageHeight, windowSize.w]);
 
   const measurementLabel = measureStart && measureEnd ? formatDistance(measureStart, measureEnd, scenePreferences.gridSize) : null;
 
   return (
-    <div className="fixed inset-0 overflow-hidden" style={{ background: COLORS.bg }}>
+    <div className="fixed left-0 right-0 top-0 overflow-hidden" style={{ background: COLORS.bg, bottom: rosterHeight }}>
       <Stage
         ref={stageRef}
         width={windowSize.w}
-        height={windowSize.h}
+        height={stageHeight}
         x={camera.x}
         y={camera.y}
         scaleX={camera.scale}
@@ -525,7 +529,7 @@ export default function VTTCanvas({
               x={scenePreferences.mapOffsetX}
               y={scenePreferences.mapOffsetY}
               width={(image.width || windowSize.w) * scenePreferences.mapScale}
-              height={(image.height || windowSize.h) * scenePreferences.mapScale}
+              height={(image.height || stageHeight) * scenePreferences.mapScale}
               opacity={0.95}
               listening={false}
             />
