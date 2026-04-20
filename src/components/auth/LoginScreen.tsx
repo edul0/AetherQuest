@@ -69,13 +69,14 @@ function getSafeNextPath(nextPath?: string) {
 }
 
 export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recoveryType }: LoginScreenProps) {
-  const redirectingRef = useRef(false);
+  const redirectTimeoutRef = useRef<number | null>(null);
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [hasActiveSession, setHasActiveSession] = useState(false);
 
   const destinationPath = useMemo(() => getSafeNextPath(nextPath), [nextPath]);
 
@@ -92,20 +93,19 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
       return;
     }
 
-    if (redirectingRef.current) {
-      return;
+    const absoluteTarget = new URL(path, window.location.origin).toString();
+
+    if (redirectTimeoutRef.current) {
+      window.clearTimeout(redirectTimeoutRef.current);
     }
 
-    redirectingRef.current = true;
-    const absoluteTarget = `${window.location.origin}${path}`;
+    window.location.assign(absoluteTarget);
 
-    window.location.replace(absoluteTarget);
-
-    window.setTimeout(() => {
+    redirectTimeoutRef.current = window.setTimeout(() => {
       if (window.location.pathname !== path) {
         window.location.href = absoluteTarget;
       }
-    }, 120);
+    }, 180);
   };
 
   useEffect(() => {
@@ -122,9 +122,14 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
         }
 
         if (session) {
+          setHasActiveSession(true);
           clearAuthHandoff();
+          setFeedback("Sessao encontrada. Abrindo fichas...");
           goTo(destinationPath);
+          return;
         }
+
+        setHasActiveSession(false);
       } catch (error) {
         console.error("[login] erro ao sincronizar sessao existente", error);
       }
@@ -152,13 +157,21 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
       }
 
       if (session && !hasRecoveryMarker) {
+        setHasActiveSession(true);
         clearAuthHandoff();
+        setFeedback("Login realizado. Abrindo fichas...");
         goTo(destinationPath);
+        return;
       }
+
+      setHasActiveSession(false);
     });
 
     return () => {
       active = false;
+      if (redirectTimeoutRef.current) {
+        window.clearTimeout(redirectTimeoutRef.current);
+      }
       subscription.unsubscribe();
     };
   }, [destinationPath, hasRecoveryMarker]);
@@ -195,8 +208,9 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
         refresh_token: data.session.refresh_token,
       });
 
+      setHasActiveSession(true);
       setAuthHandoff();
-      setFeedback("Login realizado. Redirecionando...");
+      setFeedback("Login realizado. Abrindo fichas...");
       goTo(destinationPath);
     } catch (error) {
       console.error("[login] erro inesperado no signIn", error);
@@ -340,6 +354,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
 
       await supabase.auth.signOut();
       clearAuthHandoff();
+      setHasActiveSession(false);
       setFeedback("Senha atualizada com sucesso. Entre novamente com a nova senha.");
       setMode("signin");
       setPassword("");
@@ -460,6 +475,12 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
             <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-sm text-[var(--aq-text)]">
               {feedback}
             </div>
+          ) : null}
+
+          {hasActiveSession && mode !== "recovery" ? (
+            <button onClick={() => goTo(destinationPath)} className="aq-button-primary mt-3 w-full justify-center">
+              Ir para fichas
+            </button>
           ) : null}
         </div>
 
