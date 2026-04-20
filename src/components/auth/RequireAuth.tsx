@@ -1,31 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { supabase } from "@/src/lib/supabase";
 
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [checking, setChecking] = useState(true);
+  const [status, setStatus] = useState("Validando acesso...");
 
   useEffect(() => {
     let active = true;
+    let redirected = false;
     const nextPath = pathname || "/mesa";
     const loginUrl = `/login?next=${encodeURIComponent(nextPath)}`;
 
     const redirectToLogin = () => {
-      if (!active) {
+      if (!active || redirected || typeof window === "undefined") {
         return;
       }
+
+      redirected = true;
+      setStatus("Sessao nao encontrada. Redirecionando...");
       setChecking(false);
-      router.replace(loginUrl);
+      window.location.assign(loginUrl);
     };
 
     const timeout = window.setTimeout(() => {
       console.warn("[RequireAuth] session check timed out");
+      setStatus("Nao foi possivel validar a sessao. Redirecionando...");
       redirectToLogin();
-    }, 5000);
+    }, 4000);
+
+    const markReady = () => {
+      if (!active || redirected) {
+        return;
+      }
+
+      window.clearTimeout(timeout);
+      setChecking(false);
+      setStatus("Acesso validado.");
+    };
 
     const checkSession = async () => {
       try {
@@ -34,7 +49,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           error,
         } = await supabase.auth.getSession();
 
-        if (!active) {
+        if (!active || redirected) {
           return;
         }
 
@@ -49,8 +64,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           return;
         }
 
-        window.clearTimeout(timeout);
-        setChecking(false);
+        markReady();
       } catch (error) {
         console.error("[RequireAuth] unexpected session error", error);
         redirectToLogin();
@@ -62,7 +76,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!active) {
+      if (!active || redirected) {
         return;
       }
 
@@ -71,8 +85,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
         return;
       }
 
-      window.clearTimeout(timeout);
-      setChecking(false);
+      markReady();
     });
 
     return () => {
@@ -80,13 +93,13 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       window.clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [pathname, router]);
+  }, [pathname]);
 
   if (checking) {
     return (
-      <div className="aq-page flex items-center justify-center">
+      <div className="aq-page flex items-center justify-center px-6 text-center">
         <div className="animate-pulse font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)]">
-          Validando acesso...
+          {status}
         </div>
       </div>
     );
