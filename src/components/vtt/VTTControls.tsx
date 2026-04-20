@@ -40,7 +40,7 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
 ];
 
 export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange }: VTTControlsProps) {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,7 +64,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     }
 
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "map" });
-    setMobileOpen(false);
+    setPanelOpen(false);
   };
 
   const removeMap = async () => {
@@ -75,7 +75,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     }
 
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "select" });
-    setMobileOpen(false);
+    setPanelOpen(false);
   };
 
   const addToken = async () => {
@@ -101,7 +101,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       return;
     }
 
-    setMobileOpen(false);
+    setPanelOpen(false);
   };
 
   const nudgeMap = (dx: number, dy: number) => {
@@ -120,18 +120,18 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
   return (
     <>
       <button
-        onClick={() => setMobileOpen(true)}
-        className="fixed bottom-[118px] right-3 z-50 flex items-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:hidden"
+        onClick={() => setPanelOpen(true)}
+        className="fixed bottom-[118px] right-3 z-50 flex items-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:bottom-5 md:right-4"
       >
         <SlidersHorizontal size={15} />
         Ferramentas
       </button>
 
-      {mobileOpen ? (
-        <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.35)] md:hidden" onClick={() => setMobileOpen(false)} aria-label="Fechar ferramentas" />
+      {panelOpen ? (
+        <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.35)]" onClick={() => setPanelOpen(false)} aria-label="Fechar ferramentas" />
       ) : null}
 
-      <div className={`aq-scrollbar z-50 overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md ${mobileOpen ? "fixed inset-x-3 bottom-[110px] max-h-[58vh]" : "hidden"} md:fixed md:bottom-[220px] md:left-auto md:right-4 md:block md:max-h-[68vh] md:w-[340px]`}>
+      <div className={`${panelOpen ? "block" : "hidden"} aq-scrollbar fixed inset-x-3 bottom-[110px] z-50 max-h-[58vh] overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:inset-x-auto md:bottom-20 md:right-4 md:max-h-[72vh] md:w-[340px]`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="aq-kicker">Tactical Deck</div>
@@ -145,7 +145,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             >
               <Dice5 size={20} />
             </button>
-            <button onClick={() => setMobileOpen(false)} className="rounded-xl border border-[var(--aq-border)] p-3 text-[var(--aq-text-muted)] md:hidden">
+            <button onClick={() => setPanelOpen(false)} className="rounded-xl border border-[var(--aq-border)] p-3 text-[var(--aq-text-muted)]">
               <X size={18} />
             </button>
           </div>
@@ -173,10 +173,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button
-            onClick={addToken}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]"
-          >
+          <button onClick={addToken} className="flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]">
             <Users size={15} />
             Token
           </button>
@@ -188,10 +185,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           </label>
         </div>
 
-        <button
-          onClick={removeMap}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-300 transition-all hover:bg-[rgba(239,68,68,0.14)] md:text-xs"
-        >
+        <button onClick={removeMap} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-300 transition-all hover:bg-[rgba(239,68,68,0.14)] md:text-xs">
           <ImageMinus size={15} />
           Remover mapa da cena
         </button>
@@ -218,15 +212,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
               Tamanho da celula
               <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="range"
-                  min={20}
-                  max={120}
-                  step={5}
-                  value={preferences.gridSize}
-                  onChange={(event) => onPreferencesChange({ gridSize: Number(event.target.value) })}
-                  className="w-full"
-                />
+                <input type="range" min={20} max={120} step={5} value={preferences.gridSize} onChange={(event) => onPreferencesChange({ gridSize: Number(event.target.value) })} className="w-full" />
                 <span className="w-12 text-right text-[var(--aq-title)]">{preferences.gridSize}</span>
               </div>
             </label>
@@ -234,15 +220,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
               Opacidade
               <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={0.5}
-                  step={0.02}
-                  value={preferences.gridOpacity}
-                  onChange={(event) => onPreferencesChange({ gridOpacity: Number(event.target.value) })}
-                  className="w-full"
-                />
+                <input type="range" min={0} max={0.5} step={0.02} value={preferences.gridOpacity} onChange={(event) => onPreferencesChange({ gridOpacity: Number(event.target.value) })} className="w-full" />
                 <span className="w-12 text-right text-[var(--aq-title)]">{Math.round(preferences.gridOpacity * 100)}%</span>
               </div>
             </label>
@@ -267,59 +245,27 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           </div>
 
           <div className="mb-3 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => bumpMapScale(-0.1)}
-              className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
-            >
-              Diminuir
-            </button>
-            <button
-              onClick={() => bumpMapScale(0.1)}
-              className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
-            >
-              Aumentar
-            </button>
+            <button onClick={() => bumpMapScale(-0.1)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">Diminuir</button>
+            <button onClick={() => bumpMapScale(0.1)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">Aumentar</button>
           </div>
 
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
             Escala do mapa
             <div className="mt-2 flex items-center gap-2">
-              <input
-                type="range"
-                min={0.2}
-                max={3}
-                step={0.05}
-                value={preferences.mapScale}
-                onChange={(event) => onPreferencesChange({ mapScale: Number(event.target.value) })}
-                className="w-full"
-              />
+              <input type="range" min={0.2} max={3} step={0.05} value={preferences.mapScale} onChange={(event) => onPreferencesChange({ mapScale: Number(event.target.value) })} className="w-full" />
               <span className="w-12 text-right text-[var(--aq-title)]">{preferences.mapScale.toFixed(2)}x</span>
             </div>
           </label>
 
           <div className="mt-3 grid grid-cols-3 gap-2">
             <div />
-            <button onClick={() => nudgeMap(0, -10)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">
-              <ChevronUp size={15} className="mx-auto" />
-            </button>
+            <button onClick={() => nudgeMap(0, -10)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"><ChevronUp size={15} className="mx-auto" /></button>
             <div />
-            <button onClick={() => nudgeMap(-10, 0)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">
-              <ChevronLeft size={15} className="mx-auto" />
-            </button>
-            <button
-              onClick={() => onPreferencesChange({ mapOffsetX: 0, mapOffsetY: 0, mapScale: 1 })}
-              className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
-              title="Resetar alinhamento"
-            >
-              <RefreshCcw size={15} className="mx-auto" />
-            </button>
-            <button onClick={() => nudgeMap(10, 0)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">
-              <ChevronRight size={15} className="mx-auto" />
-            </button>
+            <button onClick={() => nudgeMap(-10, 0)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"><ChevronLeft size={15} className="mx-auto" /></button>
+            <button onClick={() => onPreferencesChange({ mapOffsetX: 0, mapOffsetY: 0, mapScale: 1 })} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]" title="Resetar alinhamento"><RefreshCcw size={15} className="mx-auto" /></button>
+            <button onClick={() => nudgeMap(10, 0)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"><ChevronRight size={15} className="mx-auto" /></button>
             <div />
-            <button onClick={() => nudgeMap(0, 10)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">
-              <ChevronDown size={15} className="mx-auto" />
-            </button>
+            <button onClick={() => nudgeMap(0, 10)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"><ChevronDown size={15} className="mx-auto" /></button>
             <div />
           </div>
 
