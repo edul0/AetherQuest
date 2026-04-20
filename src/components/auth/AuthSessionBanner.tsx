@@ -76,14 +76,12 @@ export default function AuthSessionBanner() {
     window.location.href = "/login";
   };
 
-  if (!sessionSummary) {
+  if (!sessionSummary || pathname?.startsWith("/mesa")) {
     return null;
   }
 
-  const mesaMobileClass = pathname?.startsWith("/mesa") ? "hidden md:block" : "block";
-
   return (
-    <div className={`${mesaMobileClass} fixed bottom-3 right-3 z-[100] md:bottom-4 md:right-4`}>
+    <div className="fixed bottom-3 right-3 z-[100] md:bottom-4 md:right-4">
       <div className="flex items-center gap-2 rounded-full border border-[rgba(74,217,217,0.22)] bg-[rgba(5,10,16,0.78)] px-2.5 py-2 text-[10px] text-[var(--aq-text)] shadow-[0_0_14px_rgba(74,217,217,0.08)] backdrop-blur-md md:px-3">
         <span className="flex items-center gap-2 text-[var(--aq-accent)]">
           <ShieldCheck size={13} />
