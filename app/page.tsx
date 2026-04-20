@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Cinzel, Inter } from 'next/font/google';
-import { Play, Map, BookOpen, Settings2, Users } from 'lucide-react';
+import { Play, Map, BookOpen, Settings2 } from 'lucide-react';
 import { supabase } from '@/src/lib/supabase';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
@@ -64,14 +64,6 @@ export default function HomePage() {
           >
             <Play size={14} className="fill-current" />
             {starting ? 'Abrindo...' : 'Iniciar Jornada'}
-          </button>
-
-          <button
-            onClick={() => router.push('/fichas')}
-            className="flex items-center gap-3 px-8 py-3.5 rounded-full border border-[#2a3b52] text-[#8b9bb4] text-xs font-bold uppercase tracking-widest hover:border-[#4ad9d9] hover:text-[#4ad9d9] bg-[#0a0f18]/50 transition-all"
-          >
-            <Users size={14} />
-            Personagens
           </button>
         </div>
 
