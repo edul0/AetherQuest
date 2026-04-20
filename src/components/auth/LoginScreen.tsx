@@ -12,6 +12,7 @@ type LoginScreenProps = {
 };
 
 const AUTH_HANDOFF_KEY = "aq-auth-handoff";
+const DEFAULT_AFTER_LOGIN_PATH = "/fichas";
 
 function humanizeAuthError(message: string) {
   const lower = message.toLowerCase();
@@ -55,7 +56,19 @@ function clearAuthHandoff() {
   window.sessionStorage.removeItem(AUTH_HANDOFF_KEY);
 }
 
-export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginScreenProps) {
+function getSafeNextPath(nextPath?: string) {
+  if (!nextPath || !nextPath.startsWith("/")) {
+    return DEFAULT_AFTER_LOGIN_PATH;
+  }
+
+  if (nextPath.startsWith("/login")) {
+    return DEFAULT_AFTER_LOGIN_PATH;
+  }
+
+  return nextPath;
+}
+
+export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recoveryType }: LoginScreenProps) {
   const redirectingRef = useRef(false);
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
@@ -63,6 +76,8 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
   const [confirmPassword, setConfirmPassword] = useState("");
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState("");
+
+  const destinationPath = useMemo(() => getSafeNextPath(nextPath), [nextPath]);
 
   const hasRecoveryMarker = useMemo(() => {
     if (typeof window === "undefined") {
@@ -82,7 +97,15 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
     }
 
     redirectingRef.current = true;
-    window.location.replace(path);
+    const absoluteTarget = `${window.location.origin}${path}`;
+
+    window.location.replace(absoluteTarget);
+
+    window.setTimeout(() => {
+      if (window.location.pathname !== path) {
+        window.location.href = absoluteTarget;
+      }
+    }, 120);
   };
 
   useEffect(() => {
@@ -100,7 +123,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
 
         if (session) {
           clearAuthHandoff();
-          goTo(nextPath);
+          goTo(destinationPath);
         }
       } catch (error) {
         console.error("[login] erro ao sincronizar sessao existente", error);
@@ -130,7 +153,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
 
       if (session && !hasRecoveryMarker) {
         clearAuthHandoff();
-        goTo(nextPath);
+        goTo(destinationPath);
       }
     });
 
@@ -138,7 +161,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
       active = false;
       subscription.unsubscribe();
     };
-  }, [hasRecoveryMarker, nextPath]);
+  }, [destinationPath, hasRecoveryMarker]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
@@ -174,7 +197,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
 
       setAuthHandoff();
       setFeedback("Login realizado. Redirecionando...");
-      goTo(nextPath);
+      goTo(destinationPath);
     } catch (error) {
       console.error("[login] erro inesperado no signIn", error);
       clearAuthHandoff();
@@ -208,7 +231,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
+          emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(destinationPath)}`,
         },
       });
 
@@ -242,7 +265,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
+          emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(destinationPath)}`,
         },
       });
 
@@ -271,7 +294,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/login?type=recovery&next=${encodeURIComponent(nextPath)}`,
+        redirectTo: `${window.location.origin}/login?type=recovery&next=${encodeURIComponent(destinationPath)}`,
       });
 
       if (error) {
