@@ -2,16 +2,19 @@
 
 import type { ChangeEvent } from "react";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
-  ChevronDown,
   Crosshair,
   Dice5,
   Grid2x2,
   Hand,
+  ImageMinus,
   Map as MapIcon,
   MousePointer2,
+  Move,
+  Plus,
   RefreshCcw,
   Ruler,
   Users,
@@ -30,6 +33,7 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
   { id: "select", label: "Selecionar", icon: MousePointer2 },
   { id: "pan", label: "Pan", icon: Hand },
   { id: "measure", label: "Medir", icon: Ruler },
+  { id: "map", label: "Mover mapa", icon: Move },
 ];
 
 export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange }: VTTControlsProps) {
@@ -48,7 +52,23 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     }
 
     const { data } = supabase.storage.from("mapas").getPublicUrl(path);
-    await supabase.from("cenas").update({ mapa_url: data.publicUrl }).eq("id", cenaId);
+    const { error: updateError } = await supabase.from("cenas").update({ mapa_url: data.publicUrl }).eq("id", cenaId);
+    if (updateError) {
+      alert(`Falha ao vincular mapa na cena: ${updateError.message}`);
+      return;
+    }
+
+    onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "map" });
+  };
+
+  const removeMap = async () => {
+    const { error } = await supabase.from("cenas").update({ mapa_url: null }).eq("id", cenaId);
+    if (error) {
+      alert(`Falha ao remover mapa: ${error.message}`);
+      return;
+    }
+
+    onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "select" });
   };
 
   const addToken = async () => {
@@ -81,6 +101,12 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     });
   };
 
+  const bumpMapScale = (delta: number) => {
+    onPreferencesChange({
+      mapScale: Math.max(0.2, Math.min(3, Number((preferences.mapScale + delta).toFixed(2)))),
+    });
+  };
+
   return (
     <div className="aq-scrollbar fixed bottom-[190px] left-1/2 z-50 max-h-[42vh] w-[calc(100vw-1rem)] max-w-[420px] -translate-x-1/2 overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:bottom-[220px] md:left-auto md:right-4 md:w-[340px] md:max-h-[68vh] md:translate-x-0">
       <div className="flex items-center justify-between gap-3">
@@ -97,7 +123,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
         </button>
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         {TOOL_OPTIONS.map((tool) => {
           const Icon = tool.icon;
           const active = preferences.toolMode === tool.id;
@@ -105,7 +131,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             <button
               key={tool.id}
               onClick={() => onPreferencesChange({ toolMode: tool.id })}
-              className={`rounded-2xl border px-2 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all md:px-3 md:text-xs md:tracking-[0.18em] ${
+              className={`rounded-2xl border px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all md:text-xs md:tracking-[0.18em] ${
                 active
                   ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.14)] text-[var(--aq-accent)]"
                   : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] text-[var(--aq-text-muted)] hover:text-[var(--aq-title)]"
@@ -129,10 +155,18 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
 
         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]">
           <MapIcon size={15} />
-          Mapa
+          Enviar mapa
           <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
         </label>
       </div>
+
+      <button
+        onClick={removeMap}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-300 transition-all hover:bg-[rgba(239,68,68,0.14)] md:text-xs"
+      >
+        <ImageMinus size={15} />
+        Remover mapa da cena
+      </button>
 
       <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -204,13 +238,28 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           <span className="text-xs font-black uppercase tracking-[0.18em]">Alinhamento do mapa</span>
         </div>
 
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={() => bumpMapScale(-0.1)}
+            className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+          >
+            Diminuir
+          </button>
+          <button
+            onClick={() => bumpMapScale(0.1)}
+            className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-title)] hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+          >
+            Aumentar
+          </button>
+        </div>
+
         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
           Escala do mapa
           <div className="mt-2 flex items-center gap-2">
             <input
               type="range"
-              min={0.4}
-              max={2.5}
+              min={0.2}
+              max={3}
               step={0.05}
               value={preferences.mapScale}
               onChange={(event) => onPreferencesChange({ mapScale: Number(event.target.value) })}
@@ -244,6 +293,10 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             <ChevronDown size={15} className="mx-auto" />
           </button>
           <div />
+        </div>
+
+        <div className="mt-3 rounded-xl border border-[var(--aq-border)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
+          {preferences.toolMode === "map" ? "Modo mover mapa ativo: arraste a imagem no tabuleiro." : "Ative Mover mapa para arrastar a imagem no tabuleiro."}
         </div>
 
         <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
