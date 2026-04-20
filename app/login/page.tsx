@@ -33,6 +33,15 @@ function humanizeAuthError(message: string) {
   return message;
 }
 
+async function getSessionWithTimeout(timeoutMs: number) {
+  return Promise.race([
+    supabase.auth.getSession(),
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error("session_timeout")), timeoutMs);
+    }),
+  ]);
+}
+
 function LoginPageContent() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/mesa";
@@ -66,14 +75,33 @@ function LoginPageContent() {
   useEffect(() => {
     let active = true;
 
+    if (hasRecoveryMarker) {
+      setMode("recovery");
+      setFeedback("Abra o link recebido e escolha sua nova senha.");
+    }
+
+    const releaseChecking = () => {
+      if (!active || redirectingRef.current) {
+        return;
+      }
+
+      setChecking(false);
+    };
+
     const handleAuthenticated = () => {
       if (hasRecoveryMarker || mode === "recovery") {
+        releaseChecking();
         return;
       }
 
       setFeedback("Login realizado. Redirecionando...");
       goTo(nextPath);
     };
+
+    const fallbackTimer = window.setTimeout(() => {
+      console.warn("[login] session check fallback triggered");
+      releaseChecking();
+    }, 1800);
 
     const {
       data: { subscription },
@@ -83,47 +111,44 @@ function LoginPageContent() {
       }
 
       if (event === "PASSWORD_RECOVERY") {
+        window.clearTimeout(fallbackTimer);
         setMode("recovery");
-        setChecking(false);
         setSending(false);
         setFeedback("Link de recuperacao validado. Agora defina sua nova senha.");
+        releaseChecking();
         return;
       }
 
       if (session) {
+        window.clearTimeout(fallbackTimer);
         handleAuthenticated();
         return;
       }
 
-      setChecking(false);
       setSending(false);
+      releaseChecking();
     });
 
     const checkSession = async () => {
       try {
         const {
           data: { session },
-        } = await supabase.auth.getSession();
+        } = await getSessionWithTimeout(1500);
 
         if (!active) {
           return;
         }
 
         if (session && !hasRecoveryMarker) {
+          window.clearTimeout(fallbackTimer);
           handleAuthenticated();
           return;
-        }
-
-        if (hasRecoveryMarker) {
-          setMode("recovery");
-          setFeedback("Abra o link recebido e escolha sua nova senha.");
         }
       } catch (error) {
         console.error("[login] erro ao verificar sessao", error);
       } finally {
-        if (active && !redirectingRef.current) {
-          setChecking(false);
-        }
+        window.clearTimeout(fallbackTimer);
+        releaseChecking();
       }
     };
 
@@ -131,6 +156,7 @@ function LoginPageContent() {
 
     return () => {
       active = false;
+      window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
   }, [hasRecoveryMarker, mode, nextPath]);
