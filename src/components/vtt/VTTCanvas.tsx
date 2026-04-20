@@ -411,7 +411,7 @@ export default function VTTCanvas({
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
       event.cancelBubble = true;
-      if (scenePreferences.toolMode !== "select") {
+      if (scenePreferences.toolMode === "measure") {
         return;
       }
       onSelectToken(selectedTokenId === token.id ? null : token);
@@ -560,7 +560,7 @@ export default function VTTCanvas({
       : scenePreferences.toolMode === "measure"
         ? "Toque duas vezes para medir"
         : scenePreferences.toolMode === "map"
-          ? "Arraste o mapa para reposicionar"
+          ? "Arraste o mapa ou puxe tokens livremente"
           : "Toque no token e arraste para mover";
 
   return (
@@ -617,7 +617,7 @@ export default function VTTCanvas({
                 token={token}
                 ficha={ficha}
                 isSelected={selectedTokenId === token.id}
-                draggable={scenePreferences.toolMode === "select"}
+                draggable={scenePreferences.toolMode !== "measure"}
                 onDragEnd={(event) => handleDragEnd(token.id, event)}
                 onClick={(event) => handleTokenClick(token, event)}
               />
