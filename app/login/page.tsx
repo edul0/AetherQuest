@@ -33,15 +33,6 @@ function humanizeAuthError(message: string) {
   return message;
 }
 
-async function getSessionWithTimeout(timeoutMs: number) {
-  return Promise.race([
-    supabase.auth.getSession(),
-    new Promise<never>((_, reject) => {
-      window.setTimeout(() => reject(new Error("session_timeout")), timeoutMs);
-    }),
-  ]);
-}
-
 function LoginPageContent() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/mesa";
@@ -67,8 +58,12 @@ function LoginPageContent() {
       return;
     }
 
+    if (redirectingRef.current) {
+      return;
+    }
+
     redirectingRef.current = true;
-    window.location.assign(path);
+    window.location.replace(path);
   };
 
   useEffect(() => {
@@ -79,18 +74,9 @@ function LoginPageContent() {
       setFeedback("Abra o link recebido e escolha sua nova senha.");
     }
 
-    const handleAuthenticated = () => {
-      if (hasRecoveryMarker || mode === "recovery") {
-        return;
-      }
-
-      setFeedback("Login realizado. Redirecionando...");
-      goTo(nextPath);
-    };
-
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange((event) => {
       if (!active) {
         return;
       }
@@ -99,42 +85,14 @@ function LoginPageContent() {
         setMode("recovery");
         setSending(false);
         setFeedback("Link de recuperacao validado. Agora defina sua nova senha.");
-        return;
       }
-
-      if (session) {
-        handleAuthenticated();
-        return;
-      }
-
-      setSending(false);
     });
-
-    const checkSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await getSessionWithTimeout(1200);
-
-        if (!active) {
-          return;
-        }
-
-        if (session && !hasRecoveryMarker) {
-          handleAuthenticated();
-        }
-      } catch (error) {
-        console.error("[login] erro ao verificar sessao", error);
-      }
-    };
-
-    checkSession();
 
     return () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, [hasRecoveryMarker, mode, nextPath]);
+  }, [hasRecoveryMarker]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
