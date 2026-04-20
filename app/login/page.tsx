@@ -48,7 +48,6 @@ function LoginPageContent() {
   const recoveryType = searchParams.get("type");
   const redirectingRef = useRef(false);
   const [mode, setMode] = useState<AuthMode>("signin");
-  const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -80,28 +79,14 @@ function LoginPageContent() {
       setFeedback("Abra o link recebido e escolha sua nova senha.");
     }
 
-    const releaseChecking = () => {
-      if (!active || redirectingRef.current) {
-        return;
-      }
-
-      setChecking(false);
-    };
-
     const handleAuthenticated = () => {
       if (hasRecoveryMarker || mode === "recovery") {
-        releaseChecking();
         return;
       }
 
       setFeedback("Login realizado. Redirecionando...");
       goTo(nextPath);
     };
-
-    const fallbackTimer = window.setTimeout(() => {
-      console.warn("[login] session check fallback triggered");
-      releaseChecking();
-    }, 1800);
 
     const {
       data: { subscription },
@@ -111,44 +96,35 @@ function LoginPageContent() {
       }
 
       if (event === "PASSWORD_RECOVERY") {
-        window.clearTimeout(fallbackTimer);
         setMode("recovery");
         setSending(false);
         setFeedback("Link de recuperacao validado. Agora defina sua nova senha.");
-        releaseChecking();
         return;
       }
 
       if (session) {
-        window.clearTimeout(fallbackTimer);
         handleAuthenticated();
         return;
       }
 
       setSending(false);
-      releaseChecking();
     });
 
     const checkSession = async () => {
       try {
         const {
           data: { session },
-        } = await getSessionWithTimeout(1500);
+        } = await getSessionWithTimeout(1200);
 
         if (!active) {
           return;
         }
 
         if (session && !hasRecoveryMarker) {
-          window.clearTimeout(fallbackTimer);
           handleAuthenticated();
-          return;
         }
       } catch (error) {
         console.error("[login] erro ao verificar sessao", error);
-      } finally {
-        window.clearTimeout(fallbackTimer);
-        releaseChecking();
       }
     };
 
@@ -156,7 +132,6 @@ function LoginPageContent() {
 
     return () => {
       active = false;
-      window.clearTimeout(fallbackTimer);
       subscription.unsubscribe();
     };
   }, [hasRecoveryMarker, mode, nextPath]);
@@ -334,16 +309,6 @@ function LoginPageContent() {
       setSending(false);
     }
   };
-
-  if (checking) {
-    return (
-      <div className="aq-page flex items-center justify-center">
-        <span className="animate-pulse font-mono text-[11px] uppercase tracking-[0.4em] text-[var(--aq-accent)]">
-          Verificando sessao...
-        </span>
-      </div>
-    );
-  }
 
   return (
     <main className="aq-page flex min-h-screen flex-col items-center justify-center px-6 py-10">
