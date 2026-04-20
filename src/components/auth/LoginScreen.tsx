@@ -107,14 +107,35 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
   useEffect(() => {
     let active = true;
 
+    const syncExistingSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!active || hasRecoveryMarker) {
+          return;
+        }
+
+        if (session) {
+          clearAuthHandoff();
+          goTo(nextPath);
+        }
+      } catch (error) {
+        console.error("[login] erro ao sincronizar sessao existente", error);
+      }
+    };
+
     if (hasRecoveryMarker) {
       setMode("recovery");
       setFeedback("Abra o link recebido e escolha sua nova senha.");
+    } else {
+      void syncExistingSession();
     }
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) {
         return;
       }
@@ -123,6 +144,12 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
         setMode("recovery");
         setSending(false);
         setFeedback("Link de recuperacao validado. Agora defina sua nova senha.");
+        return;
+      }
+
+      if (session && !hasRecoveryMarker) {
+        clearAuthHandoff();
+        goTo(nextPath);
       }
     });
 
@@ -130,7 +157,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
       active = false;
       subscription.unsubscribe();
     };
-  }, [hasRecoveryMarker]);
+  }, [hasRecoveryMarker, nextPath]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
@@ -142,7 +169,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
     setFeedback("");
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
@@ -151,6 +178,13 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
         clearAuthHandoff();
         setFeedback(humanizeAuthError(error.message));
         return;
+      }
+
+      if (data.session) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
       }
 
       setAuthHandoff();
