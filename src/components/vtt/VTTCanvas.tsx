@@ -12,7 +12,7 @@ import {
   Text as KonvaText,
 } from "react-konva";
 import useImage from "use-image";
-import { Minus, Move, Plus, RotateCcw, X } from "lucide-react";
+import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
@@ -30,8 +30,6 @@ const COLORS = {
 };
 
 const DEFAULT_CAMERA = { x: 0, y: 0, scale: 1 };
-const MOBILE_ROSTER_HEIGHT = 176;
-const DESKTOP_ROSTER_HEIGHT = 228;
 
 type Point = { x: number; y: number };
 
@@ -209,8 +207,7 @@ export default function VTTCanvas({
 
   const fichaIds = tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id));
   const fichasMap = useTokenFichaSync(fichaIds);
-  const rosterHeight = windowSize.w < 768 ? MOBILE_ROSTER_HEIGHT : DESKTOP_ROSTER_HEIGHT;
-  const stageHeight = Math.max(windowSize.h - rosterHeight, 320);
+  const stageHeight = Math.max(windowSize.h, 320);
 
   useEffect(() => {
     onFichasMapChange?.(fichasMap);
@@ -318,18 +315,21 @@ export default function VTTCanvas({
     [scenePreferences.gridSize, scenePreferences.snapToGrid],
   );
 
-  const applyZoom = useCallback((factor: number, anchor?: { x: number; y: number }) => {
-    const nextScale = clamp(camera.scale * factor, 0.4, 2.8);
-    const pivot = anchor ?? { x: windowSize.w / 2, y: stageHeight / 2 };
-    const worldX = (pivot.x - camera.x) / camera.scale;
-    const worldY = (pivot.y - camera.y) / camera.scale;
+  const applyZoom = useCallback(
+    (factor: number, anchor?: { x: number; y: number }) => {
+      const nextScale = clamp(camera.scale * factor, 0.4, 2.8);
+      const pivot = anchor ?? { x: windowSize.w / 2, y: stageHeight / 2 };
+      const worldX = (pivot.x - camera.x) / camera.scale;
+      const worldY = (pivot.y - camera.y) / camera.scale;
 
-    setCamera({
-      scale: nextScale,
-      x: pivot.x - worldX * nextScale,
-      y: pivot.y - worldY * nextScale,
-    });
-  }, [camera, stageHeight, windowSize.w]);
+      setCamera({
+        scale: nextScale,
+        x: pivot.x - worldX * nextScale,
+        y: pivot.y - worldY * nextScale,
+      });
+    },
+    [camera, stageHeight, windowSize.w],
+  );
 
   const handleWheel = useCallback(
     (event: any) => {
@@ -359,21 +359,24 @@ export default function VTTCanvas({
     [scenePreferences.gridSize, scenePreferences.snapToGrid],
   );
 
-  const handleMapDragEnd = useCallback((event: any) => {
-    onSelectToken(null);
-    const baseX = event.target.x();
-    const baseY = event.target.y();
-    event.target.position({ x: scenePreferences.mapOffsetX, y: scenePreferences.mapOffsetY });
+  const handleMapDragEnd = useCallback(
+    (event: any) => {
+      onSelectToken(null);
+      const baseX = event.target.x();
+      const baseY = event.target.y();
+      event.target.position({ x: scenePreferences.mapOffsetX, y: scenePreferences.mapOffsetY });
 
-    const nextX = Number(baseX.toFixed(0));
-    const nextY = Number(baseY.toFixed(0));
+      const nextX = Number(baseX.toFixed(0));
+      const nextY = Number(baseY.toFixed(0));
 
-    window.dispatchEvent(
-      new CustomEvent("aq-map-offset", {
-        detail: { x: nextX, y: nextY },
-      }),
-    );
-  }, [onSelectToken, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY]);
+      window.dispatchEvent(
+        new CustomEvent("aq-map-offset", {
+          detail: { x: nextX, y: nextY },
+        }),
+      );
+    },
+    [onSelectToken, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY],
+  );
 
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
@@ -481,10 +484,10 @@ export default function VTTCanvas({
 
     const lines: React.ReactNode[] = [];
     const grid = scenePreferences.gridSize;
-    const left = (-camera.x / camera.scale) - grid * 2;
-    const right = ((windowSize.w - camera.x) / camera.scale) + grid * 2;
-    const top = (-camera.y / camera.scale) - grid * 2;
-    const bottom = ((stageHeight - camera.y) / camera.scale) + grid * 2;
+    const left = -camera.x / camera.scale - grid * 2;
+    const right = (windowSize.w - camera.x) / camera.scale + grid * 2;
+    const top = -camera.y / camera.scale - grid * 2;
+    const bottom = (stageHeight - camera.y) / camera.scale + grid * 2;
 
     const startX = Math.floor(left / grid) * grid;
     const endX = Math.ceil(right / grid) * grid;
@@ -521,9 +524,17 @@ export default function VTTCanvas({
   }, [camera.scale, camera.x, camera.y, scenePreferences.gridOpacity, scenePreferences.gridSize, scenePreferences.showGrid, stageHeight, windowSize.w]);
 
   const measurementLabel = measureStart && measureEnd ? formatDistance(measureStart, measureEnd, scenePreferences.gridSize) : null;
+  const hudInstruction =
+    scenePreferences.toolMode === "pan"
+      ? "Arraste para mover a camera"
+      : scenePreferences.toolMode === "measure"
+        ? "Toque duas vezes para medir no grid"
+        : scenePreferences.toolMode === "map"
+          ? "Arraste o mapa para reposicionar"
+          : "Toque no token e arraste para mover";
 
   return (
-    <div className="fixed left-0 right-0 top-0 overflow-hidden" style={{ background: COLORS.bg, bottom: rosterHeight }}>
+    <div className="fixed inset-0 overflow-hidden" style={{ background: COLORS.bg }}>
       <Stage
         ref={stageRef}
         width={windowSize.w}
@@ -613,54 +624,59 @@ export default function VTTCanvas({
         </Layer>
       </Stage>
 
-      <div className="pointer-events-none fixed left-1/2 top-[72px] z-50 flex w-[calc(100vw-1rem)] max-w-[360px] -translate-x-1/2 flex-col gap-2 md:left-auto md:right-[370px] md:top-20 md:w-auto md:max-w-none md:translate-x-0">
-        <div className="pointer-events-auto flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] p-2 backdrop-blur-md">
-          <button
-            onClick={() => applyZoom(1.12)}
-            className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
-            title="Aproximar"
-          >
-            <Plus size={16} />
-          </button>
-          <button
-            onClick={() => applyZoom(0.88)}
-            className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
-            title="Afastar"
-          >
-            <Minus size={16} />
-          </button>
-          <button
-            onClick={() => setCamera(DEFAULT_CAMERA)}
-            className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
-            title="Resetar camera"
-          >
-            <RotateCcw size={16} />
-          </button>
-        </div>
+      <div className="pointer-events-none fixed left-1/2 top-[74px] z-50 flex w-[calc(100vw-1rem)] max-w-[360px] -translate-x-1/2 flex-col gap-2 md:top-20 md:max-w-[560px]">
+        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] px-3 py-2 backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => applyZoom(1.12)}
+              className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+              title="Aproximar"
+            >
+              <Plus size={16} />
+            </button>
+            <button
+              onClick={() => applyZoom(0.88)}
+              className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+              title="Afastar"
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              onClick={() => setCamera(DEFAULT_CAMERA)}
+              className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+              title="Resetar camera"
+            >
+              <RotateCcw size={16} />
+            </button>
+          </div>
 
-        <div className="pointer-events-auto rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)] backdrop-blur-md md:text-xs md:tracking-[0.18em]">
-          <div>{`Zoom ${Math.round(camera.scale * 100)}%`}</div>
-          <div className="mt-2 leading-relaxed">{scenePreferences.toolMode === "pan" ? "Arraste para mover a camera" : scenePreferences.toolMode === "measure" ? "Toque para medir no grid" : scenePreferences.toolMode === "map" ? "Arraste o proprio mapa para reposicionar" : "Toque no token e arraste para reposicionar"}</div>
+          <div className="min-w-0 text-right">
+            <div className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] md:text-[11px]">
+              {`Zoom ${Math.round(camera.scale * 100)}% · ${scenePreferences.toolMode}`}
+            </div>
+            <div className="mt-1 truncate text-[9px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)] md:text-[10px]">
+              {hudInstruction}
+            </div>
+          </div>
         </div>
 
         {measurementLabel ? (
           <div className="pointer-events-auto rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(15,10,2,0.92)] px-4 py-3 text-[10px] uppercase tracking-[0.14em] text-amber-200 backdrop-blur-md md:text-xs md:tracking-[0.16em]">
             <div className="flex items-center justify-between gap-4">
               <span>{measurementLabel}</span>
-              <button onClick={() => { setMeasureStart(null); setMeasureEnd(null); }} className="text-amber-100 transition-colors hover:text-white" title="Limpar medicao">
+              <button
+                onClick={() => {
+                  setMeasureStart(null);
+                  setMeasureEnd(null);
+                }}
+                className="text-amber-100 transition-colors hover:text-white"
+                title="Limpar medicao"
+              >
                 <X size={14} />
               </button>
             </div>
           </div>
         ) : null}
-
-        <div className="pointer-events-auto hidden rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--aq-text-muted)] backdrop-blur-md md:block">
-          <div className="flex items-center gap-2 text-[var(--aq-accent)]">
-            <Move size={14} />
-            Navegacao
-          </div>
-          <div className="mt-2 leading-relaxed">Scroll faz zoom. Pan move a camera. Select move tokens. Mover mapa arrasta a imagem. Dois dedos fazem pinch no mobile. Measure calcula alcance no grid atual.</div>
-        </div>
       </div>
     </div>
   );
