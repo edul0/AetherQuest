@@ -15,7 +15,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     const nextPath = pathname || "/mesa";
     const loginUrl = `/login?next=${encodeURIComponent(nextPath)}`;
 
-    const redirectToLogin = () => {
+    const redirectToLogin = async () => {
       if (!active || redirected || typeof window === "undefined") {
         return;
       }
@@ -23,13 +23,20 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       redirected = true;
       setStatus("Sessao nao encontrada. Redirecionando...");
       setChecking(false);
-      window.location.assign(loginUrl);
+
+      try {
+        await supabase.auth.signOut({ scope: "local" });
+      } catch (error) {
+        console.error("[RequireAuth] local signOut error", error);
+      }
+
+      window.location.replace(loginUrl);
     };
 
     const timeout = window.setTimeout(() => {
       console.warn("[RequireAuth] session check timed out");
       setStatus("Nao foi possivel validar a sessao. Redirecionando...");
-      redirectToLogin();
+      void redirectToLogin();
     }, 4000);
 
     const markReady = () => {
@@ -53,25 +60,22 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           return;
         }
 
-        if (error) {
-          console.error("[RequireAuth] getSession error", error);
-          redirectToLogin();
-          return;
-        }
-
-        if (!session) {
-          redirectToLogin();
+        if (error || !session) {
+          if (error) {
+            console.error("[RequireAuth] getSession error", error);
+          }
+          await redirectToLogin();
           return;
         }
 
         markReady();
       } catch (error) {
         console.error("[RequireAuth] unexpected session error", error);
-        redirectToLogin();
+        await redirectToLogin();
       }
     };
 
-    checkSession();
+    void checkSession();
 
     const {
       data: { subscription },
@@ -81,7 +85,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       }
 
       if (!session) {
-        redirectToLogin();
+        void redirectToLogin();
         return;
       }
 
