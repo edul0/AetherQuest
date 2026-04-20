@@ -15,7 +15,13 @@ import {
   Users,
 } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
-import { FichaVTTSnapshot, Token } from "@/src/lib/types";
+import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
+import {
+  DEFAULT_SCENE_VIEW_PREFERENCES,
+  loadScenePreferences,
+  normalizeScenePreferences,
+  saveScenePreferences,
+} from "@/src/lib/vttScenePreferences";
 
 const VTTCanvas = dynamic(() => import("@/src/components/vtt/VTTCanvas"), {
   ssr: false,
@@ -67,6 +73,7 @@ export default function MesaClient() {
   const [fichaParaTokenId, setFichaParaTokenId] = useState<string>("");
   const [tokenLabel, setTokenLabel] = useState<string>("");
   const [fichasMap, setFichasMap] = useState<Record<string, FichaVTTSnapshot>>({});
+  const [scenePreferences, setScenePreferences] = useState<SceneViewPreferences>(DEFAULT_SCENE_VIEW_PREFERENCES);
 
   useEffect(() => {
     const carregarSalas = async () => {
@@ -155,6 +162,22 @@ export default function MesaClient() {
       supabase.removeChannel(channel);
     };
   }, [salaAtiva?.id]);
+
+  useEffect(() => {
+    setScenePreferences(loadScenePreferences(cenaAtiva?.id));
+  }, [cenaAtiva?.id]);
+
+  useEffect(() => {
+    if (!cenaAtiva?.id) {
+      return;
+    }
+
+    saveScenePreferences(cenaAtiva.id, scenePreferences);
+  }, [cenaAtiva?.id, scenePreferences]);
+
+  const updateScenePreferences = (patch: Partial<SceneViewPreferences>) => {
+    setScenePreferences((current) => normalizeScenePreferences({ ...current, ...patch }));
+  };
 
   const fichaSelecionada = useMemo(() => {
     if (!selectedToken?.ficha_id) {
@@ -278,9 +301,10 @@ export default function MesaClient() {
             onSelectToken={setSelectedToken}
             onFichasMapChange={setFichasMap}
             onTokensChange={setTokens}
+            scenePreferences={scenePreferences}
           />
           <SceneNav salaId={salaAtiva.id} onSelectCena={setCenaAtiva} cenaAtivaId={cenaAtiva.id} />
-          <VTTControls cenaId={cenaAtiva.id} />
+          <VTTControls cenaId={cenaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} />
           <TokenPanel token={selectedToken} fichaData={fichaSelecionada} onClose={() => setSelectedToken(null)} onTokenUpdate={setSelectedToken} />
           <Chat salaId={salaAtiva.id} />
         </>
@@ -351,6 +375,16 @@ export default function MesaClient() {
               <div className="mt-3 text-sm font-bold text-[var(--aq-title)]">{cenaAtiva?.mapa_url ? "Cena com mapa" : "Upload pendente"}</div>
             </div>
           </div>
+
+          {cenaAtiva ? (
+            <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>{`Ferramenta: ${scenePreferences.toolMode}`}</span>
+                <span>{`Grid: ${scenePreferences.gridSize}px`}</span>
+                <span>{scenePreferences.snapToGrid ? "Snap ativo" : "Snap livre"}</span>
+              </div>
+            </div>
+          ) : null}
 
           {modoMesa === "jogador" ? (
             <div className="mt-5 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
