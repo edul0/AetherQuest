@@ -39,6 +39,14 @@ export default function FichasHubPage() {
 
   const criarNovaFicha = async () => {
     try {
+      // 1. Busca a sessão atual para garantir que o usuário está logado
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session?.user) {
+        alert("Sua sessão expirou ou não foi encontrada. Faça login novamente.");
+        return;
+      }
+
       const preset = PRESETS[selectedPresetId] ?? PRESETS.ordem_paranormal;
       const firstClass = preset.classes?.[0];
       const firstRace = preset.racas?.[0];
@@ -49,6 +57,7 @@ export default function FichasHubPage() {
       const novaFicha = {
         nome_personagem: "Novo Personagem",
         sistema_preset: selectedPresetId,
+        user_id: session.user.id, // <--- A ASSINATURA DE SEGURANÇA AQUI
         dados: {
           nex: progressValue,
           progressao: progressValue,
@@ -82,6 +91,14 @@ export default function FichasHubPage() {
       if (error) {
         throw error;
       }
+
+      if (data) {
+        router.push(`/fichas/${data.id}`);
+      }
+    } catch (error: any) {
+      alert(`Erro ao criar ficha: ${error.message}`);
+    }
+  };
 
       if (data) {
         router.push(`/fichas/${data.id}`);
