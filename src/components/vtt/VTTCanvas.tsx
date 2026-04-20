@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Circle,
   Group,
@@ -12,11 +12,10 @@ import {
   Text as KonvaText,
 } from "react-konva";
 import useImage from "use-image";
+import { Minus, Move3d, Plus, ScanSearch, X } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
-import { FichaVTTSnapshot, Token } from "@/src/lib/types";
+import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
-
-const GRID_SIZE = 50;
 
 const COLORS = {
   bg: "#050a10",
@@ -30,6 +29,10 @@ const COLORS = {
   placeholderText: "#6b7b94",
 };
 
+const DEFAULT_CAMERA = { x: 0, y: 0, scale: 1 };
+
+type Point = { x: number; y: number };
+
 interface VTTCanvasProps {
   cenaId: string;
   mapaUrl?: string;
@@ -37,6 +40,149 @@ interface VTTCanvasProps {
   onSelectToken: (token: Token | null) => void;
   onFichasMapChange?: (map: Record<string, FichaVTTSnapshot>) => void;
   onTokensChange?: (tokens: Token[]) => void;
+  scenePreferences: SceneViewPreferences;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function formatDistance(start: Point, end: Point, gridSize: number) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const px = Math.sqrt(dx * dx + dy * dy);
+  const cells = px / gridSize;
+  const meters = cells * 1.5;
+  return `${cells.toFixed(1)} qd • ${meters.toFixed(1)} m`;
+}
+
+function AvatarToken({
+  token,
+  ficha,
+  isSelected,
+  draggable,
+  onDragEnd,
+  onClick,
+}: {
+  token: Token;
+  ficha: FichaVTTSnapshot | null;
+  isSelected: boolean;
+  draggable: boolean;
+  onDragEnd: (event: any) => void;
+  onClick: (event: any) => void;
+}) {
+  const [avatar] = useImage(ficha?.avatar_url || "");
+
+  const vida = ficha?.dados?.status?.vida;
+  const hpRatio = vida ? Math.max(0, Math.min(1, vida.atual / (vida.max || 1))) : null;
+  const hpColor = hpRatio === null ? COLORS.hpHigh : hpRatio > 0.5 ? COLORS.hpHigh : hpRatio > 0.25 ? COLORS.hpMid : COLORS.hpLow;
+
+  const radius = 21;
+  const cx = token.x + 25;
+  const cy = token.y + 25;
+  const barW = 46;
+  const barH = 4;
+  const barX = token.x + 2;
+  const barY = token.y + 55;
+  const isDead = (vida?.atual ?? 1) <= 0;
+
+  return (
+    <Group onClick={onClick} onTap={onClick}>
+      {isSelected ? (
+        <>
+          <Circle x={cx} y={cy} radius={radius + 6} stroke={COLORS.selectionRing} strokeWidth={1.5} dash={[6, 3]} opacity={0.9} />
+          <Circle x={cx} y={cy} radius={radius + 10} stroke={COLORS.selectionRing} strokeWidth={0.5} opacity={0.3} />
+        </>
+      ) : null}
+
+      <Circle
+        x={cx}
+        y={cy}
+        radius={radius}
+        fill={isDead ? "#6b7280" : token.cor || "#ef4444"}
+        draggable={draggable}
+        onDragEnd={onDragEnd}
+        shadowBlur={isSelected ? 24 : 10}
+        shadowColor={isSelected ? COLORS.selectionRing : token.cor || "#ef4444"}
+        shadowOpacity={isSelected ? 0.7 : 0.4}
+        opacity={isDead ? 0.65 : 1}
+      />
+
+      {avatar ? (
+        <Group
+          listening={false}
+          clipFunc={(context) => {
+            context.arc(cx, cy, radius - 2, 0, Math.PI * 2, false);
+          }}
+        >
+          <KonvaImage image={avatar} x={token.x + 4} y={token.y + 4} width={42} height={42} opacity={isDead ? 0.45 : 0.96} />
+        </Group>
+      ) : (
+        <KonvaText
+          x={token.x + 8}
+          y={token.y + 15}
+          width={34}
+          text={token.nome.slice(0, 2).toUpperCase()}
+          fontSize={12}
+          fill="rgba(255,255,255,0.85)"
+          align="center"
+          fontStyle="bold"
+          listening={false}
+        />
+      )}
+
+      {ficha ? (
+        <KonvaText
+          x={cx - 5}
+          y={cy - 5}
+          text={isDead ? "X" : "+"}
+          fontSize={10}
+          fill="rgba(255,255,255,0.75)"
+          listening={false}
+        />
+      ) : null}
+
+      <KonvaText
+        x={token.x - 5}
+        y={cy + radius + 4}
+        width={60}
+        text={token.nome}
+        fontSize={9}
+        fill={isDead ? "#9ca3af" : COLORS.tokenLabel}
+        align="center"
+        fontFamily="monospace"
+        listening={false}
+      />
+
+      {hpRatio !== null ? (
+        <>
+          <Rect
+            x={barX}
+            y={barY}
+            width={barW}
+            height={barH}
+            fill={COLORS.hpBarBg}
+            cornerRadius={2}
+            stroke="#1a2b4c"
+            strokeWidth={0.5}
+            listening={false}
+          />
+          <Rect x={barX} y={barY} width={barW * hpRatio} height={barH} fill={hpColor} cornerRadius={2} listening={false} />
+          <KonvaText
+            x={barX}
+            y={barY + barH + 2}
+            width={barW}
+            text={`${vida!.atual}/${vida!.max}`}
+            fontSize={7}
+            fill={hpColor}
+            align="center"
+            fontFamily="monospace"
+            listening={false}
+          />
+        </>
+      ) : null}
+    </Group>
+  );
 }
 
 export default function VTTCanvas({
@@ -46,11 +192,16 @@ export default function VTTCanvas({
   onSelectToken,
   onFichasMapChange,
   onTokensChange,
+  scenePreferences,
 }: VTTCanvasProps) {
+  const stageRef = useRef<any>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [image] = useImage(mapaUrl || "");
   const [windowSize, setWindowSize] = useState({ w: 1000, h: 800 });
+  const [camera, setCamera] = useState(DEFAULT_CAMERA);
+  const [measureStart, setMeasureStart] = useState<Point | null>(null);
+  const [measureEnd, setMeasureEnd] = useState<Point | null>(null);
 
   const fichaIds = tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id));
   const fichasMap = useTokenFichaSync(fichaIds);
@@ -71,6 +222,17 @@ export default function VTTCanvas({
   }, []);
 
   useEffect(() => {
+    if (scenePreferences.toolMode !== "measure") {
+      setMeasureStart(null);
+      setMeasureEnd(null);
+    }
+  }, [scenePreferences.toolMode]);
+
+  useEffect(() => {
+    setCamera(DEFAULT_CAMERA);
+  }, [cenaId]);
+
+  useEffect(() => {
     if (!cenaId) {
       return;
     }
@@ -82,9 +244,7 @@ export default function VTTCanvas({
           throw error;
         }
         setCanvasError(null);
-        if (data) {
-          setTokens(data as Token[]);
-        }
+        setTokens((data ?? []) as Token[]);
       } catch (error: any) {
         console.error("[VTTCanvas] erro ao carregar tokens:", error?.message ?? error);
         setCanvasError("Nao foi possivel carregar os tokens desta cena.");
@@ -123,176 +283,304 @@ export default function VTTCanvas({
     };
   }, [cenaId, onSelectToken, selectedTokenId]);
 
-  const handleDragEnd = useCallback(async (id: string, event: any) => {
-    const newX = Math.round(event.target.x() / GRID_SIZE) * GRID_SIZE;
-    const newY = Math.round(event.target.y() / GRID_SIZE) * GRID_SIZE;
+  const worldFromPointer = useCallback(() => {
+    const stage = stageRef.current;
+    const pointer = stage?.getPointerPosition();
+    if (!stage || !pointer) {
+      return null;
+    }
 
-    setTokens((prev) => prev.map((token) => (token.id === id ? { ...token, x: newX, y: newY } : token)));
+    return {
+      x: (pointer.x - camera.x) / camera.scale,
+      y: (pointer.y - camera.y) / camera.scale,
+    };
+  }, [camera]);
 
-    await supabase.from("tokens").update({ x: newX, y: newY }).eq("id", id);
-  }, []);
+  const snapPoint = useCallback(
+    (point: Point) => {
+      if (!scenePreferences.snapToGrid) {
+        return point;
+      }
+
+      return {
+        x: Math.round(point.x / scenePreferences.gridSize) * scenePreferences.gridSize,
+        y: Math.round(point.y / scenePreferences.gridSize) * scenePreferences.gridSize,
+      };
+    },
+    [scenePreferences.gridSize, scenePreferences.snapToGrid],
+  );
+
+  const applyZoom = useCallback((factor: number, anchor?: { x: number; y: number }) => {
+    const nextScale = clamp(camera.scale * factor, 0.4, 2.8);
+    const pivot = anchor ?? { x: windowSize.w / 2, y: windowSize.h / 2 };
+    const worldX = (pivot.x - camera.x) / camera.scale;
+    const worldY = (pivot.y - camera.y) / camera.scale;
+
+    setCamera({
+      scale: nextScale,
+      x: pivot.x - worldX * nextScale,
+      y: pivot.y - worldY * nextScale,
+    });
+  }, [camera, windowSize.h, windowSize.w]);
+
+  const handleWheel = useCallback(
+    (event: any) => {
+      event.evt.preventDefault();
+      const stage = stageRef.current;
+      const pointer = stage?.getPointerPosition();
+      if (!pointer) {
+        return;
+      }
+
+      const direction = event.evt.deltaY > 0 ? 0.92 : 1.08;
+      applyZoom(direction, pointer);
+    },
+    [applyZoom],
+  );
+
+  const handleDragEnd = useCallback(
+    async (id: string, event: any) => {
+      const baseX = event.target.x();
+      const baseY = event.target.y();
+      const newX = scenePreferences.snapToGrid ? Math.round(baseX / scenePreferences.gridSize) * scenePreferences.gridSize : baseX;
+      const newY = scenePreferences.snapToGrid ? Math.round(baseY / scenePreferences.gridSize) * scenePreferences.gridSize : baseY;
+
+      setTokens((prev) => prev.map((token) => (token.id === id ? { ...token, x: newX, y: newY } : token)));
+      await supabase.from("tokens").update({ x: newX, y: newY }).eq("id", id);
+    },
+    [scenePreferences.gridSize, scenePreferences.snapToGrid],
+  );
 
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
       event.cancelBubble = true;
+      if (scenePreferences.toolMode !== "select") {
+        return;
+      }
       onSelectToken(selectedTokenId === token.id ? null : token);
     },
-    [onSelectToken, selectedTokenId],
+    [onSelectToken, scenePreferences.toolMode, selectedTokenId],
   );
 
   const handleStageClick = useCallback(() => {
+    if (scenePreferences.toolMode === "measure") {
+      const world = worldFromPointer();
+      if (!world) {
+        return;
+      }
+
+      const point = snapPoint(world);
+      if (!measureStart) {
+        setMeasureStart(point);
+        setMeasureEnd(point);
+        return;
+      }
+
+      setMeasureEnd(point);
+      return;
+    }
+
     onSelectToken(null);
-  }, [onSelectToken]);
+  }, [measureStart, onSelectToken, scenePreferences.toolMode, snapPoint, worldFromPointer]);
 
-  const gridLines = [];
-  const cols = Math.ceil(windowSize.w / GRID_SIZE) + 1;
-  const rows = Math.ceil(windowSize.h / GRID_SIZE) + 1;
+  const handleStageMouseMove = useCallback(() => {
+    if (scenePreferences.toolMode !== "measure" || !measureStart) {
+      return;
+    }
 
-  for (let i = 0; i < cols; i += 1) {
-    gridLines.push(
-      <Line
-        key={`v-${i}`}
-        points={[i * GRID_SIZE, 0, i * GRID_SIZE, windowSize.h]}
-        stroke={COLORS.grid}
-        strokeWidth={0.5}
-        opacity={0.1}
-      />,
-    );
-  }
+    const world = worldFromPointer();
+    if (!world) {
+      return;
+    }
 
-  for (let j = 0; j < rows; j += 1) {
-    gridLines.push(
-      <Line
-        key={`h-${j}`}
-        points={[0, j * GRID_SIZE, windowSize.w, j * GRID_SIZE]}
-        stroke={COLORS.grid}
-        strokeWidth={0.5}
-        opacity={0.1}
-      />,
-    );
-  }
+    setMeasureEnd(snapPoint(world));
+  }, [measureStart, scenePreferences.toolMode, snapPoint, worldFromPointer]);
+
+  const gridLines = useMemo(() => {
+    if (!scenePreferences.showGrid) {
+      return [];
+    }
+
+    const lines: React.ReactNode[] = [];
+    const grid = scenePreferences.gridSize;
+    const left = (-camera.x / camera.scale) - grid * 2;
+    const right = ((windowSize.w - camera.x) / camera.scale) + grid * 2;
+    const top = (-camera.y / camera.scale) - grid * 2;
+    const bottom = ((windowSize.h - camera.y) / camera.scale) + grid * 2;
+
+    const startX = Math.floor(left / grid) * grid;
+    const endX = Math.ceil(right / grid) * grid;
+    const startY = Math.floor(top / grid) * grid;
+    const endY = Math.ceil(bottom / grid) * grid;
+
+    for (let x = startX; x <= endX; x += grid) {
+      lines.push(
+        <Line
+          key={`v-${x}`}
+          points={[x, startY, x, endY]}
+          stroke={COLORS.grid}
+          strokeWidth={0.75 / camera.scale}
+          opacity={scenePreferences.gridOpacity}
+          listening={false}
+        />,
+      );
+    }
+
+    for (let y = startY; y <= endY; y += grid) {
+      lines.push(
+        <Line
+          key={`h-${y}`}
+          points={[startX, y, endX, y]}
+          stroke={COLORS.grid}
+          strokeWidth={0.75 / camera.scale}
+          opacity={scenePreferences.gridOpacity}
+          listening={false}
+        />,
+      );
+    }
+
+    return lines;
+  }, [camera.scale, camera.x, camera.y, scenePreferences.gridOpacity, scenePreferences.gridSize, scenePreferences.showGrid, windowSize.h, windowSize.w]);
+
+  const measurementLabel = measureStart && measureEnd ? formatDistance(measureStart, measureEnd, scenePreferences.gridSize) : null;
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ background: COLORS.bg }}>
-      <Stage width={windowSize.w} height={windowSize.h} draggable onClick={handleStageClick} onTap={handleStageClick}>
+      <Stage
+        ref={stageRef}
+        width={windowSize.w}
+        height={windowSize.h}
+        x={camera.x}
+        y={camera.y}
+        scaleX={camera.scale}
+        scaleY={camera.scale}
+        draggable={scenePreferences.toolMode === "pan"}
+        onDragEnd={(event) => setCamera((current) => ({ ...current, x: event.target.x(), y: event.target.y() }))}
+        onClick={handleStageClick}
+        onTap={handleStageClick}
+        onMouseMove={handleStageMouseMove}
+        onTouchMove={handleStageMouseMove}
+        onWheel={handleWheel}
+      >
         <Layer>
           {image ? (
-            <KonvaImage image={image} width={image.width || windowSize.w} height={image.height || windowSize.h} />
+            <KonvaImage
+              image={image}
+              x={scenePreferences.mapOffsetX}
+              y={scenePreferences.mapOffsetY}
+              width={(image.width || windowSize.w) * scenePreferences.mapScale}
+              height={(image.height || windowSize.h) * scenePreferences.mapScale}
+              opacity={0.95}
+              listening={false}
+            />
           ) : (
             <KonvaText
-              x={windowSize.w / 2 - 220}
-              y={windowSize.h / 2 - 10}
+              x={-220}
+              y={-10}
               text={canvasError || "Sem mapa. Use os controles para fazer upload da cena."}
               fontSize={13}
               fill={COLORS.placeholderText}
               fontFamily="monospace"
+              listening={false}
             />
           )}
 
           {gridLines}
 
           {tokens.map((token) => {
-            const isSelected = selectedTokenId === token.id;
             const ficha = token.ficha_id ? fichasMap[token.ficha_id] : null;
-            const vida = ficha?.dados?.status?.vida;
-            const hpRatio = vida ? Math.max(0, Math.min(1, vida.atual / (vida.max || 1))) : null;
-            const hpColor =
-              hpRatio === null ? COLORS.hpHigh : hpRatio > 0.5 ? COLORS.hpHigh : hpRatio > 0.25 ? COLORS.hpMid : COLORS.hpLow;
-
-            const cx = token.x + GRID_SIZE / 2;
-            const cy = token.y + GRID_SIZE / 2;
-            const radius = GRID_SIZE * 0.42;
-            const barW = GRID_SIZE * 0.92;
-            const barH = 4;
-            const barX = token.x + (GRID_SIZE - barW) / 2;
-            const barY = token.y + GRID_SIZE + 5;
-            const isDead = (vida?.atual ?? 1) <= 0;
-
             return (
-              <Group key={token.id} onClick={(event) => handleTokenClick(token, event)} onTap={(event) => handleTokenClick(token, event)}>
-                {isSelected ? (
-                  <>
-                    <Circle x={cx} y={cy} radius={radius + 6} stroke={COLORS.selectionRing} strokeWidth={1.5} dash={[6, 3]} opacity={0.9} />
-                    <Circle x={cx} y={cy} radius={radius + 10} stroke={COLORS.selectionRing} strokeWidth={0.5} opacity={0.3} />
-                  </>
-                ) : null}
+              <AvatarToken
+                key={token.id}
+                token={token}
+                ficha={ficha}
+                isSelected={selectedTokenId === token.id}
+                draggable={scenePreferences.toolMode === "select"}
+                onDragEnd={(event) => handleDragEnd(token.id, event)}
+                onClick={(event) => handleTokenClick(token, event)}
+              />
+            );
+          })}
 
-                <Circle
-                  x={cx}
-                  y={cy}
-                  radius={radius}
-                  fill={isDead ? "#6b7280" : token.cor || "#ef4444"}
-                  draggable
-                  onDragEnd={(event) => handleDragEnd(token.id, event)}
-                  shadowBlur={isSelected ? 24 : 10}
-                  shadowColor={isSelected ? COLORS.selectionRing : token.cor || "#ef4444"}
-                  shadowOpacity={isSelected ? 0.7 : 0.4}
-                  opacity={isDead ? 0.65 : 1}
-                />
-
-                {ficha ? (
-                  <KonvaText
-                    x={cx - 5}
-                    y={cy - 5}
-                    text={isDead ? "X" : "+"}
-                    fontSize={10}
-                    fill="rgba(255,255,255,0.7)"
-                    listening={false}
-                  />
-                ) : null}
-
+          {measureStart && measureEnd ? (
+            <>
+              <Line
+                points={[measureStart.x, measureStart.y, measureEnd.x, measureEnd.y]}
+                stroke="#f59e0b"
+                strokeWidth={3 / camera.scale}
+                dash={[10 / camera.scale, 8 / camera.scale]}
+                listening={false}
+              />
+              <Circle x={measureStart.x} y={measureStart.y} radius={7 / camera.scale} fill="#f59e0b" listening={false} />
+              <Circle x={measureEnd.x} y={measureEnd.y} radius={7 / camera.scale} fill="#f59e0b" listening={false} />
+              {measurementLabel ? (
                 <KonvaText
-                  x={token.x - 5}
-                  y={cy + radius + 4}
-                  width={GRID_SIZE + 10}
-                  text={token.nome}
-                  fontSize={9}
-                  fill={isDead ? "#9ca3af" : COLORS.tokenLabel}
+                  x={(measureStart.x + measureEnd.x) / 2 - 55 / camera.scale}
+                  y={(measureStart.y + measureEnd.y) / 2 - 26 / camera.scale}
+                  width={110 / camera.scale}
+                  text={measurementLabel}
+                  fontSize={12 / camera.scale}
+                  padding={6 / camera.scale}
+                  fill="#f8fafc"
                   align="center"
                   fontFamily="monospace"
                   listening={false}
                 />
-
-                {hpRatio !== null ? (
-                  <>
-                    <Rect
-                      x={barX}
-                      y={barY}
-                      width={barW}
-                      height={barH}
-                      fill={COLORS.hpBarBg}
-                      cornerRadius={2}
-                      stroke="#1a2b4c"
-                      strokeWidth={0.5}
-                      listening={false}
-                    />
-                    <Rect
-                      x={barX}
-                      y={barY}
-                      width={barW * hpRatio}
-                      height={barH}
-                      fill={hpColor}
-                      cornerRadius={2}
-                      listening={false}
-                    />
-                    <KonvaText
-                      x={barX}
-                      y={barY + barH + 2}
-                      width={barW}
-                      text={`${vida!.atual}/${vida!.max}`}
-                      fontSize={7}
-                      fill={hpColor}
-                      align="center"
-                      fontFamily="monospace"
-                      listening={false}
-                    />
-                  </>
-                ) : null}
-              </Group>
-            );
-          })}
+              ) : null}
+            </>
+          ) : null}
         </Layer>
       </Stage>
+
+      <div className="pointer-events-none fixed right-[370px] top-20 z-50 flex flex-col gap-3">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] p-2 backdrop-blur-md">
+          <button
+            onClick={() => applyZoom(1.12)}
+            className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+            title="Aproximar"
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            onClick={() => applyZoom(0.88)}
+            className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+            title="Afastar"
+          >
+            <Minus size={16} />
+          </button>
+          <button
+            onClick={() => setCamera(DEFAULT_CAMERA)}
+            className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+            title="Resetar camera"
+          >
+            <ScanSearch size={16} />
+          </button>
+        </div>
+
+        <div className="pointer-events-auto rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)] backdrop-blur-md">
+          <div>{`Zoom ${Math.round(camera.scale * 100)}%`}</div>
+          <div className="mt-2">{scenePreferences.toolMode === "pan" ? "Arraste o fundo para mover a camera" : scenePreferences.toolMode === "measure" ? "Clique para medir a distancia" : "Arraste tokens para reposicionar"}</div>
+        </div>
+
+        {measurementLabel ? (
+          <div className="pointer-events-auto rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(15,10,2,0.88)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-amber-200 backdrop-blur-md">
+            <div className="flex items-center justify-between gap-4">
+              <span>{measurementLabel}</span>
+              <button onClick={() => { setMeasureStart(null); setMeasureEnd(null); }} className="text-amber-100 transition-colors hover:text-white" title="Limpar medicao">
+                <X size={14} />
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="pointer-events-auto rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--aq-text-muted)] backdrop-blur-md">
+          <div className="flex items-center gap-2 text-[var(--aq-accent)]">
+            <Move3d size={14} />
+            Navegacao
+          </div>
+          <div className="mt-2 leading-relaxed">Scroll faz zoom. Pan move a camera. Select move tokens. Measure calcula alcance no grid atual.</div>
+        </div>
+      </div>
     </div>
   );
 }
