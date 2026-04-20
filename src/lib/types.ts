@@ -1,3 +1,8 @@
+export interface CatalogEntry {
+  nome: string;
+  desc: string;
+}
+
 export interface Skill {
   id: number;
   nome: string;
@@ -65,6 +70,7 @@ export interface ChoiceOption {
   pePorNivel?: number;
   sanidadeBase?: number;
   sanidadePorNivel?: number;
+  dado?: string;
 }
 
 export interface Category {
@@ -85,8 +91,8 @@ export interface SystemPreset {
   racas: ChoiceOption[];
   categorias_hab: Category[];
   armas: Weapon[];
-  melhoriasCatalogo?: string[];
-  maldicoesCatalogo?: string[];
+  melhoriasCatalogo?: CatalogEntry[];
+  maldicoesCatalogo?: CatalogEntry[];
   pericias?: Array<{ nome: string; atributo: keyof AttributeMap; atributoSecundario?: keyof AttributeMap }>;
   resourceLabels?: ResourceLabels;
   attributeLayout?: AttributeDefinition[];
@@ -125,4 +131,17 @@ export interface FichaVTTSnapshot {
     };
     [key: string]: any;
   };
+}
+
+export type VTTToolMode = "select" | "pan" | "measure";
+
+export interface SceneViewPreferences {
+  gridSize: number;
+  gridOpacity: number;
+  showGrid: boolean;
+  mapScale: number;
+  mapOffsetX: number;
+  mapOffsetY: number;
+  toolMode: VTTToolMode;
+  snapToGrid: boolean;
 }
