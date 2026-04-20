@@ -111,7 +111,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [joinError, setJoinError] = useState("");
   const [joinedAsPlayer, setJoinedAsPlayer] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
-  const [mobileShellOpen, setMobileShellOpen] = useState(true);
+  const [shellOpen, setShellOpen] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
@@ -144,10 +144,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   useEffect(() => {
     const carregarFichas = async () => {
-      const { data, error } = await supabase
-        .from("fichas")
-        .select("id, nome_personagem, sistema_preset")
-        .order("nome_personagem");
+      const { data, error } = await supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem");
 
       if (!error) {
         setFichas((data ?? []) as FichaListItem[]);
@@ -206,11 +203,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
     const channel = supabase
       .channel(`mesa_cenas_${salaAtiva.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "cenas", filter: `sala_id=eq.${salaAtiva.id}` },
-        () => carregarCenas(),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "cenas", filter: `sala_id=eq.${salaAtiva.id}` }, () => carregarCenas())
       .subscribe();
 
     return () => {
@@ -284,12 +277,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const showActiveMesa = Boolean(role && salaAtiva && cenaAtiva && (role === "mestre" || joinedAsPlayer));
 
   useEffect(() => {
-    if (showActiveMesa) {
-      setMobileShellOpen(false);
-      return;
-    }
-
-    setMobileShellOpen(true);
+    setShellOpen(!showActiveMesa);
   }, [showActiveMesa]);
 
   const criarSala = async () => {
@@ -311,11 +299,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("cenas")
-      .insert([{ sala_id: salaAtiva.id, nome: `Setor ${cenas.length + 1}` }])
-      .select()
-      .single();
+    const { data, error } = await supabase.from("cenas").insert([{ sala_id: salaAtiva.id, nome: `Setor ${cenas.length + 1}` }]).select().single();
 
     if (error) {
       alert(`Falha ao criar cena: ${error.message}`);
@@ -365,7 +349,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     const tokenCorrespondente = tokens.find((token) => token.ficha_id === fichaEscolhidaId);
     if (tokenCorrespondente) {
       setSelectedToken(tokenCorrespondente);
-      setMobileShellOpen(false);
+      setShellOpen(false);
     }
   };
 
@@ -407,20 +391,16 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   if (loading) {
     return (
       <div className="aq-page flex items-center justify-center">
-        <div className="font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)] animate-pulse">
-          Inicializando mesa...
-        </div>
+        <div className="font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)] animate-pulse">Inicializando mesa...</div>
       </div>
     );
   }
 
-  const mobileDrawerClass = showActiveMesa
-    ? `${mobileShellOpen ? "block" : "hidden"} fixed inset-x-3 top-20 bottom-[calc(28vh+1rem)] z-50 md:block md:inset-x-auto md:bottom-6 md:left-6 md:right-auto md:top-20 md:w-[390px]`
+  const shellWrapperClass = showActiveMesa
+    ? `${shellOpen ? "block" : "hidden"} fixed inset-x-3 top-20 bottom-6 z-50 md:inset-x-auto md:left-6 md:top-20 md:w-[390px]`
     : "relative z-20 mx-auto mt-24 w-full max-w-[640px] px-3 pb-10 md:px-0";
 
-  const mobilePanelClass = showActiveMesa
-    ? "aq-scrollbar pointer-events-auto h-full overflow-y-auto aq-panel p-5 md:max-h-[calc(100dvh-7rem)]"
-    : "aq-panel pointer-events-auto p-5 md:p-6";
+  const shellPanelClass = showActiveMesa ? "aq-scrollbar pointer-events-auto h-full overflow-y-auto aq-panel p-5" : "aq-panel pointer-events-auto p-5 md:p-6";
 
   return (
     <main className={`aq-page overflow-x-hidden ${inter.className}`}>
@@ -436,9 +416,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
             scenePreferences={scenePreferences}
           />
           <SceneNav salaId={salaAtiva.id} onSelectCena={setCenaAtiva} cenaAtivaId={cenaAtiva.id} />
-          {role === "mestre" ? (
-            <VTTControls cenaId={cenaAtiva.id} salaId={salaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} />
-          ) : null}
+          {role === "mestre" ? <VTTControls cenaId={cenaAtiva.id} salaId={salaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} /> : null}
           <TokenPanel token={selectedToken} fichaData={fichaSelecionada} onClose={() => setSelectedToken(null)} onTokenUpdate={setSelectedToken} />
           <Chat salaId={salaAtiva.id} />
         </>
@@ -447,78 +425,50 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,217,217,0.06),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(26,43,76,0.18),transparent_30%)]" />
 
       {showActiveMesa ? (
-        <div className="fixed inset-x-3 top-3 z-50 flex items-center justify-between gap-2 md:hidden">
-          <button
-            onClick={() => router.push("/")}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.88)] text-[var(--aq-title)] backdrop-blur-md"
-            aria-label="Voltar"
-          >
+        <div className="fixed inset-x-3 top-3 z-50 flex items-center justify-between gap-2">
+          <button onClick={() => router.push("/")} className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.88)] text-[var(--aq-title)] backdrop-blur-md" aria-label="Voltar">
             <ArrowLeft size={17} />
           </button>
-          <div className="rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-accent)] backdrop-blur-md">
+          <div className="rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-accent)] backdrop-blur-md md:px-4">
             {role === "mestre" ? "Mesa do Mestre" : "Mesa do Jogador"}
           </div>
-          <button
-            onClick={() => setMobileShellOpen((current) => !current)}
-            className="flex h-11 min-w-[88px] items-center justify-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] backdrop-blur-md"
-          >
-            {mobileShellOpen ? <X size={16} /> : <Menu size={16} />}
-            {mobileShellOpen ? "Fechar" : "Mesa"}
+          <button onClick={() => setShellOpen((current) => !current)} className="flex h-11 min-w-[88px] items-center justify-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] backdrop-blur-md">
+            {shellOpen ? <X size={16} /> : <Menu size={16} />}
+            {shellOpen ? "Fechar" : "Mesa"}
           </button>
         </div>
       ) : null}
 
-      {showActiveMesa && mobileShellOpen ? (
-        <button
-          className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.28)] md:hidden"
-          onClick={() => setMobileShellOpen(false)}
-          aria-label="Fechar painel"
-        />
-      ) : null}
+      {showActiveMesa && shellOpen ? <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.28)]" onClick={() => setShellOpen(false)} aria-label="Fechar painel" /> : null}
 
-      <div className={mobileDrawerClass}>
-        <div className={mobilePanelClass}>
+      <div className={shellWrapperClass}>
+        <div className={shellPanelClass}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="aq-kicker">Bridge Deck</div>
-              <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-4xl`}>
-                Mesa Tatica
-              </h1>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">
-                Mestre cria a sessao, publica o mapa e controla a cena. Jogador entra por senha ou convite e ve so o que precisa para jogar.
-              </p>
+              <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-4xl`}>Mesa Tatica</h1>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">Mestre cria a sessao, publica o mapa e controla a cena. Jogador entra por senha ou convite e ve so o que precisa para jogar.</p>
             </div>
             <div className="hidden items-center gap-2 md:flex">
               <button onClick={() => router.push("/")} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white">
                 <ArrowLeft size={16} />
               </button>
-              {showActiveMesa ? (
-                <button onClick={() => setMobileShellOpen(false)} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white md:hidden">
-                  <X size={16} />
-                </button>
-              ) : null}
             </div>
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <button
-              onClick={() => {
-                setRole("mestre");
-                setJoinedAsPlayer(false);
-                setJoinError("");
-              }}
-              className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}
-            >
+            <button onClick={() => {
+              setRole("mestre");
+              setJoinedAsPlayer(false);
+              setJoinError("");
+            }} className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}>
               <Eye size={14} />
               Mestre
             </button>
-            <button
-              onClick={() => {
-                setRole("jogador");
-                setJoinError("");
-              }}
-              className={role === "jogador" ? "aq-button-primary" : "aq-button-secondary"}
-            >
+            <button onClick={() => {
+              setRole("jogador");
+              setJoinError("");
+            }} className={role === "jogador" ? "aq-button-primary" : "aq-button-secondary"}>
               <Users size={14} />
               Jogador
             </button>
@@ -578,9 +528,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                   </button>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">
-                  Crie a primeira sala para abrir os acessos da sessao.
-                </div>
+                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">Crie a primeira sala para abrir os acessos da sessao.</div>
               )}
 
               <div className="grid gap-3 sm:grid-cols-3">
@@ -618,16 +566,12 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">
-                  Depois de criar a sala, crie uma cena para liberar o mapa e as ferramentas do mestre.
-                </div>
+                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">Depois de criar a sala, crie uma cena para liberar o mapa e as ferramentas do mestre.</div>
               )}
 
               <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                 <div className="aq-kicker">Controle do Mestre</div>
-                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">
-                  Vincule uma ficha a um token da cena atual. O retrato aparece na faixa inferior e o status espelha em tempo real.
-                </p>
+                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Vincule uma ficha a um token da cena atual. O retrato aparece na faixa inferior e o status espelha em tempo real.</p>
                 <div className="mt-4 space-y-3">
                   <select value={fichaParaTokenId} onChange={(e) => setFichaParaTokenId(e.target.value)} className="aq-input">
                     <option value="">Escolha uma ficha para colocar no mapa</option>
@@ -650,27 +594,16 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
               {!joinedAsPlayer ? (
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                   <div className="aq-kicker">Entrar na Sessao</div>
-                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">
-                    Digite a senha da sala ou o convite curto que o mestre compartilhou.
-                  </p>
+                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Digite a senha da sala ou o convite curto que o mestre compartilhou.</p>
                   <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
                     <KeyRound size={16} className="text-[var(--aq-accent)]" />
-                    <input
-                      value={joinCode}
-                      onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-                      placeholder="Senha ou convite"
-                      className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
-                    />
+                    <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Senha ou convite" className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]" />
                   </div>
                   <button onClick={joinAsPlayer} className="aq-button-primary mt-4 w-full justify-center">
                     <Users size={14} />
                     Entrar como jogador
                   </button>
-                  {joinError ? (
-                    <div className="mt-3 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-red-200">
-                      {joinError}
-                    </div>
-                  ) : null}
+                  {joinError ? <div className="mt-3 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-red-200">{joinError}</div> : null}
                 </div>
               ) : (
                 <>
@@ -678,17 +611,11 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                     <div className="aq-kicker">Sessao conectada</div>
                     <div className="mt-2 text-lg font-black text-[var(--aq-title)]">{salaAtiva?.nome}</div>
                     <div className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Convite {salaAtiva ? getInviteToken(salaAtiva.id) : "--"}</div>
-                    {!cenaAtiva ? (
-                      <div className="mt-3 rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] px-4 py-3 text-sm text-[var(--aq-text-muted)]">
-                        O mestre ainda nao abriu a primeira cena desta sala.
-                      </div>
-                    ) : null}
+                    {!cenaAtiva ? <div className="mt-3 rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] px-4 py-3 text-sm text-[var(--aq-text-muted)]">O mestre ainda nao abriu a primeira cena desta sala.</div> : null}
                   </div>
                   <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                     <div className="aq-kicker">Escolher ficha</div>
-                    <p className="mt-2 text-sm text-[var(--aq-text-muted)]">
-                      Escolha a ficha que voce vai usar. Se o mestre ja vinculou um token, a mesa foca nela.
-                    </p>
+                    <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Escolha a ficha que voce vai usar. Se o mestre ja vinculou um token, a mesa foca nela.</p>
                     <select value={fichaEscolhidaId} onChange={(e) => setFichaEscolhidaId(e.target.value)} className="aq-input mt-3">
                       <option value="">Selecione uma ficha</option>
                       {fichas.map((ficha) => (
@@ -696,14 +623,8 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                       ))}
                     </select>
                     <div className="mt-3 flex flex-wrap gap-3">
-                      <button onClick={vincularFichaComoJogador} className="aq-button-primary" disabled={!fichaEscolhidaId || !cenaAtiva}>
-                        Entrar com ficha
-                      </button>
-                      {fichaEscolhidaId ? (
-                        <button onClick={() => router.push(`/fichas/${fichaEscolhidaId}`)} className="aq-button-secondary">
-                          Abrir ficha
-                        </button>
-                      ) : null}
+                      <button onClick={vincularFichaComoJogador} className="aq-button-primary" disabled={!fichaEscolhidaId || !cenaAtiva}>Entrar com ficha</button>
+                      {fichaEscolhidaId ? <button onClick={() => router.push(`/fichas/${fichaEscolhidaId}`)} className="aq-button-secondary">Abrir ficha</button> : null}
                     </div>
                     {fichaDoJogador ? (
                       <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] p-4">
@@ -743,102 +664,82 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
         </div>
       ) : null}
 
-      {showActiveMesa ? (
+      {showActiveMesa && roster.length > 0 ? (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[rgba(74,217,217,0.14)] bg-[linear-gradient(180deg,rgba(5,10,16,0),rgba(5,10,16,0.92)_12%,rgba(5,10,16,0.98)_100%)] px-3 pb-4 pt-10 backdrop-blur-xl md:px-6 md:pb-5 md:pt-12">
           <div className="mx-auto flex w-full max-w-[1500px] items-end justify-between gap-4 pb-3">
             <div>
               <div className="aq-kicker">Tactical Cast</div>
               <div className="mt-2 text-sm font-semibold tracking-[0.18em] text-[var(--aq-title)]">Retratos e status ao vivo</div>
             </div>
-            <div className="hidden text-[11px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)] md:block">
-              Toque no retrato para focar o token no mapa
-            </div>
+            <div className="hidden text-[11px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)] md:block">Toque no retrato para focar o token no mapa</div>
           </div>
 
-          {roster.length > 0 ? (
-            <div className="aq-scrollbar mx-auto flex w-full max-w-[1500px] gap-3 overflow-x-auto pb-1 md:gap-4">
-              {roster.map(({ token, ficha, vida, pe, sanidade, dead }) => {
-                const initials = (ficha?.nome_personagem ?? token.nome).slice(0, 2).toUpperCase();
-                const hpRatio = vida?.max ? Math.max(0, Math.min(1, vida.atual / vida.max)) : 0;
-                const peRatio = pe?.max ? Math.max(0, Math.min(1, pe.atual / pe.max)) : 0;
-                const sanRatio = sanidade?.max ? Math.max(0, Math.min(1, sanidade.atual / sanidade.max)) : 0;
+          <div className="aq-scrollbar mx-auto flex w-full max-w-[1500px] gap-3 overflow-x-auto pb-1 md:gap-4">
+            {roster.map(({ token, ficha, vida, pe, sanidade, dead }) => {
+              const initials = (ficha?.nome_personagem ?? token.nome).slice(0, 2).toUpperCase();
+              const hpRatio = vida?.max ? Math.max(0, Math.min(1, vida.atual / vida.max)) : 0;
+              const peRatio = pe?.max ? Math.max(0, Math.min(1, pe.atual / pe.max)) : 0;
+              const sanRatio = sanidade?.max ? Math.max(0, Math.min(1, sanidade.atual / sanidade.max)) : 0;
 
-                return (
-                  <button
-                    key={token.id}
-                    onClick={() => setSelectedToken(token)}
-                    className={`group min-w-[170px] rounded-[28px] border px-3 py-3 text-left transition-all md:min-w-[210px] md:px-4 md:py-4 ${
-                      selectedToken?.id === token.id
-                        ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] shadow-[0_0_24px_rgba(74,217,217,0.14)]"
-                        : "border-[var(--aq-border)] bg-[rgba(8,13,20,0.88)] hover:border-[var(--aq-border-strong)] hover:bg-[rgba(15,24,36,0.94)]"
-                    } ${dead ? "opacity-70" : ""}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {ficha?.avatar_url ? (
-                        <img src={ficha.avatar_url} alt={ficha.nome_personagem} className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10 md:h-20 md:w-20" />
-                      ) : (
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-lg font-black text-white md:h-20 md:w-20" style={{ background: token.cor || "#4ad9d9" }}>
-                          {initials}
-                        </div>
-                      )}
+              return (
+                <button
+                  key={token.id}
+                  onClick={() => setSelectedToken(token)}
+                  className={`group min-w-[170px] rounded-[28px] border px-3 py-3 text-left transition-all md:min-w-[210px] md:px-4 md:py-4 ${
+                    selectedToken?.id === token.id
+                      ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] shadow-[0_0_24px_rgba(74,217,217,0.14)]"
+                      : "border-[var(--aq-border)] bg-[rgba(8,13,20,0.88)] hover:border-[var(--aq-border-strong)] hover:bg-[rgba(15,24,36,0.94)]"
+                  } ${dead ? "opacity-70" : ""}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {ficha?.avatar_url ? <img src={ficha.avatar_url} alt={ficha.nome_personagem} className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10 md:h-20 md:w-20" /> : <div className="flex h-16 w-16 items-center justify-center rounded-2xl text-lg font-black text-white md:h-20 md:w-20" style={{ background: token.cor || "#4ad9d9" }}>{initials}</div>}
 
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-black uppercase tracking-[0.12em] text-[var(--aq-title)] md:text-base">
-                          {ficha?.nome_personagem ?? token.nome}
-                        </div>
-                        <div className="mt-1 truncate text-[10px] uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">
-                          {token.nome}
-                        </div>
-                        <div className="mt-2 flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
-                          <span className="rounded-full border border-white/10 px-2 py-1">{ficha?.sistema_preset ?? "vtt"}</span>
-                          <span className={`rounded-full px-2 py-1 ${dead ? "bg-[rgba(239,68,68,0.16)] text-red-300" : "bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)]"}`}>
-                            {dead ? "caido" : "ativo"}
-                          </span>
-                        </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-black uppercase tracking-[0.12em] text-[var(--aq-title)] md:text-base">{ficha?.nome_personagem ?? token.nome}</div>
+                      <div className="mt-1 truncate text-[10px] uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">{token.nome}</div>
+                      <div className="mt-2 flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
+                        <span className="rounded-full border border-white/10 px-2 py-1">{ficha?.sistema_preset ?? "vtt"}</span>
+                        <span className={`rounded-full px-2 py-1 ${dead ? "bg-[rgba(239,68,68,0.16)] text-red-300" : "bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)]"}`}>{dead ? "caido" : "ativo"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
+                        <span>Vida</span>
+                        <span>{vida ? `${vida.atual}/${vida.max}` : "--"}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-[rgba(255,255,255,0.06)]">
+                        <div className="h-2 rounded-full bg-gradient-to-r from-emerald-500 via-lime-400 to-red-500" style={{ width: `${hpRatio * 100}%` }} />
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-2">
+                    <div className="grid grid-cols-2 gap-2 text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
                       <div>
-                        <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
-                          <span>Vida</span>
-                          <span>{vida ? `${vida.atual}/${vida.max}` : "--"}</span>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span>PE</span>
+                          <span>{pe ? `${pe.atual}/${pe.max}` : "--"}</span>
                         </div>
-                        <div className="h-2 rounded-full bg-[rgba(255,255,255,0.06)]">
-                          <div className="h-2 rounded-full bg-gradient-to-r from-emerald-500 via-lime-400 to-red-500" style={{ width: `${hpRatio * 100}%` }} />
+                        <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)]">
+                          <div className="h-1.5 rounded-full bg-[var(--aq-accent)]" style={{ width: `${peRatio * 100}%` }} />
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
-                        <div>
-                          <div className="mb-1 flex items-center justify-between">
-                            <span>PE</span>
-                            <span>{pe ? `${pe.atual}/${pe.max}` : "--"}</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)]">
-                            <div className="h-1.5 rounded-full bg-[var(--aq-accent)]" style={{ width: `${peRatio * 100}%` }} />
-                          </div>
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span>San</span>
+                          <span>{sanidade ? `${sanidade.atual}/${sanidade.max}` : "--"}</span>
                         </div>
-                        <div>
-                          <div className="mb-1 flex items-center justify-between">
-                            <span>San</span>
-                            <span>{sanidade ? `${sanidade.atual}/${sanidade.max}` : "--"}</span>
-                          </div>
-                          <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)]">
-                            <div className="h-1.5 rounded-full bg-violet-400" style={{ width: `${sanRatio * 100}%` }} />
-                          </div>
+                        <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)]">
+                          <div className="h-1.5 rounded-full bg-violet-400" style={{ width: `${sanRatio * 100}%` }} />
                         </div>
                       </div>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mx-auto flex w-full max-w-[1500px] items-center justify-center rounded-[30px] border border-dashed border-[var(--aq-border)] bg-[rgba(8,13,20,0.72)] px-6 py-8 text-center text-[11px] uppercase tracking-[0.24em] text-[var(--aq-text-muted)] md:py-10">
-              {role === "mestre" ? "Vincule fichas aos tokens para montar a barra de retratos viva da mesa." : "Espere o mestre vincular os personagens para preencher a faixa de retratos."}
-            </div>
-          )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       ) : null}
     </main>
