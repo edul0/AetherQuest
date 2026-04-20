@@ -11,10 +11,13 @@ import {
   KeyRound,
   Layers3,
   Link2,
+  Menu,
   Plus,
   ScrollText,
   Sparkles,
+  Sword,
   Users,
+  X,
 } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
@@ -99,15 +102,17 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [salaAtiva, setSalaAtiva] = useState<Sala | null>(null);
   const [cenaAtiva, setCenaAtiva] = useState<Cena | null>(null);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
-  const [fichaEscolhidaId, setFichaEscolhidaId] = useState<string>("");
-  const [fichaParaTokenId, setFichaParaTokenId] = useState<string>("");
-  const [tokenLabel, setTokenLabel] = useState<string>("");
+  const [fichaEscolhidaId, setFichaEscolhidaId] = useState("");
+  const [fichaParaTokenId, setFichaParaTokenId] = useState("");
+  const [tokenLabel, setTokenLabel] = useState("");
   const [fichasMap, setFichasMap] = useState<Record<string, FichaVTTSnapshot>>({});
   const [scenePreferences, setScenePreferences] = useState<SceneViewPreferences>(DEFAULT_SCENE_VIEW_PREFERENCES);
   const [joinCode, setJoinCode] = useState(inviteCode ?? "");
   const [joinError, setJoinError] = useState("");
   const [joinedAsPlayer, setJoinedAsPlayer] = useState(false);
   const [copiedInvite, setCopiedInvite] = useState(false);
+  const [mobileShellOpen, setMobileShellOpen] = useState(true);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     const carregarSalas = async () => {
@@ -232,11 +237,13 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
         return;
       }
 
-      setScenePreferences((current) => normalizeScenePreferences({
-        ...current,
-        mapOffsetX: customEvent.detail.x,
-        mapOffsetY: customEvent.detail.y,
-      }));
+      setScenePreferences((current) =>
+        normalizeScenePreferences({
+          ...current,
+          mapOffsetX: customEvent.detail.x,
+          mapOffsetY: customEvent.detail.y,
+        }),
+      );
     };
 
     window.addEventListener("aq-map-offset", handleMapOffset as EventListener);
@@ -273,6 +280,17 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
         return { token, ficha, vida, pe, sanidade, dead };
       });
   }, [fichasMap, tokens]);
+
+  const showActiveMesa = Boolean(role && salaAtiva && cenaAtiva && (role === "mestre" || joinedAsPlayer));
+
+  useEffect(() => {
+    if (showActiveMesa) {
+      setMobileShellOpen(false);
+      return;
+    }
+
+    setMobileShellOpen(true);
+  }, [showActiveMesa]);
 
   const criarSala = async () => {
     const nome = `Jornada ${salas.length + 1}`;
@@ -347,6 +365,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     const tokenCorrespondente = tokens.find((token) => token.ficha_id === fichaEscolhidaId);
     if (tokenCorrespondente) {
       setSelectedToken(tokenCorrespondente);
+      setMobileShellOpen(false);
     }
   };
 
@@ -369,9 +388,20 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     }
 
     const link = `${window.location.origin}/mesa?convite=${getInviteToken(salaAtiva.id)}`;
-    await navigator.clipboard.writeText(link);
-    setCopiedInvite(true);
-    window.setTimeout(() => setCopiedInvite(false), 1800);
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedInvite(true);
+      window.setTimeout(() => setCopiedInvite(false), 1800);
+    } catch {
+      alert(link);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    window.location.href = "/login";
   };
 
   if (loading) {
@@ -384,11 +414,17 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     );
   }
 
-  const showActiveMesa = Boolean(role && salaAtiva && cenaAtiva && (role === "mestre" || joinedAsPlayer));
+  const mobileDrawerClass = showActiveMesa
+    ? `${mobileShellOpen ? "block" : "hidden"} fixed inset-x-3 top-20 bottom-[calc(28vh+1rem)] z-50 md:block md:inset-x-auto md:bottom-6 md:left-6 md:right-auto md:top-20 md:w-[390px]`
+    : "relative z-20 mx-auto mt-24 w-full max-w-[640px] px-3 pb-10 md:px-0";
+
+  const mobilePanelClass = showActiveMesa
+    ? "aq-scrollbar pointer-events-auto h-full overflow-y-auto aq-panel p-5 md:max-h-[calc(100dvh-7rem)]"
+    : "aq-panel pointer-events-auto p-5 md:p-6";
 
   return (
     <main className={`aq-page overflow-x-hidden ${inter.className}`}>
-      {showActiveMesa ? (
+      {showActiveMesa && cenaAtiva ? (
         <>
           <VTTCanvas
             cenaId={cenaAtiva.id}
@@ -410,34 +446,101 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,217,217,0.06),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(26,43,76,0.18),transparent_30%)]" />
 
-      <div className="pointer-events-none fixed left-4 top-4 z-50 md:left-6 md:top-20">
-        <div className="pointer-events-auto aq-panel w-[360px] max-w-[calc(100vw-2rem)] p-5 md:w-[400px]">
+      {showActiveMesa ? (
+        <div className="fixed inset-x-3 top-3 z-50 flex items-center justify-between gap-2 md:hidden">
+          <button
+            onClick={() => router.push("/")}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.88)] text-[var(--aq-title)] backdrop-blur-md"
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={17} />
+          </button>
+          <div className="rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-accent)] backdrop-blur-md">
+            {role === "mestre" ? "Mesa do Mestre" : "Mesa do Jogador"}
+          </div>
+          <button
+            onClick={() => setMobileShellOpen((current) => !current)}
+            className="flex h-11 min-w-[88px] items-center justify-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] backdrop-blur-md"
+          >
+            {mobileShellOpen ? <X size={16} /> : <Menu size={16} />}
+            {mobileShellOpen ? "Fechar" : "Mesa"}
+          </button>
+        </div>
+      ) : null}
+
+      {showActiveMesa && mobileShellOpen ? (
+        <button
+          className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.28)] md:hidden"
+          onClick={() => setMobileShellOpen(false)}
+          aria-label="Fechar painel"
+        />
+      ) : null}
+
+      <div className={mobileDrawerClass}>
+        <div className={mobilePanelClass}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="aq-kicker">Bridge Deck</div>
-              <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.08em] text-[var(--aq-title)]`}>
+              <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-4xl`}>
                 Mesa Tatica
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">
-                Mestre cria e controla a sessao. Jogador entra por senha da sala ou convite curto gerado pelo mestre.
+                Mestre cria a sessao, publica o mapa e controla a cena. Jogador entra por senha ou convite e ve so o que precisa para jogar.
               </p>
             </div>
-            <button onClick={() => router.push("/")} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white">
-              <ArrowLeft size={16} />
+            <div className="hidden items-center gap-2 md:flex">
+              <button onClick={() => router.push("/")} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white">
+                <ArrowLeft size={16} />
+              </button>
+              {showActiveMesa ? (
+                <button onClick={() => setMobileShellOpen(false)} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white md:hidden">
+                  <X size={16} />
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                setRole("mestre");
+                setJoinedAsPlayer(false);
+                setJoinError("");
+              }}
+              className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}
+            >
+              <Eye size={14} />
+              Mestre
             </button>
+            <button
+              onClick={() => {
+                setRole("jogador");
+                setJoinError("");
+              }}
+              className={role === "jogador" ? "aq-button-primary" : "aq-button-secondary"}
+            >
+              <Users size={14} />
+              Jogador
+            </button>
+            {showActiveMesa ? (
+              <button onClick={handleSignOut} disabled={signingOut} className="aq-button-secondary ml-auto">
+                <X size={14} />
+                {signingOut ? "Saindo" : "Sair"}
+              </button>
+            ) : null}
           </div>
 
           {!role ? (
             <div className="mt-6 grid gap-3 md:grid-cols-2">
               <button onClick={() => setRole("mestre")} className="rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] p-5 text-left transition-all hover:bg-[rgba(74,217,217,0.18)]">
-                <div className="flex items-center gap-2 text-[var(--aq-accent)]"><Eye size={16} /> Mestre</div>
-                <div className="mt-3 text-lg font-black text-[var(--aq-title)]">Criar e comandar a mesa</div>
-                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Crie salas, gere convite, troque cenas, envie mapa e mova tokens.</div>
+                <div className="flex items-center gap-2 text-[var(--aq-accent)]"><Sword size={16} /> Mestre</div>
+                <div className="mt-3 text-lg font-black text-[var(--aq-title)]">Criar e comandar a sessao</div>
+                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Crie sala, gere convite, suba mapa e controle cenas e tokens.</div>
               </button>
               <button onClick={() => setRole("jogador")} className="rounded-3xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-5 text-left transition-all hover:border-[var(--aq-border-strong)] hover:bg-[rgba(15,24,36,0.84)]">
                 <div className="flex items-center gap-2 text-[var(--aq-accent)]"><Users size={16} /> Jogador</div>
-                <div className="mt-3 text-lg font-black text-[var(--aq-title)]">Entrar em uma sessao</div>
-                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Use a senha da sala ou o convite curto que o mestre compartilhou.</div>
+                <div className="mt-3 text-lg font-black text-[var(--aq-title)]">Entrar em uma mesa</div>
+                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Use a senha da sala ou o convite curto compartilhado pelo mestre.</div>
               </button>
             </div>
           ) : null}
@@ -452,14 +555,14 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 ))}
                 <button onClick={criarSala} className="aq-button-secondary">
                   <Plus size={14} />
-                  Nova Sala
+                  Nova sala
                 </button>
               </div>
 
               {salaAtiva ? (
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
-                  <div className="aq-kicker">Acesso do Jogador</div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="aq-kicker">Entrada dos Jogadores</div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <div className="rounded-2xl border border-[var(--aq-border)] px-4 py-3">
                       <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Senha da sala</div>
                       <div className="mt-2 text-xl font-black text-[var(--aq-title)]">{getSalaPassword(salaAtiva.id)}</div>
@@ -469,14 +572,18 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                       <div className="mt-2 text-xl font-black text-[var(--aq-title)]">{getInviteToken(salaAtiva.id)}</div>
                     </div>
                   </div>
-                  <button onClick={copyInviteLink} className="aq-button-secondary mt-3">
+                  <button onClick={copyInviteLink} className="aq-button-secondary mt-3 w-full justify-center sm:w-auto">
                     <Link2 size={14} />
                     {copiedInvite ? "Convite copiado" : "Copiar link de convite"}
                   </button>
                 </div>
-              ) : null}
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">
+                  Crie a primeira sala para abrir os acessos da sessao.
+                </div>
+              )}
 
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                   <div className="flex items-center gap-2 text-[var(--aq-accent)]"><Layers3 size={16} /><span className="aq-kicker">Cenas</span></div>
                   <div className="mt-3 text-2xl font-black text-[var(--aq-title)]">{cenas.length}</div>
@@ -491,6 +598,17 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 </div>
               </div>
 
+              <div className="flex flex-wrap gap-3">
+                <button onClick={criarCenaInicial} className="aq-button-primary">
+                  <Plus size={14} />
+                  Nova cena
+                </button>
+                <button onClick={() => router.push("/fichas")} className="aq-button-secondary">
+                  <ScrollText size={14} />
+                  Abrir fichas
+                </button>
+              </div>
+
               {cenaAtiva ? (
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -499,23 +617,16 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                     <span>{scenePreferences.snapToGrid ? "Snap ativo" : "Snap livre"}</span>
                   </div>
                 </div>
-              ) : null}
-
-              <div className="flex flex-wrap gap-3">
-                <button onClick={criarCenaInicial} className="aq-button-primary">
-                  <Plus size={14} />
-                  Nova Cena
-                </button>
-                <button onClick={() => router.push("/fichas")} className="aq-button-secondary">
-                  <ScrollText size={14} />
-                  Abrir Fichas
-                </button>
-              </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">
+                  Depois de criar a sala, crie uma cena para liberar o mapa e as ferramentas do mestre.
+                </div>
+              )}
 
               <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                 <div className="aq-kicker">Controle do Mestre</div>
                 <p className="mt-2 text-sm text-[var(--aq-text-muted)]">
-                  Vincule uma ficha a um token da cena atual. Assim o retrato nasce na faixa inferior e o status fica espelhado na mesa.
+                  Vincule uma ficha a um token da cena atual. O retrato aparece na faixa inferior e o status espelha em tempo real.
                 </p>
                 <div className="mt-4 space-y-3">
                   <select value={fichaParaTokenId} onChange={(e) => setFichaParaTokenId(e.target.value)} className="aq-input">
@@ -525,7 +636,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                     ))}
                   </select>
                   <input value={tokenLabel} onChange={(e) => setTokenLabel(e.target.value)} placeholder="Nome do token no mapa (opcional)" className="aq-input" />
-                  <button onClick={criarTokenDaFicha} disabled={!fichaParaTokenId || !cenaAtiva?.id} className="aq-button-primary disabled:opacity-50">
+                  <button onClick={criarTokenDaFicha} disabled={!fichaParaTokenId || !cenaAtiva?.id} className="aq-button-primary w-full justify-center disabled:opacity-50">
                     <Plus size={14} />
                     Colocar ficha na cena
                   </button>
@@ -567,11 +678,16 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                     <div className="aq-kicker">Sessao conectada</div>
                     <div className="mt-2 text-lg font-black text-[var(--aq-title)]">{salaAtiva?.nome}</div>
                     <div className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Convite {salaAtiva ? getInviteToken(salaAtiva.id) : "--"}</div>
+                    {!cenaAtiva ? (
+                      <div className="mt-3 rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] px-4 py-3 text-sm text-[var(--aq-text-muted)]">
+                        O mestre ainda nao abriu a primeira cena desta sala.
+                      </div>
+                    ) : null}
                   </div>
                   <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                     <div className="aq-kicker">Escolher ficha</div>
                     <p className="mt-2 text-sm text-[var(--aq-text-muted)]">
-                      Escolha a ficha que voce vai usar nesta mesa. Se o mestre ja vinculou um token, a visao fica focada nela.
+                      Escolha a ficha que voce vai usar. Se o mestre ja vinculou um token, a mesa foca nela.
                     </p>
                     <select value={fichaEscolhidaId} onChange={(e) => setFichaEscolhidaId(e.target.value)} className="aq-input mt-3">
                       <option value="">Selecione uma ficha</option>
@@ -580,7 +696,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                       ))}
                     </select>
                     <div className="mt-3 flex flex-wrap gap-3">
-                      <button onClick={vincularFichaComoJogador} className="aq-button-primary" disabled={!fichaEscolhidaId}>
+                      <button onClick={vincularFichaComoJogador} className="aq-button-primary" disabled={!fichaEscolhidaId || !cenaAtiva}>
                         Entrar com ficha
                       </button>
                       {fichaEscolhidaId ? (
@@ -602,6 +718,30 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
           ) : null}
         </div>
       </div>
+
+      {!showActiveMesa ? (
+        <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1500px] items-center justify-center px-4 pb-20 pt-10 md:px-8">
+          <div className="aq-panel w-full max-w-3xl p-8 text-center md:p-10">
+            <div className="aq-kicker">No Signal</div>
+            <h2 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-5xl`}>
+              {role === "mestre" ? (salaAtiva ? "Crie a primeira cena" : "Nenhuma sala ativa") : "Escolha como entrar"}
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[var(--aq-text-muted)] md:text-base">
+              {role === "mestre"
+                ? salaAtiva
+                  ? "Sua sala ja existe. Agora crie a primeira cena para liberar o mapa, o chat e os retratos ao vivo da mesa."
+                  : "Crie a primeira jornada e depois compartilhe a senha ou o convite curto com o grupo."
+                : "Jogadores entram com senha da sala ou convite do mestre. Depois escolhem a ficha e a mesa passa a focar no tabuleiro."}
+            </p>
+            {role === "mestre" ? (
+              <button onClick={salaAtiva ? criarCenaInicial : criarSala} className="aq-button-primary mt-8 justify-center">
+                <Plus size={14} />
+                {salaAtiva ? "Criar primeira cena" : "Criar primeira sala"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {showActiveMesa ? (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[rgba(74,217,217,0.14)] bg-[linear-gradient(180deg,rgba(5,10,16,0),rgba(5,10,16,0.92)_12%,rgba(5,10,16,0.98)_100%)] px-3 pb-4 pt-10 backdrop-blur-xl md:px-6 md:pb-5 md:pt-12">
@@ -699,42 +839,6 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
               {role === "mestre" ? "Vincule fichas aos tokens para montar a barra de retratos viva da mesa." : "Espere o mestre vincular os personagens para preencher a faixa de retratos."}
             </div>
           )}
-        </div>
-      ) : null}
-
-      {role === "mestre" && !salaAtiva ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-6">
-          <div className="aq-panel max-w-2xl p-8 text-center">
-            <div className="aq-kicker">No Signal</div>
-            <h2 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)]`}>
-              Nenhuma sala ativa
-            </h2>
-            <p className="mt-4 text-sm leading-relaxed text-[var(--aq-text-muted)]">
-              Crie uma jornada para abrir a mesa e gerar os acessos do grupo.
-            </p>
-            <button onClick={criarSala} className="aq-button-primary mt-8">
-              <Plus size={14} />
-              Criar primeira sala
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {showActiveMesa && role === "mestre" && salaAtiva && !cenaAtiva ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center p-6">
-          <div className="aq-panel max-w-2xl p-8 text-center">
-            <div className="aq-kicker">Scene Boot</div>
-            <h2 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)]`}>
-              Crie a primeira cena
-            </h2>
-            <p className="mt-4 text-sm leading-relaxed text-[var(--aq-text-muted)]">
-              Use cenas como slides de exploracao: patio, sala principal, quarto secreto e qualquer outra variacao do mapa.
-            </p>
-            <button onClick={criarCenaInicial} className="aq-button-primary mt-8">
-              <Plus size={14} />
-              Criar cena inicial
-            </button>
-          </div>
         </div>
       ) : null}
     </main>
