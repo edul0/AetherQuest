@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Cinzel } from "next/font/google";
 import { ChevronRight, Mail, Shield, Sparkles } from "lucide-react";
@@ -8,7 +8,7 @@ import { supabase } from "@/src/lib/supabase";
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/mesa";
@@ -137,5 +137,23 @@ export default function LoginPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="aq-page flex items-center justify-center">
+      <span className="animate-pulse font-mono text-[11px] uppercase tracking-[0.4em] text-[var(--aq-accent)]">
+        Preparando acesso...
+      </span>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
