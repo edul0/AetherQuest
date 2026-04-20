@@ -12,7 +12,6 @@ type LoginScreenProps = {
 };
 
 const AUTH_HANDOFF_KEY = "aq-auth-handoff";
-const AUTH_HANDOFF_WINDOW_MS = 8000;
 
 function humanizeAuthError(message: string) {
   const lower = message.toLowerCase();
@@ -54,24 +53,6 @@ function clearAuthHandoff() {
   }
 
   window.sessionStorage.removeItem(AUTH_HANDOFF_KEY);
-}
-
-async function waitForPersistedSession() {
-  const deadline = Date.now() + AUTH_HANDOFF_WINDOW_MS;
-
-  while (Date.now() < deadline) {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (session) {
-      return true;
-    }
-
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
-  }
-
-  return false;
 }
 
 export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginScreenProps) {
@@ -180,24 +161,19 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
         return;
       }
 
-      if (data.session) {
-        await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
-      }
-
-      setAuthHandoff();
-      setFeedback("Login realizado. Finalizando entrada...");
-
-      const persisted = await waitForPersistedSession();
-      if (!persisted) {
+      if (!data.session) {
         clearAuthHandoff();
-        setFeedback("Seu login foi aceito, mas a sessao nao terminou de carregar. Tente entrar mais uma vez.");
+        setFeedback("O login foi aceito, mas nenhuma sessao foi retornada pelo Supabase.");
         return;
       }
 
-      clearAuthHandoff();
+      await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+      });
+
+      setAuthHandoff();
+      setFeedback("Login realizado. Redirecionando...");
       goTo(nextPath);
     } catch (error) {
       console.error("[login] erro inesperado no signIn", error);
