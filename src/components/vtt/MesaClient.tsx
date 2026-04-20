@@ -127,6 +127,11 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [renamingRoom, setRenamingRoom] = useState(false);
 
+  const redirectToMesaLogin = () => {
+    setHasSession(false);
+    router.push(`/login?next=${encodeURIComponent("/mesa")}`);
+  };
+
   const ensureFreshSession = async () => {
     const {
       data: { session },
@@ -179,16 +184,19 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     let active = true;
 
     const syncSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!active) {
-        return;
+      try {
+        await ensureFreshSession();
+        if (!active) {
+          return;
+        }
+        setAuthChecked(true);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setHasSession(false);
+        setAuthChecked(true);
       }
-
-      setHasSession(Boolean(session));
-      setAuthChecked(true);
     };
 
     void syncSession();
@@ -213,24 +221,29 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   useEffect(() => {
     const carregarSalas = async () => {
       try {
-        const { data, error } = await supabase.from("salas").select("*");
+        const { data, error } = await runWithFreshSession<Sala[]>(() => supabase.from("salas").select("*"));
         if (error) {
           throw error;
         }
 
         setSalas((data ?? []) as Sala[]);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Erro ao carregar salas:", error);
+        if (isJwtExpiredError(error) || error?.message?.includes("sessao expirou")) {
+          redirectToMesaLogin();
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    carregarSalas();
+    void carregarSalas();
 
     const channel = supabase
       .channel("salas_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "salas" }, () => carregarSalas())
+      .on("postgres_changes", { event: "*", schema: "public", table: "salas" }, () => {
+        void carregarSalas();
+      })
       .subscribe();
 
     return () => {
@@ -240,14 +253,25 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   useEffect(() => {
     const carregarFichas = async () => {
-      const { data, error } = await supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem");
+      try {
+        const { data, error } = await runWithFreshSession<FichaListItem[]>(() =>
+          supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem"),
+        );
 
-      if (!error) {
+        if (error) {
+          throw error;
+        }
+
         setFichas((data ?? []) as FichaListItem[]);
+      } catch (error: any) {
+        console.error("Erro ao carregar fichas:", error);
+        if (isJwtExpiredError(error) || error?.message?.includes("sessao expirou")) {
+          redirectToMesaLogin();
+        }
       }
     };
 
-    carregarFichas();
+    void carregarFichas();
   }, []);
 
   useEffect(() => {
@@ -278,28 +302,36 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     }
 
     const carregarCenas = async () => {
-      const { data, error } = await supabase.from("cenas").select("*").eq("sala_id", salaAtiva.id);
-      if (error) {
-        console.error("Erro ao carregar cenas:", error);
-        return;
-      }
-
-      const nextCenas = (data ?? []) as Cena[];
-      setCenas(nextCenas);
-      setCenaAtiva((current) => {
-        if (current && nextCenas.some((cena) => cena.id === current.id)) {
-          return nextCenas.find((cena) => cena.id === current.id) ?? null;
+      try {
+        const { data, error } = await runWithFreshSession<Cena[]>(() => supabase.from("cenas").select("*").eq("sala_id", salaAtiva.id));
+        if (error) {
+          throw error;
         }
-        return nextCenas[0] ?? null;
-      });
+
+        const nextCenas = (data ?? []) as Cena[];
+        setCenas(nextCenas);
+        setCenaAtiva((current) => {
+          if (current && nextCenas.some((cena) => cena.id === current.id)) {
+            return nextCenas.find((cena) => cena.id === current.id) ?? null;
+          }
+          return nextCenas[0] ?? null;
+        });
+      } catch (error: any) {
+        console.error("Erro ao carregar cenas:", error);
+        if (isJwtExpiredError(error) || error?.message?.includes("sessao expirou")) {
+          redirectToMesaLogin();
+        }
+      }
     };
 
-    carregarCenas();
+    void carregarCenas();
     setSelectedToken(null);
 
     const channel = supabase
       .channel(`mesa_cenas_${salaAtiva.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "cenas", filter: `sala_id=eq.${salaAtiva.id}` }, () => carregarCenas())
+      .on("postgres_changes", { event: "*", schema: "public", table: "cenas", filter: `sala_id=eq.${salaAtiva.id}` }, () => {
+        void carregarCenas();
+      })
       .subscribe();
 
     return () => {
@@ -398,8 +430,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       setRole("mestre");
     } catch (error: any) {
       alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
-      setHasSession(false);
-      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
+      redirectToMesaLogin();
     }
   };
 
@@ -433,8 +464,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     } catch (error: any) {
       setRenamingRoom(false);
       alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
-      setHasSession(false);
-      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
+      redirectToMesaLogin();
     }
   };
 
@@ -458,8 +488,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       setCenaAtiva(novaCena);
     } catch (error: any) {
       alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
-      setHasSession(false);
-      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
+      redirectToMesaLogin();
     }
   };
 
@@ -500,8 +529,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       setTokenLabel("");
     } catch (error: any) {
       alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
-      setHasSession(false);
-      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
+      redirectToMesaLogin();
     }
   };
 
