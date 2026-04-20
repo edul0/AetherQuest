@@ -73,6 +73,10 @@ function getInviteToken(salaId: string) {
   return salaId.replace(/-/g, "").slice(0, 8).toUpperCase();
 }
 
+function getRoomCode(salaId: string) {
+  return getInviteToken(salaId);
+}
+
 function findSalaByAccessCode(salas: Sala[], code: string) {
   const normalized = code.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
   if (!normalized) {
@@ -82,7 +86,7 @@ function findSalaByAccessCode(salas: Sala[], code: string) {
   return (
     salas.find((sala) => sala.id.replace(/-/g, "").toUpperCase() === normalized) ??
     salas.find((sala) => getSalaPassword(sala.id) === normalized) ??
-    salas.find((sala) => getInviteToken(sala.id) === normalized) ??
+    salas.find((sala) => getRoomCode(sala.id) === normalized) ??
     null
   );
 }
@@ -115,6 +119,8 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [signingOut, setSigningOut] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [roomNameDraft, setRoomNameDraft] = useState("");
+  const [renamingRoom, setRenamingRoom] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -261,6 +267,10 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   }, [cenaAtiva?.id, scenePreferences]);
 
   useEffect(() => {
+    setRoomNameDraft(salaAtiva?.nome ?? "");
+  }, [salaAtiva?.id, salaAtiva?.nome]);
+
+  useEffect(() => {
     const handleMapOffset = (event: Event) => {
       const customEvent = event as CustomEvent<{ x: number; y: number }>;
       if (!customEvent.detail) {
@@ -318,7 +328,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   }, [showActiveMesa]);
 
   const criarSala = async () => {
-    const nome = `Jornada ${salas.length + 1}`;
+    const nome = `Sessao ${salas.length + 1}`;
     const { data, error } = await supabase.from("salas").insert([{ nome }]).select().single();
     if (error) {
       alert(`Falha ao criar sala: ${error.message}`);
@@ -329,6 +339,32 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     setSalas((current) => [novaSala, ...current]);
     setSalaAtiva(novaSala);
     setRole("mestre");
+  };
+
+  const renomearSalaAtiva = async () => {
+    if (!salaAtiva?.id) {
+      return;
+    }
+
+    const nome = roomNameDraft.trim();
+    if (!nome) {
+      setRoomNameDraft(salaAtiva.nome);
+      return;
+    }
+
+    setRenamingRoom(true);
+    const { data, error } = await supabase.from("salas").update({ nome }).eq("id", salaAtiva.id).select().single();
+
+    if (error) {
+      alert(`Falha ao renomear sessao: ${error.message}`);
+      setRenamingRoom(false);
+      return;
+    }
+
+    const salaAtualizada = data as Sala;
+    setSalas((current) => current.map((entry) => (entry.id === salaAtualizada.id ? salaAtualizada : entry)));
+    setSalaAtiva(salaAtualizada);
+    setRenamingRoom(false);
   };
 
   const criarCenaInicial = async () => {
@@ -406,7 +442,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
     const matched = findSalaByAccessCode(salas, normalizedJoinCode);
     if (!matched) {
-      setJoinError("Nao encontramos uma sala com essa senha ou convite.");
+      setJoinError("Nao encontramos uma sala com esse codigo.");
       return;
     }
 
@@ -421,7 +457,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       return;
     }
 
-    const link = `${window.location.origin}/mesa?convite=${getInviteToken(salaAtiva.id)}`;
+    const link = `${window.location.origin}/mesa?invite=${getRoomCode(salaAtiva.id)}`;
 
     try {
       await navigator.clipboard.writeText(link);
@@ -497,7 +533,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
             <div>
               <div className="aq-kicker">Bridge Deck</div>
               <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-4xl`}>Mesa Tatica</h1>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">Mestre cria a sessao, publica o mapa e controla a cena. Jogador entra por senha ou convite e ve so o que precisa para jogar.</p>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">Mestre cria a sessao, publica o mapa e controla a cena. Jogador entra por codigo ou link e ve so o que precisa para jogar.</p>
             </div>
             <div className="hidden items-center gap-2 md:flex">
               <button onClick={() => router.push("/")} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white">
@@ -541,50 +577,73 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
               <button onClick={() => setRole("mestre")} className="rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] p-5 text-left transition-all hover:bg-[rgba(74,217,217,0.18)]">
                 <div className="flex items-center gap-2 text-[var(--aq-accent)]"><Sword size={16} /> Mestre</div>
                 <div className="mt-3 text-lg font-black text-[var(--aq-title)]">Criar e comandar a sessao</div>
-                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Crie sala, gere convite, suba mapa e controle cenas e tokens.</div>
+                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Crie a sessao, gere o codigo da sala, suba mapa e controle cenas e tokens.</div>
               </button>
               <button onClick={() => setRole("jogador")} className="rounded-3xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-5 text-left transition-all hover:border-[var(--aq-border-strong)] hover:bg-[rgba(15,24,36,0.84)]">
                 <div className="flex items-center gap-2 text-[var(--aq-accent)]"><Users size={16} /> Jogador</div>
                 <div className="mt-3 text-lg font-black text-[var(--aq-title)]">Entrar em uma mesa</div>
-                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Use a senha da sala ou o convite do mestre.</div>
+                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Use o codigo da sala ou abra o link compartilhado pelo mestre.</div>
               </button>
             </div>
           ) : null}
 
           {role === "mestre" ? (
             <div className="mt-6 space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {salas.map((sala) => (
-                  <button key={sala.id} onClick={() => setSalaAtiva(sala)} className={salaAtiva?.id === sala.id ? "aq-button-primary" : "aq-button-secondary"}>
-                    {sala.nome}
+              <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="aq-kicker">Sessoes Criadas</div>
+                    <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Cada sessao gera um codigo proprio. Escolha uma sessao para editar o nome ou abrir a cena.</p>
+                  </div>
+                  <button onClick={criarSala} className="aq-button-primary">
+                    <Plus size={14} />
+                    Nova sessao
                   </button>
-                ))}
-                <button onClick={criarSala} className="aq-button-secondary">
-                  <Plus size={14} />
-                  Nova sala
-                </button>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {salas.map((sala) => (
+                    <button key={sala.id} onClick={() => setSalaAtiva(sala)} className={salaAtiva?.id === sala.id ? "aq-button-primary" : "aq-button-secondary"}>
+                      {sala.nome}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {salaAtiva ? (
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
-                  <div className="aq-kicker">Entrada dos Jogadores</div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-[var(--aq-border)] px-4 py-3">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Senha da sala</div>
-                      <div className="mt-2 text-xl font-black text-[var(--aq-title)]">{getSalaPassword(salaAtiva.id)}</div>
+                  <div className="aq-kicker">Sessao ativa</div>
+                  <div className="mt-3 space-y-3">
+                    <input
+                      value={roomNameDraft}
+                      onChange={(event) => setRoomNameDraft(event.target.value)}
+                      placeholder="Nome da sessao"
+                      className="aq-input"
+                    />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-[var(--aq-border)] px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Codigo da sala</div>
+                        <div className="mt-2 text-xl font-black text-[var(--aq-title)]">{getRoomCode(salaAtiva.id)}</div>
+                      </div>
+                      <div className="rounded-2xl border border-[var(--aq-border)] px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Entrada</div>
+                        <div className="mt-2 text-sm font-bold text-[var(--aq-title)]">Link ou codigo unico</div>
+                        <div className="mt-1 text-[11px] text-[var(--aq-text-muted)]">Os jogadores entram com o mesmo codigo ou pelo link copiado.</div>
+                      </div>
                     </div>
-                    <div className="rounded-2xl border border-[var(--aq-border)] px-4 py-3">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Convite curto</div>
-                      <div className="mt-2 text-xl font-black text-[var(--aq-title)]">{getInviteToken(salaAtiva.id)}</div>
+                    <div className="flex flex-wrap gap-3">
+                      <button onClick={renomearSalaAtiva} disabled={!roomNameDraft.trim() || renamingRoom} className="aq-button-secondary">
+                        <ScrollText size={14} />
+                        {renamingRoom ? "Salvando nome" : "Salvar nome da sessao"}
+                      </button>
+                      <button onClick={copyInviteLink} className="aq-button-secondary">
+                        <Link2 size={14} />
+                        {copiedInvite ? "Link copiado" : "Copiar link da sala"}
+                      </button>
                     </div>
                   </div>
-                  <button onClick={copyInviteLink} className="aq-button-secondary mt-3 w-full justify-center sm:w-auto">
-                    <Link2 size={14} />
-                    {copiedInvite ? "Convite copiado" : "Copiar link de convite"}
-                  </button>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">Crie a primeira sala para abrir os acessos da sessao.</div>
+                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">Crie a primeira sessao para abrir o codigo de entrada da mesa.</div>
               )}
 
               <div className="grid gap-3 sm:grid-cols-3">
@@ -622,7 +681,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">Depois de criar a sala, crie uma cena para liberar o mapa e as ferramentas do mestre.</div>
+                <div className="rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] p-4 text-sm text-[var(--aq-text-muted)]">Depois de criar a sessao, crie uma cena para liberar o mapa e as ferramentas do mestre.</div>
               )}
 
               <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
@@ -650,7 +709,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
               {!joinedAsPlayer ? (
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                   <div className="aq-kicker">Entrar na Sessao</div>
-                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Digite a senha da sala ou o convite curto que o mestre compartilhou.</p>
+                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Digite o codigo da sala ou abra o link que o mestre compartilhou.</p>
                   {!hasSession && authChecked ? (
                     <div className="mt-3 rounded-2xl border border-[rgba(74,217,217,0.2)] bg-[rgba(74,217,217,0.06)] px-4 py-3 text-sm text-[var(--aq-text)]">
                       Voce precisa entrar com login antes de acessar a mesa como jogador.
@@ -658,11 +717,11 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                   ) : null}
                   <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
                     <KeyRound size={16} className="text-[var(--aq-accent)]" />
-                    <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Senha ou convite" className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]" />
+                    <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Codigo da sala" className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]" />
                   </div>
                   <button onClick={joinAsPlayer} className="aq-button-primary mt-4 w-full justify-center">
                     <Users size={14} />
-                    {hasSession ? "Entrar como jogador" : "Fazer login para entrar"}
+                    {hasSession ? "Entrar com codigo" : "Fazer login para entrar"}
                   </button>
                   {joinError ? <div className="mt-3 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-red-200">{joinError}</div> : null}
                 </div>
@@ -671,7 +730,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                   <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                     <div className="aq-kicker">Sessao conectada</div>
                     <div className="mt-2 text-lg font-black text-[var(--aq-title)]">{salaAtiva?.nome}</div>
-                    <div className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Convite {salaAtiva ? getInviteToken(salaAtiva.id) : "--"}</div>
+                    <div className="mt-2 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Codigo {salaAtiva ? getRoomCode(salaAtiva.id) : "--"}</div>
                     {!cenaAtiva ? <div className="mt-3 rounded-2xl border border-dashed border-[var(--aq-border)] bg-[rgba(5,10,16,0.52)] px-4 py-3 text-sm text-[var(--aq-text-muted)]">O mestre ainda nao abriu a primeira cena desta sala.</div> : null}
                   </div>
                   <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
@@ -706,19 +765,19 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
           <div className="aq-panel w-full max-w-3xl p-8 text-center md:p-10">
             <div className="aq-kicker">No Signal</div>
             <h2 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-5xl`}>
-              {role === "mestre" ? (salaAtiva ? "Crie a primeira cena" : "Nenhuma sala ativa") : "Escolha como entrar"}
+              {role === "mestre" ? (salaAtiva ? "Crie a primeira cena" : "Nenhuma sessao ativa") : "Escolha como entrar"}
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[var(--aq-text-muted)] md:text-base">
               {role === "mestre"
                 ? salaAtiva
-                  ? "Sua sala ja existe. Agora crie a primeira cena para liberar o mapa, o chat e os retratos ao vivo da mesa."
-                  : "Crie a primeira jornada e depois compartilhe a senha ou o convite curto com o grupo."
-                : "Jogadores entram com senha da sala ou convite do mestre. Depois escolhem a ficha e a mesa passa a focar no tabuleiro."}
+                  ? "Sua sessao ja existe. Agora crie a primeira cena para liberar o mapa, o chat e os retratos ao vivo da mesa."
+                  : "Crie a primeira sessao e depois compartilhe o codigo ou o link com o grupo."
+                : "Jogadores entram com o codigo da sala ou com o link do mestre. Depois escolhem a ficha e a mesa passa a focar no tabuleiro."}
             </p>
             {role === "mestre" ? (
               <button onClick={salaAtiva ? criarCenaInicial : criarSala} className="aq-button-primary mt-8 justify-center">
                 <Plus size={14} />
-                {salaAtiva ? "Criar primeira cena" : "Criar primeira sala"}
+                {salaAtiva ? "Criar primeira cena" : "Criar primeira sessao"}
               </button>
             ) : null}
           </div>
