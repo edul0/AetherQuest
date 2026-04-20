@@ -115,6 +115,7 @@ export interface Token {
   x: number;
   y: number;
   cor: string;
+  sala?: string | null;
 }
 
 export interface FichaVTTSnapshot {
