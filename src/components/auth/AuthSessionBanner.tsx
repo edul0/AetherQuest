@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
 type SessionSummary = {
   email: string;
 };
 
+function formatEmail(email: string) {
+  const [name, domain] = email.split("@");
+  if (!domain) {
+    return email;
+  }
+
+  const shortName = name.length > 10 ? `${name.slice(0, 10)}...` : name;
+  return `${shortName}@${domain}`;
+}
+
 export default function AuthSessionBanner() {
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -49,15 +60,39 @@ export default function AuthSessionBanner() {
     };
   }, []);
 
+  const compactEmail = useMemo(() => {
+    if (!sessionSummary?.email) {
+      return "";
+    }
+
+    return formatEmail(sessionSummary.email);
+  }, [sessionSummary?.email]);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
+
   if (!sessionSummary) {
     return null;
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-3 z-[100] flex justify-center px-3">
-      <div className="flex max-w-full items-center gap-2 rounded-full border border-[rgba(74,217,217,0.35)] bg-[rgba(5,10,16,0.92)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)] shadow-[0_0_24px_rgba(74,217,217,0.18)] backdrop-blur-md md:text-xs">
-        <ShieldCheck size={14} />
-        <span>Logado como {sessionSummary.email}</span>
+    <div className="fixed right-3 top-3 z-[100]">
+      <div className="flex items-center gap-2 rounded-full border border-[rgba(74,217,217,0.24)] bg-[rgba(5,10,16,0.82)] px-3 py-2 text-[11px] text-[var(--aq-text)] shadow-[0_0_18px_rgba(74,217,217,0.12)] backdrop-blur-md">
+        <span className="flex items-center gap-2 text-[var(--aq-accent)]">
+          <ShieldCheck size={14} />
+          <span className="font-semibold">{compactEmail}</span>
+        </span>
+        <button
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="flex items-center gap-1 rounded-full border border-[var(--aq-border)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--aq-text-muted)] transition-colors hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-title)] disabled:opacity-60"
+        >
+          <LogOut size={12} />
+          {signingOut ? "Saindo" : "Sair"}
+        </button>
       </div>
     </div>
   );
