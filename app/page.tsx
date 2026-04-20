@@ -1,13 +1,42 @@
 "use client";
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Cinzel, Inter } from 'next/font/google';
 import { Play, Map, BookOpen, Settings2, Users } from 'lucide-react';
+import { supabase } from '@/src/lib/supabase';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500'] });
 
 export default function HomePage() {
   const router = useRouter();
+  const [starting, setStarting] = useState(false);
+
+  const handleStartJourney = async () => {
+    if (starting) {
+      return;
+    }
+
+    setStarting(true);
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session) {
+        router.push('/fichas');
+        return;
+      }
+
+      router.push('/login?next=%2Ffichas');
+    } catch (error) {
+      console.error('[home] erro ao verificar sessao', error);
+      router.push('/login?next=%2Ffichas');
+    } finally {
+      setStarting(false);
+    }
+  };
 
   return (
     <main className={`min-h-screen bg-[#050a10] text-[#8b9bb4] flex flex-col justify-center px-8 md:px-24 py-12 relative overflow-hidden ${inter.className}`}>
@@ -29,11 +58,12 @@ export default function HomePage() {
 
         <div className="flex flex-wrap gap-6 mb-24">
           <button
-            onClick={() => router.push('/mesa')}
-            className="flex items-center gap-3 bg-[#1e6b6b] hover:bg-[#4ad9d9] text-white hover:text-[#050a10] px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(30,107,107,0.4)] hover:shadow-[0_0_30px_rgba(74,217,217,0.6)]"
+            onClick={handleStartJourney}
+            disabled={starting}
+            className="flex items-center gap-3 bg-[#1e6b6b] hover:bg-[#4ad9d9] text-white hover:text-[#050a10] px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(30,107,107,0.4)] hover:shadow-[0_0_30px_rgba(74,217,217,0.6)] disabled:opacity-70"
           >
             <Play size={14} className="fill-current" />
-            Iniciar Jornada
+            {starting ? 'Abrindo...' : 'Iniciar Jornada'}
           </button>
 
           <button
