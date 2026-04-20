@@ -122,6 +122,29 @@ function LoginPageContent() {
     setSending(false);
   };
 
+  const recuperarSenha = async () => {
+    if (!email.trim()) {
+      setFeedback("Informe o email da conta para recuperar a senha.");
+      return;
+    }
+
+    setSending(true);
+    setFeedback("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
+    });
+
+    if (error) {
+      setFeedback(error.message);
+      setSending(false);
+      return;
+    }
+
+    setFeedback("Enviamos um email de recuperacao. Abra o link recebido para redefinir sua senha.");
+    setSending(false);
+  };
+
   if (checking) {
     return (
       <div className="aq-page flex items-center justify-center">
@@ -212,6 +235,12 @@ function LoginPageContent() {
             <ChevronRight size={16} />
           </button>
 
+          {mode === "signin" ? (
+            <button onClick={recuperarSenha} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
+              Esqueci a Senha
+            </button>
+          ) : null}
+
           <button onClick={enviarLinkMagico} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
             Usar Link Magico
           </button>
@@ -226,8 +255,8 @@ function LoginPageContent() {
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {[
             "Entrada por senha mais pratica",
+            "Recuperacao por email disponivel",
             "Magic link fica opcional",
-            "Mesma sessao para fichas e mesa",
           ].map((label) => (
             <div
               key={label}
