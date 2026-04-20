@@ -11,22 +11,50 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     let active = true;
+    const nextPath = pathname || "/mesa";
+    const loginUrl = `/login?next=${encodeURIComponent(nextPath)}`;
 
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+    const redirectToLogin = () => {
       if (!active) {
         return;
       }
-
-      if (!session) {
-        router.replace(`/login?next=${encodeURIComponent(pathname || "/mesa")}`);
-        return;
-      }
-
       setChecking(false);
+      router.replace(loginUrl);
+    };
+
+    const timeout = window.setTimeout(() => {
+      console.warn("[RequireAuth] session check timed out");
+      redirectToLogin();
+    }, 5000);
+
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (!active) {
+          return;
+        }
+
+        if (error) {
+          console.error("[RequireAuth] getSession error", error);
+          redirectToLogin();
+          return;
+        }
+
+        if (!session) {
+          redirectToLogin();
+          return;
+        }
+
+        window.clearTimeout(timeout);
+        setChecking(false);
+      } catch (error) {
+        console.error("[RequireAuth] unexpected session error", error);
+        redirectToLogin();
+      }
     };
 
     checkSession();
@@ -34,15 +62,22 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        router.replace(`/login?next=${encodeURIComponent(pathname || "/mesa")}`);
+      if (!active) {
         return;
       }
+
+      if (!session) {
+        redirectToLogin();
+        return;
+      }
+
+      window.clearTimeout(timeout);
       setChecking(false);
     });
 
     return () => {
       active = false;
+      window.clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, [pathname, router]);
