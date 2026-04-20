@@ -359,6 +359,22 @@ export default function VTTCanvas({
     [scenePreferences.gridSize, scenePreferences.snapToGrid],
   );
 
+  const handleMapDragEnd = useCallback((event: any) => {
+    onSelectToken(null);
+    const baseX = event.target.x();
+    const baseY = event.target.y();
+    event.target.position({ x: scenePreferences.mapOffsetX, y: scenePreferences.mapOffsetY });
+
+    const nextX = Number(baseX.toFixed(0));
+    const nextY = Number(baseY.toFixed(0));
+
+    window.dispatchEvent(
+      new CustomEvent("aq-map-offset", {
+        detail: { x: nextX, y: nextY },
+      }),
+    );
+  }, [onSelectToken, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY]);
+
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
       event.cancelBubble = true;
@@ -385,6 +401,10 @@ export default function VTTCanvas({
       }
 
       setMeasureEnd(point);
+      return;
+    }
+
+    if (scenePreferences.toolMode === "map") {
       return;
     }
 
@@ -531,7 +551,8 @@ export default function VTTCanvas({
               width={(image.width || windowSize.w) * scenePreferences.mapScale}
               height={(image.height || stageHeight) * scenePreferences.mapScale}
               opacity={0.95}
-              listening={false}
+              draggable={scenePreferences.toolMode === "map"}
+              onDragEnd={handleMapDragEnd}
             />
           ) : (
             <KonvaText
@@ -619,7 +640,7 @@ export default function VTTCanvas({
 
         <div className="pointer-events-auto rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)] backdrop-blur-md md:text-xs md:tracking-[0.18em]">
           <div>{`Zoom ${Math.round(camera.scale * 100)}%`}</div>
-          <div className="mt-2 leading-relaxed">{scenePreferences.toolMode === "pan" ? "Arraste para mover a camera" : scenePreferences.toolMode === "measure" ? "Toque para medir no grid" : "Toque no token e arraste para reposicionar"}</div>
+          <div className="mt-2 leading-relaxed">{scenePreferences.toolMode === "pan" ? "Arraste para mover a camera" : scenePreferences.toolMode === "measure" ? "Toque para medir no grid" : scenePreferences.toolMode === "map" ? "Arraste o proprio mapa para reposicionar" : "Toque no token e arraste para reposicionar"}</div>
         </div>
 
         {measurementLabel ? (
@@ -638,7 +659,7 @@ export default function VTTCanvas({
             <Move size={14} />
             Navegacao
           </div>
-          <div className="mt-2 leading-relaxed">Scroll faz zoom. Pan move a camera. Select move tokens. Dois dedos fazem pinch no mobile. Measure calcula alcance no grid atual.</div>
+          <div className="mt-2 leading-relaxed">Scroll faz zoom. Pan move a camera. Select move tokens. Mover mapa arrasta a imagem. Dois dedos fazem pinch no mobile. Measure calcula alcance no grid atual.</div>
         </div>
       </div>
     </div>
