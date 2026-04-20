@@ -1,17 +1,43 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChevronRight, KeyRound, Mail, Shield, Sparkles } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
 type AuthMode = "signin" | "signup" | "recovery";
 
+function humanizeAuthError(message: string) {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("email rate limit exceeded") || lower.includes("rate limit")) {
+    return "Muitos emails foram enviados em pouco tempo. Espere alguns minutos antes de tentar de novo.";
+  }
+
+  if (lower.includes("invalid login credentials")) {
+    return "Email ou senha invalidos.";
+  }
+
+  if (lower.includes("email not confirmed")) {
+    return "Seu email ainda nao foi confirmado. Confira sua caixa de entrada.";
+  }
+
+  if (lower.includes("user already registered")) {
+    return "Ja existe uma conta com esse email.";
+  }
+
+  if (lower.includes("password should be at least")) {
+    return "Use uma senha com pelo menos 6 caracteres.";
+  }
+
+  return message;
+}
+
 function LoginPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/mesa";
   const recoveryType = searchParams.get("type");
+  const redirectingRef = useRef(false);
   const [mode, setMode] = useState<AuthMode>("signin");
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
@@ -28,8 +54,26 @@ function LoginPageContent() {
     return recoveryType === "recovery" || window.location.hash.includes("type=recovery");
   }, [recoveryType]);
 
+  const goTo = (path: string) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    redirectingRef.current = true;
+    window.location.assign(path);
+  };
+
   useEffect(() => {
     let active = true;
+
+    const handleAuthenticated = () => {
+      if (hasRecoveryMarker || mode === "recovery") {
+        return;
+      }
+
+      setFeedback("Login realizado. Redirecionando...");
+      goTo(nextPath);
+    };
 
     const {
       data: { subscription },
@@ -41,18 +85,18 @@ function LoginPageContent() {
       if (event === "PASSWORD_RECOVERY") {
         setMode("recovery");
         setChecking(false);
+        setSending(false);
         setFeedback("Link de recuperacao validado. Agora defina sua nova senha.");
         return;
       }
 
-      if (session && mode !== "recovery" && !hasRecoveryMarker) {
-        router.replace(nextPath);
+      if (session) {
+        handleAuthenticated();
         return;
       }
 
-      if (!session) {
-        setChecking(false);
-      }
+      setChecking(false);
+      setSending(false);
     });
 
     const checkSession = async () => {
@@ -66,7 +110,7 @@ function LoginPageContent() {
         }
 
         if (session && !hasRecoveryMarker) {
-          router.replace(nextPath);
+          handleAuthenticated();
           return;
         }
 
@@ -77,7 +121,7 @@ function LoginPageContent() {
       } catch (error) {
         console.error("[login] erro ao verificar sessao", error);
       } finally {
-        if (active) {
+        if (active && !redirectingRef.current) {
           setChecking(false);
         }
       }
@@ -89,7 +133,7 @@ function LoginPageContent() {
       active = false;
       subscription.unsubscribe();
     };
-  }, [hasRecoveryMarker, mode, nextPath, router]);
+  }, [hasRecoveryMarker, mode, nextPath]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
@@ -100,18 +144,25 @@ function LoginPageContent() {
     setSending(true);
     setFeedback("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-    if (error) {
-      setFeedback(error.message);
+      if (error) {
+        setFeedback(humanizeAuthError(error.message));
+        return;
+      }
+
+      setFeedback("Login realizado. Redirecionando...");
+      goTo(nextPath);
+    } catch (error) {
+      console.error("[login] erro inesperado no signIn", error);
+      setFeedback("Nao foi possivel entrar agora. Tente novamente em instantes.");
+    } finally {
       setSending(false);
-      return;
     }
-
-    router.replace(nextPath);
   };
 
   const signUpWithPassword = async () => {
@@ -133,23 +184,30 @@ function LoginPageContent() {
     setSending(true);
     setFeedback("");
 
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
+        },
+      });
 
-    if (error) {
-      setFeedback(error.message);
+      if (error) {
+        setFeedback(humanizeAuthError(error.message));
+        return;
+      }
+
+      setFeedback("Conta criada. Se o Supabase pedir confirmacao por email, confirme e depois entre com sua senha.");
+      setMode("signin");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("[login] erro inesperado no signUp", error);
+      setFeedback("Nao foi possivel criar a conta agora. Tente novamente em instantes.");
+    } finally {
       setSending(false);
-      return;
     }
-
-    setFeedback("Conta criada. Se o Supabase pedir confirmacao por email, confirme e depois entre com sua senha.");
-    setMode("signin");
-    setSending(false);
   };
 
   const enviarLinkMagico = async () => {
@@ -161,21 +219,26 @@ function LoginPageContent() {
     setSending(true);
     setFeedback("");
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
+        },
+      });
 
-    if (error) {
-      setFeedback(error.message);
+      if (error) {
+        setFeedback(humanizeAuthError(error.message));
+        return;
+      }
+
+      setFeedback("Link magico enviado. Use isso so se preferir entrar sem senha.");
+    } catch (error) {
+      console.error("[login] erro inesperado no magic link", error);
+      setFeedback("Nao foi possivel enviar o link agora. Tente novamente em instantes.");
+    } finally {
       setSending(false);
-      return;
     }
-
-    setFeedback("Link magico enviado. Use isso so se preferir entrar sem senha.");
-    setSending(false);
   };
 
   const recuperarSenha = async () => {
@@ -187,18 +250,23 @@ function LoginPageContent() {
     setSending(true);
     setFeedback("");
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/login?type=recovery&next=${encodeURIComponent(nextPath)}`,
-    });
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/login?type=recovery&next=${encodeURIComponent(nextPath)}`,
+      });
 
-    if (error) {
-      setFeedback(error.message);
+      if (error) {
+        setFeedback(humanizeAuthError(error.message));
+        return;
+      }
+
+      setFeedback("Enviamos um email de recuperacao. Abra o link recebido para redefinir sua senha.");
+    } catch (error) {
+      console.error("[login] erro inesperado no reset", error);
+      setFeedback("Nao foi possivel enviar o email de recuperacao agora. Tente novamente em instantes.");
+    } finally {
       setSending(false);
-      return;
     }
-
-    setFeedback("Enviamos um email de recuperacao. Abra o link recebido para redefinir sua senha.");
-    setSending(false);
   };
 
   const redefinirSenha = async () => {
@@ -220,19 +288,25 @@ function LoginPageContent() {
     setSending(true);
     setFeedback("");
 
-    const { error } = await supabase.auth.updateUser({ password });
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      setFeedback(error.message);
+      if (error) {
+        setFeedback(humanizeAuthError(error.message));
+        return;
+      }
+
+      await supabase.auth.signOut();
+      setFeedback("Senha atualizada com sucesso. Entre novamente com a nova senha.");
+      setMode("signin");
+      setPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      console.error("[login] erro inesperado ao redefinir senha", error);
+      setFeedback("Nao foi possivel salvar a nova senha agora. Tente novamente em instantes.");
+    } finally {
       setSending(false);
-      return;
     }
-
-    setFeedback("Senha atualizada com sucesso. Voce ja pode entrar normalmente.");
-    setMode("signin");
-    setPassword("");
-    setConfirmPassword("");
-    setSending(false);
   };
 
   if (checking) {
@@ -357,19 +431,18 @@ function LoginPageContent() {
         </div>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {mode === "recovery"
+          {(mode === "recovery"
             ? ["Senha redefinida na propria tela", "Sem voltar para localhost", "Fluxo pronto para celular"]
-            : ["Entrada por senha mais pratica", "Recuperacao por email disponivel", "Magic link fica opcional"].map((label) => (
-                <div
-                  key={label}
-                  className="flex items-center gap-2 rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] px-3 py-2"
-                >
-                  <Sparkles size={11} className="text-[var(--aq-accent)]" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text)]">
-                    {label}
-                  </span>
-                </div>
-              ))}
+            : ["Entrada por senha mais pratica", "Recuperacao por email disponivel", "Magic link fica opcional"]
+          ).map((label) => (
+            <div
+              key={label}
+              className="flex items-center gap-2 rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] px-3 py-2"
+            >
+              <Sparkles size={11} className="text-[var(--aq-accent)]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text)]">{label}</span>
+            </div>
+          ))}
         </div>
       </div>
     </main>
