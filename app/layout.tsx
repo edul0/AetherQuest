@@ -1,5 +1,6 @@
 import "./globals.css"
 import { Cinzel, Lora } from "next/font/google"
+import AuthSessionBanner from "@/src/components/auth/AuthSessionBanner"
 
 const cinzel = Cinzel({
   weight: ["400", "700", "900"],
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={`${cinzel.variable} ${lora.variable} bg-[#0a0f12] text-[#e2dfd2]`}>
+        <AuthSessionBanner />
         {children}
       </body>
     </html>
