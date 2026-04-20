@@ -11,6 +11,8 @@ type LoginScreenProps = {
   recoveryType?: string;
 };
 
+const AUTH_HANDOFF_KEY = "aq-auth-handoff";
+
 function humanizeAuthError(message: string) {
   const lower = message.toLowerCase();
 
@@ -113,6 +115,10 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
       if (error) {
         setFeedback(humanizeAuthError(error.message));
         return;
+      }
+
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem(AUTH_HANDOFF_KEY, String(Date.now()));
       }
 
       setFeedback("Login realizado. Redirecionando...");
