@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  ChevronDown,
   Crosshair,
   Dice5,
   Grid2x2,
@@ -73,7 +73,7 @@ export default function VTTControls({ cenaId, preferences, onPreferencesChange }
   };
 
   return (
-    <div className="fixed bottom-6 right-4 z-50 w-[340px] max-w-[calc(100vw-1.5rem)] rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.94)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md">
+    <div className="aq-scrollbar fixed bottom-4 left-1/2 z-50 max-h-[48vh] w-[calc(100vw-1rem)] max-w-[420px] -translate-x-1/2 overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:bottom-6 md:left-auto md:right-4 md:w-[340px] md:max-h-[72vh] md:translate-x-0">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="aq-kicker">Tactical Deck</div>
@@ -96,7 +96,7 @@ export default function VTTControls({ cenaId, preferences, onPreferencesChange }
             <button
               key={tool.id}
               onClick={() => onPreferencesChange({ toolMode: tool.id })}
-              className={`rounded-2xl border px-3 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all ${
+              className={`rounded-2xl border px-2 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all md:px-3 md:text-xs md:tracking-[0.18em] ${
                 active
                   ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.14)] text-[var(--aq-accent)]"
                   : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] text-[var(--aq-text-muted)] hover:text-[var(--aq-title)]"
@@ -112,13 +112,13 @@ export default function VTTControls({ cenaId, preferences, onPreferencesChange }
       <div className="mt-4 grid grid-cols-2 gap-2">
         <button
           onClick={addToken}
-          className="flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-xs font-black uppercase tracking-[0.18em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+          className="flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]"
         >
           <Users size={15} />
           Token
         </button>
 
-        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-xs font-black uppercase tracking-[0.18em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]">
           <MapIcon size={15} />
           Mapa
           <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
@@ -243,5 +243,3 @@ export default function VTTControls({ cenaId, preferences, onPreferencesChange }
         </div>
       </div>
     </div>
-  );
-}
