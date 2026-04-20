@@ -91,6 +91,11 @@ function findSalaByAccessCode(salas: Sala[], code: string) {
   );
 }
 
+function isJwtExpiredError(error: { message?: string } | null | undefined) {
+  const message = error?.message?.toLowerCase() ?? "";
+  return message.includes("jwt expired") || message.includes("token has expired") || message.includes("refresh token");
+}
+
 type MesaClientProps = {
   inviteCode?: string;
 };
@@ -121,6 +126,54 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [hasSession, setHasSession] = useState(false);
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [renamingRoom, setRenamingRoom] = useState(false);
+
+  const ensureFreshSession = async () => {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!session) {
+      throw new Error("Sua sessao expirou. Entre novamente para continuar.");
+    }
+
+    const expiresAt = session.expires_at ? session.expires_at * 1000 : 0;
+    const shouldRefresh = !expiresAt || expiresAt - Date.now() < 60_000;
+
+    if (shouldRefresh) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        throw refreshError;
+      }
+
+      if (!refreshed.session) {
+        throw new Error("Sua sessao expirou. Entre novamente para continuar.");
+      }
+
+      setHasSession(true);
+      return refreshed.session;
+    }
+
+    setHasSession(true);
+    return session;
+  };
+
+  const runWithFreshSession = async <T,>(action: () => Promise<{ data?: T | null; error?: { message?: string } | null }>) => {
+    await ensureFreshSession();
+
+    let result = await action();
+    if (!result.error || !isJwtExpiredError(result.error)) {
+      return result;
+    }
+
+    await ensureFreshSession();
+    result = await action();
+    return result;
+  };
 
   useEffect(() => {
     let active = true;
@@ -328,17 +381,26 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   }, [showActiveMesa]);
 
   const criarSala = async () => {
-    const nome = `Sessao ${salas.length + 1}`;
-    const { data, error } = await supabase.from("salas").insert([{ nome }]).select().single();
-    if (error) {
-      alert(`Falha ao criar sala: ${error.message}`);
-      return;
-    }
+    try {
+      const nome = `Sessao ${salas.length + 1}`;
+      const { data, error } = await runWithFreshSession<Sala>(() =>
+        supabase.from("salas").insert([{ nome }]).select().single(),
+      );
 
-    const novaSala = data as Sala;
-    setSalas((current) => [novaSala, ...current]);
-    setSalaAtiva(novaSala);
-    setRole("mestre");
+      if (error) {
+        alert(`Falha ao criar sala: ${error.message}`);
+        return;
+      }
+
+      const novaSala = data as Sala;
+      setSalas((current) => [novaSala, ...current]);
+      setSalaAtiva(novaSala);
+      setRole("mestre");
+    } catch (error: any) {
+      alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
+      setHasSession(false);
+      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
+    }
   };
 
   const renomearSalaAtiva = async () => {
@@ -352,19 +414,28 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       return;
     }
 
-    setRenamingRoom(true);
-    const { data, error } = await supabase.from("salas").update({ nome }).eq("id", salaAtiva.id).select().single();
+    try {
+      setRenamingRoom(true);
+      const { data, error } = await runWithFreshSession<Sala>(() =>
+        supabase.from("salas").update({ nome }).eq("id", salaAtiva.id).select().single(),
+      );
 
-    if (error) {
-      alert(`Falha ao renomear sessao: ${error.message}`);
+      if (error) {
+        alert(`Falha ao renomear sessao: ${error.message}`);
+        setRenamingRoom(false);
+        return;
+      }
+
+      const salaAtualizada = data as Sala;
+      setSalas((current) => current.map((entry) => (entry.id === salaAtualizada.id ? salaAtualizada : entry)));
+      setSalaAtiva(salaAtualizada);
       setRenamingRoom(false);
-      return;
+    } catch (error: any) {
+      setRenamingRoom(false);
+      alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
+      setHasSession(false);
+      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
     }
-
-    const salaAtualizada = data as Sala;
-    setSalas((current) => current.map((entry) => (entry.id === salaAtualizada.id ? salaAtualizada : entry)));
-    setSalaAtiva(salaAtualizada);
-    setRenamingRoom(false);
   };
 
   const criarCenaInicial = async () => {
@@ -372,16 +443,24 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       return;
     }
 
-    const { data, error } = await supabase.from("cenas").insert([{ sala_id: salaAtiva.id, nome: `Setor ${cenas.length + 1}` }]).select().single();
+    try {
+      const { data, error } = await runWithFreshSession<Cena>(() =>
+        supabase.from("cenas").insert([{ sala_id: salaAtiva.id, nome: `Setor ${cenas.length + 1}` }]).select().single(),
+      );
 
-    if (error) {
-      alert(`Falha ao criar cena: ${error.message}`);
-      return;
+      if (error) {
+        alert(`Falha ao criar cena: ${error.message}`);
+        return;
+      }
+
+      const novaCena = data as Cena;
+      setCenas((current) => [...current, novaCena]);
+      setCenaAtiva(novaCena);
+    } catch (error: any) {
+      alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
+      setHasSession(false);
+      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
     }
-
-    const novaCena = data as Cena;
-    setCenas((current) => [...current, novaCena]);
-    setCenaAtiva(novaCena);
   };
 
   const criarTokenDaFicha = async () => {
@@ -397,25 +476,33 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     const nome = tokenLabel.trim() || fichaBase.nome_personagem || "Agente";
     const cor = fichaBase.sistema_preset === "dnd5e" ? "#60a5fa" : "#4ad9d9";
 
-    const { error } = await supabase.from("tokens").insert([
-      {
-        cena_id: cenaAtiva.id,
-        sala: salaAtiva.id,
-        ficha_id: fichaBase.id,
-        nome,
-        x: 100 + tokens.length * 60,
-        y: 100 + tokens.length * 60,
-        cor,
-      },
-    ]);
+    try {
+      const { error } = await runWithFreshSession(() =>
+        supabase.from("tokens").insert([
+          {
+            cena_id: cenaAtiva.id,
+            sala: salaAtiva.id,
+            ficha_id: fichaBase.id,
+            nome,
+            x: 100 + tokens.length * 60,
+            y: 100 + tokens.length * 60,
+            cor,
+          },
+        ]),
+      );
 
-    if (error) {
-      alert(`Falha ao criar token: ${error.message}`);
-      return;
+      if (error) {
+        alert(`Falha ao criar token: ${error.message}`);
+        return;
+      }
+
+      setFichaParaTokenId("");
+      setTokenLabel("");
+    } catch (error: any) {
+      alert(error?.message || "Sua sessao expirou. Entre novamente para continuar.");
+      setHasSession(false);
+      router.push(`/login?next=${encodeURIComponent("/mesa")}`);
     }
-
-    setFichaParaTokenId("");
-    setTokenLabel("");
   };
 
   const vincularFichaComoJogador = () => {
