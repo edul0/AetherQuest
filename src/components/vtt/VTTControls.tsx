@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -31,7 +32,7 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
 ];
 
 export default function VTTControls({ cenaId, preferences, onPreferencesChange }: VTTControlsProps) {
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !cenaId) {
       return;
@@ -243,3 +244,5 @@ export default function VTTControls({ cenaId, preferences, onPreferencesChange }
         </div>
       </div>
     </div>
+  );
+}
