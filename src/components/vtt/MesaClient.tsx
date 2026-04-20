@@ -113,6 +113,43 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [shellOpen, setShellOpen] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!active) {
+        return;
+      }
+
+      setHasSession(Boolean(session));
+      setAuthChecked(true);
+    };
+
+    void syncSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) {
+        return;
+      }
+
+      setHasSession(Boolean(session));
+      setAuthChecked(true);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const carregarSalas = async () => {
@@ -354,7 +391,20 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   };
 
   const joinAsPlayer = () => {
-    const matched = findSalaByAccessCode(salas, joinCode);
+    const normalizedJoinCode = joinCode.trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    const nextUrl = normalizedJoinCode ? `/mesa?convite=${encodeURIComponent(normalizedJoinCode)}` : "/mesa";
+
+    if (!hasSession) {
+      router.push(`/login?next=${encodeURIComponent(nextUrl)}`);
+      return;
+    }
+
+    if (!salas.length) {
+      setJoinError("Seu login ainda nao recebeu acesso para ler as salas desta mesa. Precisamos liberar a leitura do jogador no Supabase.");
+      return;
+    }
+
+    const matched = findSalaByAccessCode(salas, normalizedJoinCode);
     if (!matched) {
       setJoinError("Nao encontramos uma sala com essa senha ou convite.");
       return;
@@ -391,7 +441,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   if (loading) {
     return (
       <div className="aq-page flex items-center justify-center">
-        <div className="font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)] animate-pulse">Inicializando mesa...</div>
+        <div className="animate-pulse font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)]">Inicializando mesa...</div>
       </div>
     );
   }
@@ -457,18 +507,24 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
-            <button onClick={() => {
-              setRole("mestre");
-              setJoinedAsPlayer(false);
-              setJoinError("");
-            }} className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}>
+            <button
+              onClick={() => {
+                setRole("mestre");
+                setJoinedAsPlayer(false);
+                setJoinError("");
+              }}
+              className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}
+            >
               <Eye size={14} />
               Mestre
             </button>
-            <button onClick={() => {
-              setRole("jogador");
-              setJoinError("");
-            }} className={role === "jogador" ? "aq-button-primary" : "aq-button-secondary"}>
+            <button
+              onClick={() => {
+                setRole("jogador");
+                setJoinError("");
+              }}
+              className={role === "jogador" ? "aq-button-primary" : "aq-button-secondary"}
+            >
               <Users size={14} />
               Jogador
             </button>
@@ -490,7 +546,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
               <button onClick={() => setRole("jogador")} className="rounded-3xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-5 text-left transition-all hover:border-[var(--aq-border-strong)] hover:bg-[rgba(15,24,36,0.84)]">
                 <div className="flex items-center gap-2 text-[var(--aq-accent)]"><Users size={16} /> Jogador</div>
                 <div className="mt-3 text-lg font-black text-[var(--aq-title)]">Entrar em uma mesa</div>
-                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Use a senha da sala ou o convite curto compartilhado pelo mestre.</div>
+                <div className="mt-2 text-sm leading-relaxed text-[var(--aq-text-muted)]">Use a senha da sala ou o convite do mestre.</div>
               </button>
             </div>
           ) : null}
@@ -595,13 +651,18 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                   <div className="aq-kicker">Entrar na Sessao</div>
                   <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Digite a senha da sala ou o convite curto que o mestre compartilhou.</p>
+                  {!hasSession && authChecked ? (
+                    <div className="mt-3 rounded-2xl border border-[rgba(74,217,217,0.2)] bg-[rgba(74,217,217,0.06)] px-4 py-3 text-sm text-[var(--aq-text)]">
+                      Voce precisa entrar com login antes de acessar a mesa como jogador.
+                    </div>
+                  ) : null}
                   <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
                     <KeyRound size={16} className="text-[var(--aq-accent)]" />
                     <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Senha ou convite" className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]" />
                   </div>
                   <button onClick={joinAsPlayer} className="aq-button-primary mt-4 w-full justify-center">
                     <Users size={14} />
-                    Entrar como jogador
+                    {hasSession ? "Entrar como jogador" : "Fazer login para entrar"}
                   </button>
                   {joinError ? <div className="mt-3 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-4 py-3 text-sm text-red-200">{joinError}</div> : null}
                 </div>
@@ -735,6 +796,19 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                         </div>
                       </div>
                     </div>
+
+                    {role === "mestre" && token.ficha_id ? (
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(`/fichas/${token.ficha_id}`);
+                        }}
+                        className="aq-button-secondary aq-button-compact mt-3 w-full justify-center"
+                      >
+                        <ScrollText size={12} />
+                        Abrir ficha
+                      </button>
+                    ) : null}
                   </div>
                 </button>
               );
