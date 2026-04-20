@@ -134,7 +134,7 @@ export interface FichaVTTSnapshot {
   };
 }
 
-export type VTTToolMode = "select" | "pan" | "measure";
+export type VTTToolMode = "select" | "pan" | "measure" | "map";
 
 export interface SceneViewPreferences {
   gridSize: number;
