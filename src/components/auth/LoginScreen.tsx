@@ -12,6 +12,7 @@ type LoginScreenProps = {
 };
 
 const AUTH_HANDOFF_KEY = "aq-auth-handoff";
+const AUTH_HANDOFF_WINDOW_MS = 8000;
 
 function humanizeAuthError(message: string) {
   const lower = message.toLowerCase();
@@ -37,6 +38,40 @@ function humanizeAuthError(message: string) {
   }
 
   return message;
+}
+
+function setAuthHandoff() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(AUTH_HANDOFF_KEY, String(Date.now()));
+}
+
+function clearAuthHandoff() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_HANDOFF_KEY);
+}
+
+async function waitForPersistedSession() {
+  const deadline = Date.now() + AUTH_HANDOFF_WINDOW_MS;
+
+  while (Date.now() < deadline) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session) {
+      return true;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+  }
+
+  return false;
 }
 
 export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginScreenProps) {
@@ -113,18 +148,26 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
       });
 
       if (error) {
+        clearAuthHandoff();
         setFeedback(humanizeAuthError(error.message));
         return;
       }
 
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(AUTH_HANDOFF_KEY, String(Date.now()));
+      setAuthHandoff();
+      setFeedback("Login realizado. Finalizando entrada...");
+
+      const persisted = await waitForPersistedSession();
+      if (!persisted) {
+        clearAuthHandoff();
+        setFeedback("Seu login foi aceito, mas a sessao nao terminou de carregar. Tente entrar mais uma vez.");
+        return;
       }
 
-      setFeedback("Login realizado. Redirecionando...");
+      clearAuthHandoff();
       goTo(nextPath);
     } catch (error) {
       console.error("[login] erro inesperado no signIn", error);
+      clearAuthHandoff();
       setFeedback("Nao foi possivel entrar agora. Tente novamente em instantes.");
     } finally {
       setSending(false);
@@ -263,6 +306,7 @@ export default function LoginScreen({ nextPath = "/mesa", recoveryType }: LoginS
       }
 
       await supabase.auth.signOut();
+      clearAuthHandoff();
       setFeedback("Senha atualizada com sucesso. Entre novamente com a nova senha.");
       setMode("signin");
       setPassword("");
