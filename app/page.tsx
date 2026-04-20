@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from 'next/navigation';
 import { Cinzel, Inter } from 'next/font/google';
-import { Play, Map, BookOpen, Settings2 } from 'lucide-react';
+import { Play, Map, BookOpen, Settings2, Users } from 'lucide-react';
 
 const cinzel = Cinzel({ subsets: ['latin'], weight: ['400', '700', '900'] });
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500'] });
@@ -11,13 +11,10 @@ export default function HomePage() {
 
   return (
     <main className={`min-h-screen bg-[#050a10] text-[#8b9bb4] flex flex-col justify-center px-8 md:px-24 py-12 relative overflow-hidden ${inter.className}`}>
-      {/* Efeitos de Luz de Fundo */}
       <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-[#4ad9d9]/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#1a2b4c]/20 rounded-full blur-[100px] pointer-events-none" />
 
       <div className="max-w-6xl mx-auto w-full z-10 flex flex-col pt-20">
-        
-        {/* Título Principal */}
         <div className="mb-8">
           <div className="w-16 h-0.5 bg-[#4ad9d9] mb-8 opacity-50"></div>
           <h1 className={`${cinzel.className} text-6xl md:text-8xl font-black tracking-widest drop-shadow-lg flex flex-wrap`}>
@@ -26,34 +23,31 @@ export default function HomePage() {
           </h1>
         </div>
 
-        {/* Subtítulo */}
         <p className="max-w-xl text-base md:text-lg leading-relaxed text-[#8b9bb4] mb-12">
           O Tabletop Virtual focado no essencial. Explore masmorras, role dados e guie seus jogadores em tempo real, de qualquer dispositivo.
         </p>
 
-        {/* Botões de Ação */}
         <div className="flex flex-wrap gap-6 mb-24">
-          <button 
-            onClick={() => router.push('/fichas')}
+          <button
+            onClick={() => router.push('/mesa')}
             className="flex items-center gap-3 bg-[#1e6b6b] hover:bg-[#4ad9d9] text-white hover:text-[#050a10] px-8 py-3.5 rounded-full text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(30,107,107,0.4)] hover:shadow-[0_0_30px_rgba(74,217,217,0.6)]"
           >
             <Play size={14} className="fill-current" />
             Iniciar Jornada
           </button>
-          
-          <button 
+
+          <button
             onClick={() => router.push('/fichas')}
-            className="px-8 py-3.5 rounded-full border border-[#2a3b52] text-[#8b9bb4] text-xs font-bold uppercase tracking-widest hover:border-[#4ad9d9] hover:text-[#4ad9d9] bg-[#0a0f18]/50 transition-all"
+            className="flex items-center gap-3 px-8 py-3.5 rounded-full border border-[#2a3b52] text-[#8b9bb4] text-xs font-bold uppercase tracking-widest hover:border-[#4ad9d9] hover:text-[#4ad9d9] bg-[#0a0f18]/50 transition-all"
           >
-            Campanhas
+            <Users size={14} />
+            Personagens
           </button>
         </div>
 
         <div className="w-full h-px bg-gradient-to-r from-[#2a3b52] to-transparent mb-16 opacity-50"></div>
 
-        {/* Seção de Features */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-24">
-          
           <div className="flex flex-col">
             <Map className="text-[#4ad9d9] mb-6" size={28} strokeWidth={1.5} />
             <h3 className={`${cinzel.className} text-xl text-[#f0ebd8] font-bold tracking-widest mb-4`}>
@@ -83,9 +77,7 @@ export default function HomePage() {
               Ferramentas de upload de mapas e rolagem de dados acessíveis com apenas um toque na tela.
             </p>
           </div>
-
         </div>
-
       </div>
     </main>
   );
