@@ -195,6 +195,8 @@ export default function VTTCanvas({
   scenePreferences,
 }: VTTCanvasProps) {
   const stageRef = useRef<any>(null);
+  const pinchCenterRef = useRef<Point | null>(null);
+  const pinchDistanceRef = useRef(0);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [image] = useImage(mapaUrl || "");
@@ -230,6 +232,8 @@ export default function VTTCanvas({
 
   useEffect(() => {
     setCamera(DEFAULT_CAMERA);
+    pinchCenterRef.current = null;
+    pinchDistanceRef.current = 0;
   }, [cenaId]);
 
   useEffect(() => {
@@ -396,6 +400,56 @@ export default function VTTCanvas({
     setMeasureEnd(snapPoint(world));
   }, [measureStart, scenePreferences.toolMode, snapPoint, worldFromPointer]);
 
+  const handleTouchMove = useCallback(
+    (event: any) => {
+      const touches = event.evt.touches;
+      if (touches.length === 2) {
+        event.evt.preventDefault();
+
+        const pointA = { x: touches[0].clientX, y: touches[0].clientY };
+        const pointB = { x: touches[1].clientX, y: touches[1].clientY };
+        const center = {
+          x: (pointA.x + pointB.x) / 2,
+          y: (pointA.y + pointB.y) / 2,
+        };
+        const distance = Math.hypot(pointB.x - pointA.x, pointB.y - pointA.y);
+
+        if (!pinchCenterRef.current || !pinchDistanceRef.current) {
+          pinchCenterRef.current = center;
+          pinchDistanceRef.current = distance;
+          return;
+        }
+
+        setCamera((current) => {
+          const scaleBy = distance / pinchDistanceRef.current;
+          const nextScale = clamp(current.scale * scaleBy, 0.4, 2.8);
+          const worldX = (center.x - current.x) / current.scale;
+          const worldY = (center.y - current.y) / current.scale;
+          const deltaX = center.x - pinchCenterRef.current!.x;
+          const deltaY = center.y - pinchCenterRef.current!.y;
+
+          return {
+            scale: nextScale,
+            x: center.x - worldX * nextScale + deltaX,
+            y: center.y - worldY * nextScale + deltaY,
+          };
+        });
+
+        pinchCenterRef.current = center;
+        pinchDistanceRef.current = distance;
+        return;
+      }
+
+      handleStageMouseMove();
+    },
+    [handleStageMouseMove],
+  );
+
+  const clearPinch = useCallback(() => {
+    pinchCenterRef.current = null;
+    pinchDistanceRef.current = 0;
+  }, []);
+
   const gridLines = useMemo(() => {
     if (!scenePreferences.showGrid) {
       return [];
@@ -459,7 +513,9 @@ export default function VTTCanvas({
         onClick={handleStageClick}
         onTap={handleStageClick}
         onMouseMove={handleStageMouseMove}
-        onTouchMove={handleStageMouseMove}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={clearPinch}
+        onTouchCancel={clearPinch}
         onWheel={handleWheel}
       >
         <Layer>
@@ -578,7 +634,7 @@ export default function VTTCanvas({
             <Move size={14} />
             Navegacao
           </div>
-          <div className="mt-2 leading-relaxed">Scroll faz zoom. Pan move a camera. Select move tokens. Measure calcula alcance no grid atual.</div>
+          <div className="mt-2 leading-relaxed">Scroll faz zoom. Pan move a camera. Select move tokens. Dois dedos fazem pinch no mobile. Measure calcula alcance no grid atual.</div>
         </div>
       </div>
     </div>
