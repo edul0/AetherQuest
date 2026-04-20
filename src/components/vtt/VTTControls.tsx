@@ -21,6 +21,7 @@ import { SceneViewPreferences, VTTToolMode } from "@/src/lib/types";
 
 type VTTControlsProps = {
   cenaId: string;
+  salaId?: string | null;
   preferences: SceneViewPreferences;
   onPreferencesChange: (patch: Partial<SceneViewPreferences>) => void;
 };
@@ -31,7 +32,7 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
   { id: "measure", label: "Medir", icon: Ruler },
 ];
 
-export default function VTTControls({ cenaId, preferences, onPreferencesChange }: VTTControlsProps) {
+export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange }: VTTControlsProps) {
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !cenaId) {
@@ -55,15 +56,22 @@ export default function VTTControls({ cenaId, preferences, onPreferencesChange }
       return;
     }
 
-    await supabase.from("tokens").insert([
-      {
-        cena_id: cenaId,
-        nome: "Entidade",
-        x: 0,
-        y: 0,
-        cor: "#ef4444",
-      },
-    ]);
+    const payload: Record<string, unknown> = {
+      cena_id: cenaId,
+      nome: "Entidade",
+      x: 0,
+      y: 0,
+      cor: "#ef4444",
+    };
+
+    if (salaId) {
+      payload.sala = salaId;
+    }
+
+    const { error } = await supabase.from("tokens").insert([payload]);
+    if (error) {
+      alert(`Falha ao criar token: ${error.message}`);
+    }
   };
 
   const nudgeMap = (dx: number, dy: number) => {
@@ -74,7 +82,7 @@ export default function VTTControls({ cenaId, preferences, onPreferencesChange }
   };
 
   return (
-    <div className="aq-scrollbar fixed bottom-4 left-1/2 z-50 max-h-[48vh] w-[calc(100vw-1rem)] max-w-[420px] -translate-x-1/2 overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:bottom-6 md:left-auto md:right-4 md:w-[340px] md:max-h-[72vh] md:translate-x-0">
+    <div className="aq-scrollbar fixed bottom-[190px] left-1/2 z-50 max-h-[42vh] w-[calc(100vw-1rem)] max-w-[420px] -translate-x-1/2 overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:bottom-[220px] md:left-auto md:right-4 md:w-[340px] md:max-h-[68vh] md:translate-x-0">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="aq-kicker">Tactical Deck</div>
