@@ -79,18 +79,18 @@ export default function AuthSessionBanner() {
   }
 
   return (
-    <div className="fixed right-3 top-3 z-[100]">
-      <div className="flex items-center gap-2 rounded-full border border-[rgba(74,217,217,0.24)] bg-[rgba(5,10,16,0.82)] px-3 py-2 text-[11px] text-[var(--aq-text)] shadow-[0_0_18px_rgba(74,217,217,0.12)] backdrop-blur-md">
+    <div className="fixed bottom-3 right-3 z-[100] md:bottom-4 md:right-4">
+      <div className="flex items-center gap-2 rounded-full border border-[rgba(74,217,217,0.22)] bg-[rgba(5,10,16,0.78)] px-2.5 py-2 text-[10px] text-[var(--aq-text)] shadow-[0_0_14px_rgba(74,217,217,0.08)] backdrop-blur-md md:px-3">
         <span className="flex items-center gap-2 text-[var(--aq-accent)]">
-          <ShieldCheck size={14} />
-          <span className="font-semibold">{compactEmail}</span>
+          <ShieldCheck size={13} />
+          <span className="max-w-[110px] truncate font-semibold md:max-w-[140px]">{compactEmail}</span>
         </span>
         <button
           onClick={handleSignOut}
           disabled={signingOut}
-          className="flex items-center gap-1 rounded-full border border-[var(--aq-border)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--aq-text-muted)] transition-colors hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-title)] disabled:opacity-60"
+          className="flex items-center gap-1 rounded-full border border-[var(--aq-border)] px-2 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-[var(--aq-text-muted)] transition-colors hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-title)] disabled:opacity-60"
         >
-          <LogOut size={12} />
+          <LogOut size={11} />
           {signingOut ? "Saindo" : "Sair"}
         </button>
       </div>
