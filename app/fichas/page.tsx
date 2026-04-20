@@ -100,14 +100,6 @@ export default function FichasHubPage() {
     }
   };
 
-      if (data) {
-        router.push(`/fichas/${data.id}`);
-      }
-    } catch (error: any) {
-      alert(`Erro ao criar ficha: ${error.message}`);
-    }
-  };
-
   const deletarFicha = async (id: string) => {
     const confirmDelete = window.confirm("Deseja excluir esta ficha?");
     if (!confirmDelete) {
