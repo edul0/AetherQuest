@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, KeyRound, Mail, Shield, Sparkles } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
@@ -69,7 +69,6 @@ function getSafeNextPath(nextPath?: string) {
 }
 
 export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recoveryType }: LoginScreenProps) {
-  const redirectTimeoutRef = useRef<number | null>(null);
   const [mode, setMode] = useState<AuthMode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,18 +93,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
     }
 
     const absoluteTarget = new URL(path, window.location.origin).toString();
-
-    if (redirectTimeoutRef.current) {
-      window.clearTimeout(redirectTimeoutRef.current);
-    }
-
-    window.location.assign(absoluteTarget);
-
-    redirectTimeoutRef.current = window.setTimeout(() => {
-      if (window.location.pathname !== path) {
-        window.location.href = absoluteTarget;
-      }
-    }, 180);
+    window.location.href = absoluteTarget;
   };
 
   useEffect(() => {
@@ -124,8 +112,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
         if (session) {
           setHasActiveSession(true);
           clearAuthHandoff();
-          setFeedback("Sessao encontrada. Abrindo fichas...");
-          goTo(destinationPath);
+          setFeedback("Sessao encontrada. Clique abaixo para abrir suas fichas.");
           return;
         }
 
@@ -159,8 +146,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
       if (session && !hasRecoveryMarker) {
         setHasActiveSession(true);
         clearAuthHandoff();
-        setFeedback("Login realizado. Abrindo fichas...");
-        goTo(destinationPath);
+        setFeedback("Login realizado. Clique abaixo para entrar nas fichas.");
         return;
       }
 
@@ -169,12 +155,9 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
 
     return () => {
       active = false;
-      if (redirectTimeoutRef.current) {
-        window.clearTimeout(redirectTimeoutRef.current);
-      }
       subscription.unsubscribe();
     };
-  }, [destinationPath, hasRecoveryMarker]);
+  }, [hasRecoveryMarker]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
@@ -210,8 +193,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
 
       setHasActiveSession(true);
       setAuthHandoff();
-      setFeedback("Login realizado. Abrindo fichas...");
-      goTo(destinationPath);
+      setFeedback("Login realizado. Clique abaixo para entrar nas fichas.");
     } catch (error) {
       console.error("[login] erro inesperado no signIn", error);
       clearAuthHandoff();
