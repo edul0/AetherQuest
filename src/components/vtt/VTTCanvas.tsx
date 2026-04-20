@@ -12,7 +12,7 @@ import {
   Text as KonvaText,
 } from "react-konva";
 import useImage from "use-image";
-import { Minus, Move3d, Plus, ScanSearch, X } from "lucide-react";
+import { Minus, Move, Plus, RotateCcw, X } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
@@ -532,8 +532,8 @@ export default function VTTCanvas({
         </Layer>
       </Stage>
 
-      <div className="pointer-events-none fixed right-[370px] top-20 z-50 flex flex-col gap-3">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] p-2 backdrop-blur-md">
+      <div className="pointer-events-none fixed left-1/2 top-[72px] z-50 flex w-[calc(100vw-1rem)] max-w-[360px] -translate-x-1/2 flex-col gap-2 md:left-auto md:right-[370px] md:top-20 md:w-auto md:max-w-none md:translate-x-0">
+        <div className="pointer-events-auto flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] p-2 backdrop-blur-md">
           <button
             onClick={() => applyZoom(1.12)}
             className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
@@ -553,17 +553,17 @@ export default function VTTCanvas({
             className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
             title="Resetar camera"
           >
-            <ScanSearch size={16} />
+            <RotateCcw size={16} />
           </button>
         </div>
 
-        <div className="pointer-events-auto rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] px-4 py-3 text-xs uppercase tracking-[0.18em] text-[var(--aq-text-muted)] backdrop-blur-md">
+        <div className="pointer-events-auto rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] px-4 py-3 text-[10px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)] backdrop-blur-md md:text-xs md:tracking-[0.18em]">
           <div>{`Zoom ${Math.round(camera.scale * 100)}%`}</div>
-          <div className="mt-2">{scenePreferences.toolMode === "pan" ? "Arraste o fundo para mover a camera" : scenePreferences.toolMode === "measure" ? "Clique para medir a distancia" : "Arraste tokens para reposicionar"}</div>
+          <div className="mt-2 leading-relaxed">{scenePreferences.toolMode === "pan" ? "Arraste para mover a camera" : scenePreferences.toolMode === "measure" ? "Toque para medir no grid" : "Toque no token e arraste para reposicionar"}</div>
         </div>
 
         {measurementLabel ? (
-          <div className="pointer-events-auto rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(15,10,2,0.88)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-amber-200 backdrop-blur-md">
+          <div className="pointer-events-auto rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(15,10,2,0.92)] px-4 py-3 text-[10px] uppercase tracking-[0.14em] text-amber-200 backdrop-blur-md md:text-xs md:tracking-[0.16em]">
             <div className="flex items-center justify-between gap-4">
               <span>{measurementLabel}</span>
               <button onClick={() => { setMeasureStart(null); setMeasureEnd(null); }} className="text-amber-100 transition-colors hover:text-white" title="Limpar medicao">
@@ -573,9 +573,9 @@ export default function VTTCanvas({
           </div>
         ) : null}
 
-        <div className="pointer-events-auto rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--aq-text-muted)] backdrop-blur-md">
+        <div className="pointer-events-auto hidden rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] px-4 py-3 text-xs uppercase tracking-[0.16em] text-[var(--aq-text-muted)] backdrop-blur-md md:block">
           <div className="flex items-center gap-2 text-[var(--aq-accent)]">
-            <Move3d size={14} />
+            <Move size={14} />
             Navegacao
           </div>
           <div className="mt-2 leading-relaxed">Scroll faz zoom. Pan move a camera. Select move tokens. Measure calcula alcance no grid atual.</div>
