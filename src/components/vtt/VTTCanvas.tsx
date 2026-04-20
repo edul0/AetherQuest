@@ -197,6 +197,7 @@ export default function VTTCanvas({
   const stageRef = useRef<any>(null);
   const pinchCenterRef = useRef<Point | null>(null);
   const pinchDistanceRef = useRef(0);
+  const mapDragStartRef = useRef<Point | null>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [image] = useImage(mapaUrl || "");
@@ -216,7 +217,7 @@ export default function VTTCanvas({
     }
 
     const targetWidth = windowSize.w * (isMobile ? 1.02 : 1);
-    const targetHeight = stageHeight * (isMobile ? 1 : 1);
+    const targetHeight = stageHeight;
     const autoScale = clamp(Math.max(targetWidth / image.width, targetHeight / image.height), 0.9, 4);
     const effectiveScale = autoScale * scenePreferences.mapScale;
     const effectiveWidth = image.width * effectiveScale;
@@ -296,6 +297,7 @@ export default function VTTCanvas({
     setCamera(DEFAULT_CAMERA);
     pinchCenterRef.current = null;
     pinchDistanceRef.current = 0;
+    mapDragStartRef.current = null;
   }, [cenaId]);
 
   useEffect(() => {
@@ -317,7 +319,7 @@ export default function VTTCanvas({
       }
     };
 
-    carregarDadosIniciais();
+    void carregarDadosIniciais();
 
     const channel = supabase
       .channel(`vtt_canvas_${cenaId}`)
@@ -420,14 +422,24 @@ export default function VTTCanvas({
     [scenePreferences.gridSize, scenePreferences.snapToGrid],
   );
 
+  const handleMapDragStart = useCallback((event: any) => {
+    mapDragStartRef.current = {
+      x: event.target.x(),
+      y: event.target.y(),
+    };
+  }, []);
+
   const handleMapDragEnd = useCallback(
     (event: any) => {
       onSelectToken(null);
-      const dragX = event.target.x();
-      const dragY = event.target.y();
-      const nextX = Number((dragX - (mapFraming?.baseOffsetX ?? 0)).toFixed(0));
-      const nextY = Number((dragY - (mapFraming?.baseOffsetY ?? 0)).toFixed(0));
 
+      const dragStart = mapDragStartRef.current ?? { x: effectiveMapOffsetX, y: effectiveMapOffsetY };
+      const deltaX = event.target.x() - dragStart.x;
+      const deltaY = event.target.y() - dragStart.y;
+      const nextX = Number((clampedSceneOffsets.x + deltaX).toFixed(0));
+      const nextY = Number((clampedSceneOffsets.y + deltaY).toFixed(0));
+
+      mapDragStartRef.current = null;
       event.target.position({ x: effectiveMapOffsetX, y: effectiveMapOffsetY });
 
       window.dispatchEvent(
@@ -436,7 +448,7 @@ export default function VTTCanvas({
         }),
       );
     },
-    [effectiveMapOffsetX, effectiveMapOffsetY, mapFraming?.baseOffsetX, mapFraming?.baseOffsetY, onSelectToken],
+    [clampedSceneOffsets.x, clampedSceneOffsets.y, effectiveMapOffsetX, effectiveMapOffsetY, onSelectToken],
   );
 
   const handleTokenClick = useCallback(
@@ -624,6 +636,7 @@ export default function VTTCanvas({
               height={effectiveMapHeight}
               opacity={0.96}
               draggable={scenePreferences.toolMode === "map"}
+              onDragStart={handleMapDragStart}
               onDragEnd={handleMapDragEnd}
             />
           ) : (
