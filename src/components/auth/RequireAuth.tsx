@@ -4,6 +4,41 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/src/lib/supabase";
 
+const AUTH_HANDOFF_KEY = "aq-auth-handoff";
+const AUTH_HANDOFF_WINDOW_MS = 8000;
+
+function hasRecentAuthHandoff() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const raw = window.sessionStorage.getItem(AUTH_HANDOFF_KEY);
+  if (!raw) {
+    return false;
+  }
+
+  const timestamp = Number(raw);
+  if (!Number.isFinite(timestamp)) {
+    window.sessionStorage.removeItem(AUTH_HANDOFF_KEY);
+    return false;
+  }
+
+  const recent = Date.now() - timestamp < AUTH_HANDOFF_WINDOW_MS;
+  if (!recent) {
+    window.sessionStorage.removeItem(AUTH_HANDOFF_KEY);
+  }
+
+  return recent;
+}
+
+function clearAuthHandoff() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.removeItem(AUTH_HANDOFF_KEY);
+}
+
 export default function RequireAuth({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [checking, setChecking] = useState(true);
@@ -23,6 +58,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       redirected = true;
       setStatus("Sessao nao encontrada. Redirecionando...");
       setChecking(false);
+      clearAuthHandoff();
 
       try {
         await supabase.auth.signOut({ scope: "local" });
@@ -37,7 +73,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       console.warn("[RequireAuth] session check timed out");
       setStatus("Nao foi possivel validar a sessao. Redirecionando...");
       void redirectToLogin();
-    }, 4000);
+    }, hasRecentAuthHandoff() ? AUTH_HANDOFF_WINDOW_MS : 4000);
 
     const markReady = () => {
       if (!active || redirected) {
@@ -45,8 +81,28 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       }
 
       window.clearTimeout(timeout);
+      clearAuthHandoff();
       setChecking(false);
       setStatus("Acesso validado.");
+    };
+
+    const retryAfterHandoff = async () => {
+      const deadline = Date.now() + AUTH_HANDOFF_WINDOW_MS;
+
+      while (active && !redirected && Date.now() < deadline) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) {
+          markReady();
+          return true;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+      }
+
+      return false;
     };
 
     const checkSession = async () => {
@@ -60,15 +116,26 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           return;
         }
 
-        if (error || !session) {
-          if (error) {
-            console.error("[RequireAuth] getSession error", error);
-          }
+        if (error) {
+          console.error("[RequireAuth] getSession error", error);
           await redirectToLogin();
           return;
         }
 
-        markReady();
+        if (session) {
+          markReady();
+          return;
+        }
+
+        if (hasRecentAuthHandoff()) {
+          setStatus("Finalizando entrada...");
+          const resolved = await retryAfterHandoff();
+          if (resolved) {
+            return;
+          }
+        }
+
+        await redirectToLogin();
       } catch (error) {
         console.error("[RequireAuth] unexpected session error", error);
         await redirectToLogin();
@@ -85,6 +152,11 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
       }
 
       if (!session) {
+        if (hasRecentAuthHandoff()) {
+          setStatus("Finalizando entrada...");
+          return;
+        }
+
         void redirectToLogin();
         return;
       }
