@@ -1,16 +1,17 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, KeyRound, Mail, Shield, Sparkles } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
-type AuthMode = "signin" | "signup";
+type AuthMode = "signin" | "signup" | "recovery";
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get("next") || "/mesa";
+  const recoveryType = searchParams.get("type");
   const [mode, setMode] = useState<AuthMode>("signin");
   const [checking, setChecking] = useState(true);
   const [email, setEmail] = useState("");
@@ -19,21 +20,76 @@ function LoginPageContent() {
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState("");
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const hasRecoveryMarker = useMemo(() => {
+    if (typeof window === "undefined") {
+      return recoveryType === "recovery";
+    }
 
-      if (session) {
-        router.replace(nextPath);
-      } else {
+    return recoveryType === "recovery" || window.location.hash.includes("type=recovery");
+  }, [recoveryType]);
+
+  useEffect(() => {
+    let active = true;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) {
+        return;
+      }
+
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("recovery");
         setChecking(false);
+        setFeedback("Link de recuperacao validado. Agora defina sua nova senha.");
+        return;
+      }
+
+      if (session && mode !== "recovery" && !hasRecoveryMarker) {
+        router.replace(nextPath);
+        return;
+      }
+
+      if (!session) {
+        setChecking(false);
+      }
+    });
+
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!active) {
+          return;
+        }
+
+        if (session && !hasRecoveryMarker) {
+          router.replace(nextPath);
+          return;
+        }
+
+        if (hasRecoveryMarker) {
+          setMode("recovery");
+          setFeedback("Abra o link recebido e escolha sua nova senha.");
+        }
+      } catch (error) {
+        console.error("[login] erro ao verificar sessao", error);
+      } finally {
+        if (active) {
+          setChecking(false);
+        }
       }
     };
 
     checkSession();
-  }, [nextPath, router]);
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [hasRecoveryMarker, mode, nextPath, router]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
@@ -132,7 +188,7 @@ function LoginPageContent() {
     setFeedback("");
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/login?next=${encodeURIComponent(nextPath)}`,
+      redirectTo: `${window.location.origin}/login?type=recovery&next=${encodeURIComponent(nextPath)}`,
     });
 
     if (error) {
@@ -142,6 +198,40 @@ function LoginPageContent() {
     }
 
     setFeedback("Enviamos um email de recuperacao. Abra o link recebido para redefinir sua senha.");
+    setSending(false);
+  };
+
+  const redefinirSenha = async () => {
+    if (!password.trim()) {
+      setFeedback("Digite a nova senha.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setFeedback("Use uma senha com pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setFeedback("A confirmacao da senha nao bate.");
+      return;
+    }
+
+    setSending(true);
+    setFeedback("");
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      setFeedback(error.message);
+      setSending(false);
+      return;
+    }
+
+    setFeedback("Senha atualizada com sucesso. Voce ja pode entrar normalmente.");
+    setMode("signin");
+    setPassword("");
+    setConfirmPassword("");
     setSending(false);
   };
 
@@ -169,38 +259,44 @@ function LoginPageContent() {
         </div>
 
         <h1 className="text-5xl font-black leading-none text-[var(--aq-title)] md:text-7xl" style={{ fontFamily: "var(--font-cinzel)" }}>
-          ENTRAR
+          {mode === "recovery" ? "NOVA" : "ENTRAR"}
           <br />
-          <span className="text-[var(--aq-accent)]">AETHERQUEST</span>
+          <span className="text-[var(--aq-accent)]">{mode === "recovery" ? "SENHA" : "AETHERQUEST"}</span>
         </h1>
 
         <div className="my-6 h-px w-24 self-center bg-[linear-gradient(90deg,transparent,#4ad9d9,transparent)]" />
 
         <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--aq-text)] md:text-base">
-          Vamos simplificar: entre com email e senha. O link magico fica como plano B, nao como fluxo principal.
+          {mode === "recovery"
+            ? "O link de recuperacao foi aceito. Defina sua nova senha para voltar para a mesa."
+            : "Vamos simplificar: entre com email e senha. O link magico fica como plano B, nao como fluxo principal."}
         </p>
 
-        <div className="mt-8 flex justify-center gap-3">
-          <button onClick={() => setMode("signin")} className={mode === "signin" ? "aq-button-primary" : "aq-button-secondary"}>
-            Entrar
-          </button>
-          <button onClick={() => setMode("signup")} className={mode === "signup" ? "aq-button-primary" : "aq-button-secondary"}>
-            Criar Conta
-          </button>
-        </div>
+        {mode !== "recovery" ? (
+          <div className="mt-8 flex justify-center gap-3">
+            <button onClick={() => setMode("signin")} className={mode === "signin" ? "aq-button-primary" : "aq-button-secondary"}>
+              Entrar
+            </button>
+            <button onClick={() => setMode("signup")} className={mode === "signup" ? "aq-button-primary" : "aq-button-secondary"}>
+              Criar Conta
+            </button>
+          </div>
+        ) : null}
 
         <div className="mt-8 rounded-3xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.76)] p-5 text-left">
-          <div className="aq-kicker">Credenciais</div>
+          <div className="aq-kicker">{mode === "recovery" ? "Redefinir Senha" : "Credenciais"}</div>
 
-          <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
-            <Mail size={16} className="text-[var(--aq-accent)]" />
-            <input
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="voce@email.com"
-              className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
-            />
-          </div>
+          {mode !== "recovery" ? (
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
+              <Mail size={16} className="text-[var(--aq-accent)]" />
+              <input
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="voce@email.com"
+                className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
+              />
+            </div>
+          ) : null}
 
           <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
             <KeyRound size={16} className="text-[var(--aq-accent)]" />
@@ -208,30 +304,30 @@ function LoginPageContent() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder={mode === "signin" ? "Sua senha" : "Crie uma senha"}
+              placeholder={mode === "signin" ? "Sua senha" : mode === "signup" ? "Crie uma senha" : "Nova senha"}
               className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
             />
           </div>
 
-          {mode === "signup" ? (
+          {mode !== "signin" ? (
             <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
               <KeyRound size={16} className="text-[var(--aq-accent)]" />
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="Confirme a senha"
+                placeholder={mode === "recovery" ? "Confirme a nova senha" : "Confirme a senha"}
                 className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
               />
             </div>
           ) : null}
 
           <button
-            onClick={mode === "signin" ? signInWithPassword : signUpWithPassword}
+            onClick={mode === "signin" ? signInWithPassword : mode === "signup" ? signUpWithPassword : redefinirSenha}
             disabled={sending}
             className="aq-button-primary mt-5 w-full justify-center disabled:opacity-60"
           >
-            {sending ? "Processando..." : mode === "signin" ? "Entrar com Senha" : "Criar Conta"}
+            {sending ? "Processando..." : mode === "signin" ? "Entrar com Senha" : mode === "signup" ? "Criar Conta" : "Salvar Nova Senha"}
             <ChevronRight size={16} />
           </button>
 
@@ -241,9 +337,17 @@ function LoginPageContent() {
             </button>
           ) : null}
 
-          <button onClick={enviarLinkMagico} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
-            Usar Link Magico
-          </button>
+          {mode === "signin" ? (
+            <button onClick={enviarLinkMagico} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
+              Usar Link Magico
+            </button>
+          ) : null}
+
+          {mode === "recovery" ? (
+            <button onClick={() => setMode("signin")} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
+              Voltar ao Login
+            </button>
+          ) : null}
 
           {feedback ? (
             <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-sm text-[var(--aq-text)]">
@@ -253,21 +357,19 @@ function LoginPageContent() {
         </div>
 
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {[
-            "Entrada por senha mais pratica",
-            "Recuperacao por email disponivel",
-            "Magic link fica opcional",
-          ].map((label) => (
-            <div
-              key={label}
-              className="flex items-center gap-2 rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] px-3 py-2"
-            >
-              <Sparkles size={11} className="text-[var(--aq-accent)]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text)]">
-                {label}
-              </span>
-            </div>
-          ))}
+          {mode === "recovery"
+            ? ["Senha redefinida na propria tela", "Sem voltar para localhost", "Fluxo pronto para celular"]
+            : ["Entrada por senha mais pratica", "Recuperacao por email disponivel", "Magic link fica opcional"].map((label) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-2 rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] px-3 py-2"
+                >
+                  <Sparkles size={11} className="text-[var(--aq-accent)]" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text)]">
+                    {label}
+                  </span>
+                </div>
+              ))}
         </div>
       </div>
     </main>
