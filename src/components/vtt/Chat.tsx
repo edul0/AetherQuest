@@ -129,7 +129,7 @@ export default function Chat({ salaId }: { salaId: string }) {
   };
 
   return (
-    <div className="fixed bottom-24 left-1/2 z-50 w-[calc(100vw-1rem)] max-w-[360px] -translate-x-1/2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-md md:bottom-24 md:left-4 md:w-[320px] md:translate-x-0">
+    <div className="fixed bottom-[calc(48vh+1.25rem)] left-1/2 z-50 w-[calc(100vw-1rem)] max-w-[360px] -translate-x-1/2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-md md:bottom-24 md:left-4 md:w-[320px] md:translate-x-0">
       <div className="mb-3 flex items-center gap-2 text-[var(--aq-accent)]">
         <MessageSquareText size={16} />
         <span className="aq-kicker">Canal da Mesa</span>
