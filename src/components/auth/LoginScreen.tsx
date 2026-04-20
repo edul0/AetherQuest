@@ -112,7 +112,8 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
         if (session) {
           setHasActiveSession(true);
           clearAuthHandoff();
-          setFeedback("Sessao encontrada. Clique abaixo para abrir suas fichas.");
+          setFeedback("Sessao encontrada. Abrindo fichas...");
+          goTo(destinationPath);
           return;
         }
 
@@ -146,7 +147,8 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
       if (session && !hasRecoveryMarker) {
         setHasActiveSession(true);
         clearAuthHandoff();
-        setFeedback("Login realizado. Clique abaixo para entrar nas fichas.");
+        setFeedback("Login realizado. Abrindo fichas...");
+        goTo(destinationPath);
         return;
       }
 
@@ -157,7 +159,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
       active = false;
       subscription.unsubscribe();
     };
-  }, [hasRecoveryMarker]);
+  }, [destinationPath, hasRecoveryMarker]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
@@ -193,7 +195,8 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
 
       setHasActiveSession(true);
       setAuthHandoff();
-      setFeedback("Login realizado. Clique abaixo para entrar nas fichas.");
+      setFeedback("Login realizado. Abrindo fichas...");
+      goTo(destinationPath);
     } catch (error) {
       console.error("[login] erro inesperado no signIn", error);
       clearAuthHandoff();
@@ -457,12 +460,6 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
             <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-sm text-[var(--aq-text)]">
               {feedback}
             </div>
-          ) : null}
-
-          {hasActiveSession && mode !== "recovery" ? (
-            <button onClick={() => goTo(destinationPath)} className="aq-button-primary mt-3 w-full justify-center">
-              Ir para fichas
-            </button>
           ) : null}
         </div>
 
