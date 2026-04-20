@@ -241,7 +241,7 @@ export default function MesaClient() {
   };
 
   const criarTokenDaFicha = async () => {
-    if (!cenaAtiva?.id || !fichaParaTokenId) {
+    if (!cenaAtiva?.id || !fichaParaTokenId || !salaAtiva?.id) {
       return;
     }
 
@@ -256,6 +256,7 @@ export default function MesaClient() {
     const { error } = await supabase.from("tokens").insert([
       {
         cena_id: cenaAtiva.id,
+        sala: salaAtiva.id,
         ficha_id: fichaBase.id,
         nome,
         x: 100 + tokens.length * 60,
@@ -304,7 +305,7 @@ export default function MesaClient() {
             scenePreferences={scenePreferences}
           />
           <SceneNav salaId={salaAtiva.id} onSelectCena={setCenaAtiva} cenaAtivaId={cenaAtiva.id} />
-          <VTTControls cenaId={cenaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} />
+          <VTTControls cenaId={cenaAtiva.id} salaId={salaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} />
           <TokenPanel token={selectedToken} fichaData={fichaSelecionada} onClose={() => setSelectedToken(null)} onTokenUpdate={setSelectedToken} />
           <Chat salaId={salaAtiva.id} />
         </>
@@ -313,7 +314,7 @@ export default function MesaClient() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top_left,rgba(74,217,217,0.06),transparent_26%),radial-gradient(circle_at_bottom_right,rgba(26,43,76,0.18),transparent_30%)]" />
 
       <div className="pointer-events-none fixed left-4 top-4 z-50 md:left-6 md:top-20">
-        <div className="pointer-events-auto aq-panel w-[390px] max-w-[calc(100vw-2rem)] p-5">
+        <div className="pointer-events-auto aq-panel w-[360px] max-w-[calc(100vw-2rem)] p-5 md:w-[390px]">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="aq-kicker">Bridge Deck</div>
@@ -321,7 +322,7 @@ export default function MesaClient() {
                 Mesa Tatica
               </h1>
               <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">
-                Mestre cria a sessao, jogador escolhe a ficha e o estado fica espelhado em tempo real na mesa.
+                Mapa em destaque acima, retratos vivos da equipe abaixo e status sincronizado em tempo real.
               </p>
             </div>
             <button onClick={() => router.push("/")} className="rounded-full border border-[var(--aq-border)] p-2 text-[var(--aq-text-subtle)] transition-colors hover:text-white">
@@ -433,7 +434,7 @@ export default function MesaClient() {
               <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                 <div className="aq-kicker">Controle do Mestre</div>
                 <p className="mt-2 text-sm text-[var(--aq-text-muted)]">
-                  Vincule uma ficha a um token da cena atual. Assim o mestre passa a ter leitura total da ficha e o estado de vida, PE e sanidade fica espelhado na mesa.
+                  Vincule uma ficha a um token da cena atual. Assim o retrato ja nasce na faixa inferior e os status ficam espelhados na mesa.
                 </p>
                 <div className="mt-4 space-y-3">
                   <select value={fichaParaTokenId} onChange={(e) => setFichaParaTokenId(e.target.value)} className="aq-input">
@@ -461,30 +462,109 @@ export default function MesaClient() {
         </div>
       </div>
 
-      {roster.length > 0 ? (
-        <div className="fixed bottom-4 left-1/2 z-50 flex w-[min(1100px,calc(100vw-2rem))] -translate-x-1/2 gap-3 overflow-x-auto">
-          {roster.map(({ token, ficha, vida, pe, sanidade, dead }) => (
-            <button
-              key={token.id}
-              onClick={() => setSelectedToken(token)}
-              className={`aq-panel min-w-[220px] p-4 text-left transition-all ${dead ? "opacity-65 grayscale" : ""}`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm font-black text-[var(--aq-title)]">{ficha?.nome_personagem ?? token.nome}</div>
-                  <div className="mt-1 text-[10px] uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">{token.nome}</div>
-                </div>
-                <div className="h-3 w-3 rounded-full ring-1 ring-white/20" style={{ backgroundColor: dead ? "#6b7280" : token.cor || "#4ad9d9" }} />
-              </div>
-              <div className="mt-3 space-y-2 text-xs text-[var(--aq-text)]">
-                <div>{`HP ${vida?.atual ?? 0}/${vida?.max ?? 0}`}</div>
-                <div>{`PE ${pe?.atual ?? 0}/${pe?.max ?? 0}`}</div>
-                <div>{`SAN ${sanidade?.atual ?? 0}/${sanidade?.max ?? 0}`}</div>
-              </div>
-            </button>
-          ))}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[rgba(74,217,217,0.14)] bg-[linear-gradient(180deg,rgba(5,10,16,0),rgba(5,10,16,0.92)_12%,rgba(5,10,16,0.98)_100%)] px-3 pb-4 pt-10 backdrop-blur-xl md:px-6 md:pb-5 md:pt-12">
+        <div className="mx-auto flex w-full max-w-[1500px] items-end justify-between gap-4 pb-3">
+          <div>
+            <div className="aq-kicker">Tactical Cast</div>
+            <div className="mt-2 text-sm font-semibold tracking-[0.18em] text-[var(--aq-title)]">Retratos e status ao vivo</div>
+          </div>
+          <div className="hidden text-[11px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)] md:block">
+            Toque no retrato para focar o token no mapa
+          </div>
         </div>
-      ) : null}
+
+        {roster.length > 0 ? (
+          <div className="aq-scrollbar mx-auto flex w-full max-w-[1500px] gap-3 overflow-x-auto pb-1 md:gap-4">
+            {roster.map(({ token, ficha, vida, pe, sanidade, dead }) => {
+              const initials = (ficha?.nome_personagem ?? token.nome).slice(0, 2).toUpperCase();
+              const hpRatio = vida?.max ? Math.max(0, Math.min(1, vida.atual / vida.max)) : 0;
+              const peRatio = pe?.max ? Math.max(0, Math.min(1, pe.atual / pe.max)) : 0;
+              const sanRatio = sanidade?.max ? Math.max(0, Math.min(1, sanidade.atual / sanidade.max)) : 0;
+
+              return (
+                <button
+                  key={token.id}
+                  onClick={() => setSelectedToken(token)}
+                  className={`group min-w-[170px] rounded-[28px] border px-3 py-3 text-left transition-all md:min-w-[210px] md:px-4 md:py-4 ${
+                    selectedToken?.id === token.id
+                      ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] shadow-[0_0_24px_rgba(74,217,217,0.14)]"
+                      : "border-[var(--aq-border)] bg-[rgba(8,13,20,0.88)] hover:border-[var(--aq-border-strong)] hover:bg-[rgba(15,24,36,0.94)]"
+                  } ${dead ? "opacity-70" : ""}`}
+                >
+                  <div className="flex items-center gap-3">
+                    {ficha?.avatar_url ? (
+                      <img
+                        src={ficha.avatar_url}
+                        alt={ficha.nome_personagem}
+                        className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10 md:h-20 md:w-20"
+                      />
+                    ) : (
+                      <div
+                        className="flex h-16 w-16 items-center justify-center rounded-2xl text-lg font-black text-white md:h-20 md:w-20"
+                        style={{ background: token.cor || "#4ad9d9" }}
+                      >
+                        {initials}
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-black uppercase tracking-[0.12em] text-[var(--aq-title)] md:text-base">
+                        {ficha?.nome_personagem ?? token.nome}
+                      </div>
+                      <div className="mt-1 truncate text-[10px] uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">
+                        {token.nome}
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
+                        <span className="rounded-full border border-white/10 px-2 py-1">{ficha?.sistema_preset ?? "vtt"}</span>
+                        <span className={`rounded-full px-2 py-1 ${dead ? "bg-[rgba(239,68,68,0.16)] text-red-300" : "bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)]"}`}>
+                          {dead ? "caido" : "ativo"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    <div>
+                      <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
+                        <span>Vida</span>
+                        <span>{vida ? `${vida.atual}/${vida.max}` : "--"}</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-[rgba(255,255,255,0.06)]">
+                        <div className="h-2 rounded-full bg-gradient-to-r from-emerald-500 via-lime-400 to-red-500" style={{ width: `${hpRatio * 100}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[9px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span>PE</span>
+                          <span>{pe ? `${pe.atual}/${pe.max}` : "--"}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)]">
+                          <div className="h-1.5 rounded-full bg-[var(--aq-accent)]" style={{ width: `${peRatio * 100}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <span>San</span>
+                          <span>{sanidade ? `${sanidade.atual}/${sanidade.max}` : "--"}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-[rgba(255,255,255,0.06)]">
+                          <div className="h-1.5 rounded-full bg-violet-400" style={{ width: `${sanRatio * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="mx-auto flex w-full max-w-[1500px] items-center justify-center rounded-[30px] border border-dashed border-[var(--aq-border)] bg-[rgba(8,13,20,0.72)] px-6 py-8 text-center text-[11px] uppercase tracking-[0.24em] text-[var(--aq-text-muted)] md:py-10">
+            Vincule fichas aos tokens para montar a barra de retratos viva da mesa.
+          </div>
+        )}
+      </div>
 
       {!salaAtiva ? (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-6">
