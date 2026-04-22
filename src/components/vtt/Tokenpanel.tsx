@@ -6,7 +6,6 @@ import { Token, FichaVTTSnapshot } from "@/src/lib/types";
 import {
   X,
   Link2,
-  Link2Off,
   Swords,
   Heart,
   ChevronLeft,
@@ -16,31 +15,18 @@ import {
   Sparkles,
   ScrollText,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 
-function HPBar({
-  current,
-  max,
-  label,
-  color,
-}: {
-  current: number;
-  max: number;
-  label: string;
-  color: string;
-}) {
+function HPBar({ current, max, label, color }: { current: number; max: number; label: string; color: string }) {
   const ratio = max > 0 ? Math.max(0, Math.min(1, current / max)) : 0;
   const hpColor = ratio > 0.5 ? "#22c55e" : ratio > 0.25 ? "#f59e0b" : "#ef4444";
 
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>
-          {label}
-        </span>
-        <span className="font-mono text-[10px] font-black tabular-nums text-white">
-          {current} / {max}
-        </span>
+        <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>{label}</span>
+        <span className="font-mono text-[10px] font-black tabular-nums text-white">{current} / {max}</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full" style={{ background: "#0a0f18", border: "1px solid #1a2b4c" }}>
         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${ratio * 100}%`, backgroundColor: hpColor }} />
@@ -65,13 +51,7 @@ function DamageControl({
   return (
     <div className="flex items-center gap-2">
       <div className="flex flex-1 items-center overflow-hidden rounded-lg" style={{ background: "#0a0f18", border: "1px solid #1a2b4c" }}>
-        <button
-          onClick={() => onChange(Math.max(1, value - 1))}
-          className="px-2 py-2 transition-colors"
-          style={{ color: "#6b7b94" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#4ad9d9")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
-        >
+        <button onClick={() => onChange(Math.max(1, value - 1))} className="px-2 py-2 text-[#6b7b94] transition-colors hover:text-[#4ad9d9]">
           <ChevronLeft size={12} />
         </button>
         <input
@@ -82,13 +62,7 @@ function DamageControl({
           className="w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
           style={{ fontFamily: "monospace" }}
         />
-        <button
-          onClick={() => onChange(value + 1)}
-          className="px-2 py-2 transition-colors"
-          style={{ color: "#6b7b94" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#4ad9d9")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
-        >
+        <button onClick={() => onChange(value + 1)} className="px-2 py-2 text-[#6b7b94] transition-colors hover:text-[#4ad9d9]">
           <ChevronRight size={12} />
         </button>
       </div>
@@ -96,18 +70,7 @@ function DamageControl({
       <button
         onClick={onDamage}
         disabled={disabled}
-        className="flex items-center gap-1 rounded-lg px-3 py-2 text-[10px] font-black uppercase transition-all disabled:opacity-40"
-        style={{
-          background: "rgba(239,68,68,0.1)",
-          border: "1px solid rgba(239,68,68,0.3)",
-          color: "#f87171",
-        }}
-        onMouseEnter={(e) => {
-          if (!disabled) (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.2)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.1)";
-        }}
+        className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] font-black uppercase text-red-300 transition-all hover:bg-red-500/20 disabled:opacity-40"
         title="Aplicar dano"
       >
         <Skull size={11} />
@@ -117,18 +80,7 @@ function DamageControl({
       <button
         onClick={onHeal}
         disabled={disabled}
-        className="flex items-center gap-1 rounded-lg px-3 py-2 text-[10px] font-black uppercase transition-all disabled:opacity-40"
-        style={{
-          background: "rgba(34,197,94,0.1)",
-          border: "1px solid rgba(34,197,94,0.3)",
-          color: "#4ade80",
-        }}
-        onMouseEnter={(e) => {
-          if (!disabled) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.2)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.1)";
-        }}
+        className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase text-emerald-300 transition-all hover:bg-emerald-500/20 disabled:opacity-40"
         title="Curar"
       >
         <Heart size={11} />
@@ -153,12 +105,14 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
   const [loading, setLoading] = useState(false);
   const [fallbackFicha, setFallbackFicha] = useState<FichaVTTSnapshot | null>(null);
   const [fichaLoadError, setFichaLoadError] = useState("");
+  const [actionError, setActionError] = useState("");
   const fichaEfetiva = fichaData ?? fallbackFicha;
 
   useEffect(() => {
     setShowVincular(false);
     setFallbackFicha(null);
     setFichaLoadError("");
+    setActionError("");
   }, [token?.id]);
 
   useEffect(() => {
@@ -220,10 +174,12 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
   const vincularFicha = async (fichaId: string) => {
     if (!token) return;
     setLoading(true);
+    setActionError("");
     const { data, error } = await supabase.from("tokens").update({ ficha_id: fichaId }).eq("id", token.id).select().single();
 
     if (error) {
       console.error("[TokenPanel] Erro ao vincular ficha:", error);
+      setActionError(`Nao foi possivel vincular ficha: ${error.message}`);
     }
 
     if (!error && data) {
@@ -238,16 +194,43 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
   const desvincularFicha = async () => {
     if (!token) return;
     setLoading(true);
-    await supabase.from("tokens").update({ ficha_id: null }).eq("id", token.id);
+    setActionError("");
+    const { error } = await supabase.from("tokens").update({ ficha_id: null }).eq("id", token.id);
+    if (error) {
+      setActionError(`Nao foi possivel desvincular ficha: ${error.message}`);
+      setLoading(false);
+      return;
+    }
     onTokenUpdate({ ...token, ficha_id: null });
     setFallbackFicha(null);
     setFichaLoadError("");
     setLoading(false);
   };
 
+  const removerToken = async () => {
+    if (!token) return;
+    const shouldDelete = window.confirm(`Remover o token "${token.nome}" do mapa?`);
+    if (!shouldDelete) return;
+
+    setLoading(true);
+    setActionError("");
+    const { error } = await supabase.from("tokens").delete().eq("id", token.id);
+
+    if (error) {
+      console.error("[TokenPanel] Erro ao remover token:", error);
+      setActionError(`Nao foi possivel remover token: ${error.message}`);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
+    onClose();
+  };
+
   const modificarVida = async (delta: number) => {
     if (!token?.ficha_id || !fichaEfetiva) return;
     setLoading(true);
+    setActionError("");
 
     const vidaAtual = fichaEfetiva.dados?.status?.vida?.atual ?? 0;
     const vidaMax = fichaEfetiva.dados?.status?.vida?.max ?? 0;
@@ -266,13 +249,17 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
 
     const { error } = await supabase.from("fichas").update({ dados: novosDados }).eq("id", token.ficha_id);
 
-    if (error) console.error("[TokenPanel] Erro ao modificar vida:", error.message);
+    if (error) {
+      console.error("[TokenPanel] Erro ao modificar vida:", error.message);
+      setActionError(`Nao foi possivel alterar vida: ${error.message}`);
+    }
     setLoading(false);
   };
 
   const alterarStatus = async (key: "vida" | "pe" | "sanidade", delta: number) => {
     if (!token?.ficha_id || !fichaEfetiva) return;
     setLoading(true);
+    setActionError("");
 
     const statusAtual = fichaEfetiva.dados?.status?.[key];
     const atual = statusAtual?.atual ?? 0;
@@ -292,7 +279,10 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
 
     const { error } = await supabase.from("fichas").update({ dados: novosDados }).eq("id", token.ficha_id);
 
-    if (error) console.error(`[TokenPanel] Erro ao modificar ${key}:`, error.message);
+    if (error) {
+      console.error(`[TokenPanel] Erro ao modificar ${key}:`, error.message);
+      setActionError(`Nao foi possivel alterar ${key}: ${error.message}`);
+    }
     setLoading(false);
   };
 
@@ -304,7 +294,7 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
 
   return (
     <div
-      className="fixed right-4 top-1/2 z-50 w-72 -translate-y-1/2 overflow-hidden rounded-2xl"
+      className="fixed bottom-24 right-3 z-50 max-h-[70vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl md:bottom-auto md:right-4 md:top-1/2 md:w-72 md:-translate-y-1/2"
       style={{
         background: "rgba(10, 15, 24, 0.97)",
         backdropFilter: "blur(16px)",
@@ -315,68 +305,39 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
       <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid #1a2b4c", background: "rgba(5,10,16,0.72)" }}>
         <div className="flex items-center gap-2">
           <div className="h-3 w-3 rounded-full ring-1 ring-white/20" style={{ backgroundColor: token.cor || "#ef4444" }} />
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "#4ad9d9" }}>
-            Token
-          </span>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "#4ad9d9" }}>Token</span>
         </div>
-        <button
-          onClick={onClose}
-          className="transition-colors"
-          style={{ color: "#6b7b94" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "#4ad9d9")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
-        >
+        <button onClick={onClose} className="text-[#6b7b94] transition-colors hover:text-[#4ad9d9]">
           <X size={14} />
         </button>
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className="aq-scrollbar max-h-[calc(70vh-80px)] space-y-4 overflow-y-auto p-4">
         <div>
-          <p className="mb-1 text-[9px] font-black uppercase tracking-widest" style={{ color: "#6b7b94" }}>
-            Nome
-          </p>
-          <p className="text-base font-bold text-white" style={{ fontFamily: "monospace" }}>
-            {token.nome}
-          </p>
+          <p className="mb-1 text-[9px] font-black uppercase tracking-widest" style={{ color: "#6b7b94" }}>Nome</p>
+          <p className="text-base font-bold text-white" style={{ fontFamily: "monospace" }}>{token.nome}</p>
         </div>
+
+        {actionError ? (
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] leading-relaxed text-red-100">{actionError}</div>
+        ) : null}
 
         {fichaEfetiva ? (
           <div className="space-y-3">
-            <div
-              className="rounded-xl px-3 py-3"
-              style={{
-                background: "rgba(74,217,217,0.04)",
-                border: "1px solid rgba(74,217,217,0.15)",
-              }}
-            >
+            <div className="rounded-xl border border-[rgba(74,217,217,0.15)] bg-[rgba(74,217,217,0.04)] px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <div
-                    className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full"
-                    style={{ background: "rgba(74,217,217,0.1)", border: "1px solid rgba(74,217,217,0.2)" }}
-                  >
+                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-[rgba(74,217,217,0.2)] bg-[rgba(74,217,217,0.1)]">
                     <User size={13} style={{ color: "#4ad9d9" }} />
                   </div>
                   <div>
-                    <p className="text-[9px] uppercase tracking-wider" style={{ color: "#8b9bb4" }}>
-                      Ficha vinculada
-                    </p>
+                    <p className="text-[9px] uppercase tracking-wider" style={{ color: "#8b9bb4" }}>Ficha vinculada</p>
                     <p className="text-[12px] font-bold leading-tight text-white">{fichaEfetiva.nome_personagem}</p>
-                    <p className="text-[9px] uppercase tracking-wider" style={{ color: "#6b7b94" }}>
-                      {fichaEfetiva.sistema_preset?.replace("_", " ")}
-                    </p>
+                    <p className="text-[9px] uppercase tracking-wider" style={{ color: "#6b7b94" }}>{fichaEfetiva.sistema_preset?.replace("_", " ")}</p>
                   </div>
                 </div>
-                <button
-                  onClick={desvincularFicha}
-                  disabled={loading}
-                  title="Desvincular ficha"
-                  className="transition-colors disabled:opacity-40"
-                  style={{ color: "#6b7b94" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
-                >
-                  <Link2Off size={14} />
+                <button onClick={desvincularFicha} disabled={loading} title="Desvincular ficha" className="text-[#6b7b94] transition-colors hover:text-red-300 disabled:opacity-40">
+                  <X size={14} />
                 </button>
               </div>
 
@@ -405,42 +366,12 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
                 Efeito de Combate
               </p>
               <div className="space-y-3">
-                <DamageControl
-                  value={danoValor}
-                  onChange={setDanoValor}
-                  onDamage={() => modificarVida(-danoValor)}
-                  onHeal={() => modificarVida(+danoValor)}
-                  disabled={loading || !vida}
-                />
+                <DamageControl value={danoValor} onChange={setDanoValor} onDamage={() => modificarVida(-danoValor)} onHeal={() => modificarVida(+danoValor)} disabled={loading || !vida} />
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => alterarStatus("pe", -1)}
-                    disabled={loading || !pe}
-                    className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] transition-all disabled:opacity-40"
-                  >
-                    -1 PE
-                  </button>
-                  <button
-                    onClick={() => alterarStatus("pe", 1)}
-                    disabled={loading || !pe}
-                    className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] transition-all disabled:opacity-40"
-                  >
-                    +1 PE
-                  </button>
-                  <button
-                    onClick={() => alterarStatus("sanidade", -1)}
-                    disabled={loading || !sanidade}
-                    className="rounded-lg border border-[rgba(192,132,252,0.25)] bg-[rgba(192,132,252,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b4fe] transition-all disabled:opacity-40"
-                  >
-                    -1 SAN
-                  </button>
-                  <button
-                    onClick={() => alterarStatus("sanidade", 1)}
-                    disabled={loading || !sanidade}
-                    className="rounded-lg border border-[rgba(192,132,252,0.25)] bg-[rgba(192,132,252,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b4fe] transition-all disabled:opacity-40"
-                  >
-                    +1 SAN
-                  </button>
+                  <button onClick={() => alterarStatus("pe", -1)} disabled={loading || !pe} className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] disabled:opacity-40">-1 PE</button>
+                  <button onClick={() => alterarStatus("pe", 1)} disabled={loading || !pe} className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] disabled:opacity-40">+1 PE</button>
+                  <button onClick={() => alterarStatus("sanidade", -1)} disabled={loading || !sanidade} className="rounded-lg border border-[rgba(192,132,252,0.25)] bg-[rgba(192,132,252,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b4fe] disabled:opacity-40">-1 SAN</button>
+                  <button onClick={() => alterarStatus("sanidade", 1)} disabled={loading || !sanidade} className="rounded-lg border border-[rgba(192,132,252,0.25)] bg-[rgba(192,132,252,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b4fe] disabled:opacity-40">+1 SAN</button>
                 </div>
               </div>
             </div>
@@ -456,114 +387,63 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
               {fichaLoadError ? ` Erro: ${fichaLoadError}` : " Tentando sincronizar..."}
             </p>
             <div className="grid gap-2">
-              <button
-                onClick={() => router.push(`/fichas/${token.ficha_id}`)}
-                className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-100"
-              >
-                Abrir ficha vinculada
-              </button>
-              <button
-                onClick={desvincularFicha}
-                disabled={loading}
-                className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-200 disabled:opacity-40"
-              >
-                Desvincular ficha
-              </button>
+              <button onClick={() => router.push(`/fichas/${token.ficha_id}`)} className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-100">Abrir ficha vinculada</button>
+              <button onClick={desvincularFicha} disabled={loading} className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-200 disabled:opacity-40">Desvincular ficha</button>
             </div>
           </div>
         ) : (
           <div className="py-5 text-center">
-            <div
-              className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ background: "rgba(26,43,76,0.34)", border: "1px solid #1a2b4c" }}
-            >
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-[#1a2b4c] bg-[rgba(26,43,76,0.34)]">
               <Link2 size={20} style={{ color: "#6b7b94" }} />
             </div>
-            <p className="mb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: "#8b9bb4" }}>
-              Token sem ficha
-            </p>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: "#8b9bb4" }}>Token sem ficha</p>
             <p className="mb-4 text-[10px]" style={{ color: "#6b7b94" }}>
               Vincule uma ficha para ativar
               <br />
               HP bar e sincronizacao Realtime.
             </p>
-            <button
-              onClick={() => setShowVincular((v) => !v)}
-              className="rounded-lg px-5 py-2 text-[10px] font-black uppercase tracking-widest transition-all"
-              style={{
-                background: "rgba(74,217,217,0.08)",
-                border: "1px solid rgba(74,217,217,0.25)",
-                color: "#4ad9d9",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "rgba(74,217,217,0.15)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = "rgba(74,217,217,0.08)";
-              }}
-            >
+            <button onClick={() => setShowVincular((v) => !v)} className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-[#4ad9d9] transition-all hover:bg-[rgba(74,217,217,0.15)]">
               <Sparkles size={11} className="mr-1 inline" />
               Vincular Ficha
             </button>
           </div>
         )}
 
-        {showVincular && (
+        {showVincular ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between pb-2" style={{ borderBottom: "1px solid #1a2b4c" }}>
-              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#4ad9d9" }}>
-                Selecionar Ficha
-              </span>
-              <button
-                onClick={() => setShowVincular(false)}
-                style={{ color: "#6b7b94" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "#e2e8f0")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
-              >
-                <X size={12} />
-              </button>
+              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#4ad9d9" }}>Selecionar Ficha</span>
+              <button onClick={() => setShowVincular(false)} className="text-[#6b7b94] hover:text-white"><X size={12} /></button>
             </div>
 
             <div className="max-h-44 space-y-1 overflow-y-auto pr-0.5" style={{ scrollbarWidth: "thin", scrollbarColor: "#1a2b4c transparent" }}>
               {fichasList.length === 0 ? (
-                <p className="py-4 text-center text-[10px] uppercase tracking-widest" style={{ color: "#6b7b94" }}>
-                  Nenhuma ficha encontrada
-                </p>
+                <p className="py-4 text-center text-[10px] uppercase tracking-widest" style={{ color: "#6b7b94" }}>Nenhuma ficha encontrada</p>
               ) : (
                 fichasList.map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => vincularFicha(f.id)}
-                    disabled={loading}
-                    className="group w-full rounded-lg px-3 py-2.5 text-left transition-all disabled:opacity-40"
-                    style={{
-                      background: "rgba(5,10,16,0.8)",
-                      border: "1px solid #1a2b4c",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "rgba(74,217,217,0.06)";
-                      (e.currentTarget as HTMLElement).style.borderColor = "rgba(74,217,217,0.25)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = "rgba(5,10,16,0.8)";
-                      (e.currentTarget as HTMLElement).style.borderColor = "#1a2b4c";
-                    }}
-                  >
+                  <button key={f.id} onClick={() => vincularFicha(f.id)} disabled={loading} className="group w-full rounded-lg border border-[#1a2b4c] bg-[rgba(5,10,16,0.8)] px-3 py-2.5 text-left transition-all hover:border-[rgba(74,217,217,0.25)] hover:bg-[rgba(74,217,217,0.06)] disabled:opacity-40">
                     <p className="text-[11px] font-bold text-white">{f.nome_personagem}</p>
-                    <p className="mt-0.5 text-[9px] uppercase tracking-wider" style={{ color: "#6b7b94" }}>
-                      {f.sistema_preset?.replace("_", " ")}
-                    </p>
+                    <p className="mt-0.5 text-[9px] uppercase tracking-wider" style={{ color: "#6b7b94" }}>{f.sistema_preset?.replace("_", " ")}</p>
                   </button>
                 ))
               )}
             </div>
           </div>
-        )}
+        ) : null}
+
+        <button
+          onClick={removerToken}
+          disabled={loading}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/35 bg-red-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-200 transition-all hover:bg-red-500/18 disabled:opacity-40"
+        >
+          <Trash2 size={13} />
+          {loading ? "Processando" : "Remover token do mapa"}
+        </button>
       </div>
 
       <div className="px-4 py-2.5" style={{ borderTop: "1px solid #1a2b4c", background: "rgba(5,10,16,0.72)" }}>
         <p className="text-center text-[8px] uppercase tracking-widest" style={{ color: "#41556f" }}>
-          Supabase Realtime · Sync bidirecional
+          Supabase Realtime - Sync bidirecional
         </p>
       </div>
     </div>
