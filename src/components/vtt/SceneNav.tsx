@@ -45,7 +45,7 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
   };
 
   return (
-    <div className="fixed left-3 top-[82px] z-40 flex max-w-[calc(50vw-1rem)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.82)] px-2 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:left-4 md:top-4 md:max-w-[calc(100vw-720px)] md:px-3">
+    <div className="fixed left-3 top-[142px] z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.84)] px-2 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:left-4 md:top-4 md:max-w-[calc(100vw-720px)] md:px-3">
       <div className="flex shrink-0 items-center gap-2 rounded-full border border-[rgba(74,217,217,0.14)] bg-[rgba(74,217,217,0.06)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)] md:text-[11px]">
         <Map size={14} />
         <span className="hidden sm:inline">Locais</span>
