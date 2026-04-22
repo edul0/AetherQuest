@@ -121,7 +121,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     <>
       <button
         onClick={() => setPanelOpen(true)}
-        className="fixed bottom-[118px] right-3 z-50 flex items-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:bottom-5 md:right-4"
+        className="fixed bottom-[104px] right-3 z-50 flex items-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:bottom-5 md:right-4"
       >
         <SlidersHorizontal size={15} />
         Ferramentas
@@ -131,7 +131,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
         <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.35)]" onClick={() => setPanelOpen(false)} aria-label="Fechar ferramentas" />
       ) : null}
 
-      <div className={`${panelOpen ? "block" : "hidden"} aq-scrollbar fixed inset-x-3 bottom-[110px] z-50 max-h-[58vh] overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:inset-x-auto md:bottom-20 md:right-4 md:max-h-[72vh] md:w-[340px]`}>
+      <div className={`${panelOpen ? "block" : "hidden"} aq-scrollbar fixed inset-x-3 bottom-[96px] z-50 max-h-[64vh] overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:inset-x-auto md:bottom-20 md:right-4 md:max-h-[72vh] md:w-[340px]`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="aq-kicker">Tactical Deck</div>
