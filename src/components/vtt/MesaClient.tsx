@@ -64,9 +64,13 @@ function findSalaByCode(salas: Sala[], value: string) {
   return salas.find((sala) => sala.id.replace(/-/g, "").toUpperCase() === code || roomCode(sala.id) === code) ?? null;
 }
 
+function errorMessage(error: unknown) {
+  return error && typeof error === "object" && "message" in error ? String((error as { message?: string }).message) : "";
+}
+
 function isJwtExpired(error: unknown) {
-  const message = error && typeof error === "object" && "message" in error ? String((error as { message?: string }).message).toLowerCase() : "";
-  return message.includes("jwt expired") || message.includes("token has expired") || message.includes("refresh token") || message.includes("sessao expirou");
+  const message = errorMessage(error).toLowerCase();
+  return message.includes("jwt expired") || message.includes("token has expired") || message.includes("refresh token");
 }
 
 function sceneToPreferences(cena: Cena | null, current: SceneViewPreferences): SceneViewPreferences {
@@ -103,6 +107,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [role, setRole] = useState<MesaRole>(inviteCode ? "jogador" : null);
   const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [salaAtiva, setSalaAtiva] = useState<Sala | null>(null);
   const [cenaAtiva, setCenaAtiva] = useState<Cena | null>(null);
@@ -119,6 +124,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [roomNameDraft, setRoomNameDraft] = useState("");
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [mesaError, setMesaError] = useState("");
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPersistedRef = useRef("");
 
@@ -138,12 +144,12 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const ensureSession = async () => {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
-    if (!data.session) throw new Error("Sua sessao expirou. Entre novamente para continuar.");
+    if (!data.session) throw new Error("NO_SESSION");
 
     const expiresAt = data.session.expires_at ? data.session.expires_at * 1000 : 0;
     if (!expiresAt || expiresAt - Date.now() < 60_000) {
       const refreshed = await supabase.auth.refreshSession();
-      if (refreshed.error || !refreshed.data.session) throw refreshed.error ?? new Error("Sua sessao expirou.");
+      if (refreshed.error || !refreshed.data.session) throw refreshed.error ?? new Error("NO_SESSION");
       setHasSession(true);
       return refreshed.data.session;
     }
@@ -162,17 +168,35 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   const redirectLogin = () => {
     setHasSession(false);
-    router.push(`/login?next=${encodeURIComponent("/mesa")}`);
+    router.replace(`/login?next=${encodeURIComponent("/mesa")}`);
   };
 
   const ensureMembership = async (salaId: string, memberRole: "mestre" | "jogador") => {
     try {
-      const { error } = await runFresh(() =>
-        supabase.from("sala_membros").upsert([{ sala_id: salaId, role: memberRole }], { onConflict: "sala_id,user_id" }),
-      );
+      const { error } = await runFresh(() => supabase.from("sala_membros").upsert([{ sala_id: salaId, role: memberRole }], { onConflict: "sala_id,user_id" }));
       if (error) console.warn("[MesaClient] sala_membros:", error.message);
     } catch (error) {
       console.warn("[MesaClient] sala_membros indisponivel:", error);
+    }
+  };
+
+  const claimSalaIfNeeded = async (sala: Sala | null) => {
+    if (!sala?.id || sala.user_id) return sala;
+
+    try {
+      const session = await ensureSession();
+      const { data, error } = await runFresh<Sala>(() =>
+        supabase.from("salas").update({ user_id: session.user.id }).eq("id", sala.id).is("user_id", null).select().single(),
+      );
+      if (error || !data) return sala;
+      const claimed = data as Sala;
+      setSalaAtiva(claimed);
+      setSalas((current) => current.map((entry) => (entry.id === claimed.id ? claimed : entry)));
+      void ensureMembership(claimed.id, "mestre");
+      return claimed;
+    } catch (error) {
+      console.warn("[MesaClient] nao foi possivel assumir sala antiga:", error);
+      return sala;
     }
   };
 
@@ -180,9 +204,11 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     try {
       const { data, error } = await runFresh<Sala[]>(() => supabase.from("salas").select("*"));
       if (error) throw error;
+      setMesaError("");
       setSalas((data ?? []) as Sala[]);
     } catch (error) {
       console.error("Erro ao carregar salas:", error);
+      setMesaError(errorMessage(error) || "Nao foi possivel carregar as sessoes.");
       if (isJwtExpired(error)) redirectLogin();
     } finally {
       setLoading(false);
@@ -191,9 +217,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   const loadFichas = async () => {
     try {
-      const { data, error } = await runFresh<FichaListItem[]>(() =>
-        supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem"),
-      );
+      const { data, error } = await runFresh<FichaListItem[]>(() => supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem"));
       if (error) throw error;
       setFichas((data ?? []) as FichaListItem[]);
     } catch (error) {
@@ -207,10 +231,12 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       const { data, error } = await runFresh<Cena[]>(() => supabase.from("cenas").select("*").eq("sala_id", salaId));
       if (error) throw error;
       const next = (data ?? []) as Cena[];
+      setMesaError("");
       setCenas(next);
       setCenaAtiva((current) => (current && next.some((cena) => cena.id === current.id) ? next.find((cena) => cena.id === current.id) ?? null : next[0] ?? null));
     } catch (error) {
       console.error("Erro ao carregar cenas:", error);
+      setMesaError(errorMessage(error) || "Nao foi possivel carregar cenas desta sessao.");
       if (isJwtExpired(error)) redirectLogin();
     }
   };
@@ -240,10 +266,24 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   useEffect(() => {
     let active = true;
     void ensureSession()
-      .then(() => active && setLoading(false))
-      .catch(() => active && setLoading(false));
+      .then(() => {
+        if (!active) return;
+        setAuthReady(true);
+        setLoading(false);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setHasSession(false);
+        setAuthReady(true);
+        setLoading(false);
+        if (isJwtExpired(error)) redirectLogin();
+      });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => setHasSession(Boolean(session)));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(Boolean(session));
+      setAuthReady(true);
+    });
+
     return () => {
       active = false;
       data.subscription.unsubscribe();
@@ -252,13 +292,15 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   }, []);
 
   useEffect(() => {
+    if (!authReady || !hasSession) return;
+
     void loadSalas();
     void loadFichas();
     const channel = supabase.channel("salas_realtime").on("postgres_changes", { event: "*", schema: "public", table: "salas" }, () => void loadSalas()).subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [authReady, hasSession]);
 
   useEffect(() => {
     if (role === "mestre" && !salaAtiva && salas.length) setSalaAtiva(salas[0]);
@@ -275,13 +317,18 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   }, [inviteCode, joinedAsPlayer, salas]);
 
   useEffect(() => {
-    if (!salaAtiva?.id) {
+    if (!salaAtiva?.id || !hasSession) {
       setCenas([]);
       setCenaAtiva(null);
       return;
     }
 
-    void loadCenas(salaAtiva.id);
+    if (role === "mestre" && !salaAtiva.user_id) {
+      void claimSalaIfNeeded(salaAtiva).then((claimed) => claimed?.id && void loadCenas(claimed.id));
+    } else {
+      void loadCenas(salaAtiva.id);
+    }
+
     const channel = supabase
       .channel(`mesa_cenas_${salaAtiva.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "cenas", filter: `sala_id=eq.${salaAtiva.id}` }, () => void loadCenas(salaAtiva.id))
@@ -290,7 +337,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [salaAtiva?.id]);
+  }, [salaAtiva?.id, salaAtiva?.user_id, role, hasSession]);
 
   useEffect(() => {
     setScenePreferences((current) => {
@@ -324,6 +371,10 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       setSalas((current) => [data as Sala, ...current]);
       void ensureMembership((data as Sala).id, "mestre");
     } catch (error: any) {
+      if (errorMessage(error) === "NO_SESSION") {
+        redirectLogin();
+        return;
+      }
       alert(`Falha ao criar sala: ${error?.message ?? "sessao invalida"}`);
       if (isJwtExpired(error)) redirectLogin();
     }
@@ -331,7 +382,8 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   const renomearSala = async () => {
     if (!salaAtiva?.id || !roomNameDraft.trim()) return;
-    const { data, error } = await runFresh<Sala>(() => supabase.from("salas").update({ nome: roomNameDraft.trim() }).eq("id", salaAtiva.id).select().single());
+    const activeSala = await claimSalaIfNeeded(salaAtiva);
+    const { data, error } = await runFresh<Sala>(() => supabase.from("salas").update({ nome: roomNameDraft.trim() }).eq("id", activeSala?.id ?? salaAtiva.id).select().single());
     if (error || !data) {
       alert(`Falha ao renomear sessao: ${error?.message ?? "erro desconhecido"}`);
       return;
@@ -342,8 +394,9 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   const criarCena = async () => {
     if (!salaAtiva?.id) return;
+    const activeSala = await claimSalaIfNeeded(salaAtiva);
     const { data, error } = await runFresh<Cena>(() =>
-      supabase.from("cenas").insert([{ sala_id: salaAtiva.id, nome: `Setor ${cenas.length + 1}`, ...scenePatch(DEFAULT_SCENE_VIEW_PREFERENCES) }]).select().single(),
+      supabase.from("cenas").insert([{ sala_id: activeSala?.id ?? salaAtiva.id, nome: `Setor ${cenas.length + 1}`, ...scenePatch(DEFAULT_SCENE_VIEW_PREFERENCES) }]).select().single(),
     );
     if (error || !data) {
       alert(`Falha ao criar cena: ${error?.message ?? "erro desconhecido"}`);
@@ -449,9 +502,12 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
             <div>
               <div className="aq-kicker">Bridge Deck</div>
               <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-4xl`}>Mesa Tatica</h1>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">Mapa, tokens e alinhamento agora ficam online na cena. A camera continua individual para cada tela.</p>
+              <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">Mapa, tokens e alinhamento ficam online na cena. A camera continua individual para cada tela.</p>
             </div>
           </div>
+
+          {mesaError ? <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">{mesaError}</div> : null}
+          {!hasSession && authReady ? <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(74,217,217,0.08)] px-4 py-3 text-sm text-[var(--aq-text)]">Entre com login para carregar sessoes da mesa.</div> : null}
 
           <div className="mt-6 flex flex-wrap gap-2">
             <button onClick={() => { setRole("mestre"); setJoinedAsPlayer(false); }} className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}><Eye size={14} /> Mestre</button>
