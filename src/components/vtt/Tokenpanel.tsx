@@ -16,6 +16,7 @@ import {
   ScrollText,
   AlertTriangle,
   Trash2,
+  Image as ImageIcon,
 } from "lucide-react";
 
 function HPBar({ current, max, label, color }: { current: number; max: number; label: string; color: string }) {
@@ -93,11 +94,12 @@ function DamageControl({
 interface TokenPanelProps {
   token: Token | null;
   fichaData: FichaVTTSnapshot | null;
+  salaId?: string | null;
   onClose: () => void;
   onTokenUpdate: (updated: Token) => void;
 }
 
-export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }: TokenPanelProps) {
+export default function TokenPanel({ token, fichaData, salaId, onClose, onTokenUpdate }: TokenPanelProps) {
   const router = useRouter();
   const [fichasList, setFichasList] = useState<any[]>([]);
   const [showVincular, setShowVincular] = useState(false);
@@ -107,6 +109,8 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
   const [fichaLoadError, setFichaLoadError] = useState("");
   const [actionError, setActionError] = useState("");
   const fichaEfetiva = fichaData ?? fallbackFicha;
+  const fichaHref = (fichaId: string) => `/fichas/${fichaId}${salaId ? `?mesa=${encodeURIComponent(salaId)}` : ""}`;
+  const tokenImagesHref = (fichaId: string) => `/fichas/${fichaId}/tokens${salaId ? `?mesa=${encodeURIComponent(salaId)}` : ""}`;
 
   useEffect(() => {
     setShowVincular(false);
@@ -342,13 +346,22 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
               </div>
 
               {token.ficha_id ? (
-                <button
-                  onClick={() => router.push(`/fichas/${token.ficha_id}`)}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(74,217,217,0.24)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] transition-all hover:bg-[rgba(74,217,217,0.14)]"
-                >
-                  <ScrollText size={12} />
-                  Abrir ficha vinculada
-                </button>
+                <div className="mt-3 grid gap-2">
+                  <button
+                    onClick={() => router.push(fichaHref(token.ficha_id!))}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(74,217,217,0.24)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] transition-all hover:bg-[rgba(74,217,217,0.14)]"
+                  >
+                    <ScrollText size={12} />
+                    Abrir ficha vinculada
+                  </button>
+                  <button
+                    onClick={() => router.push(tokenImagesHref(token.ficha_id!))}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(74,217,217,0.24)] bg-[rgba(74,217,217,0.05)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text)] transition-all hover:bg-[rgba(74,217,217,0.12)] hover:text-[var(--aq-accent)]"
+                  >
+                    <ImageIcon size={12} />
+                    Imagens do token
+                  </button>
+                </div>
               ) : null}
             </div>
 
@@ -387,7 +400,7 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
               {fichaLoadError ? ` Erro: ${fichaLoadError}` : " Tentando sincronizar..."}
             </p>
             <div className="grid gap-2">
-              <button onClick={() => router.push(`/fichas/${token.ficha_id}`)} className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-100">Abrir ficha vinculada</button>
+              <button onClick={() => router.push(fichaHref(token.ficha_id!))} className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-100">Abrir ficha vinculada</button>
               <button onClick={desvincularFicha} disabled={loading} className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-200 disabled:opacity-40">Desvincular ficha</button>
             </div>
           </div>
