@@ -6,7 +6,7 @@ import { Token, FichaVTTSnapshot } from "@/src/lib/types";
 import {
   X,
   Link2,
-  LinkOff,
+  Link2Off,
   Swords,
   Heart,
   ChevronLeft,
@@ -376,7 +376,7 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
                   onMouseEnter={(e) => (e.currentTarget.style.color = "#f87171")}
                   onMouseLeave={(e) => (e.currentTarget.style.color = "#6b7b94")}
                 >
-                  <LinkOff size={14} />
+                  <Link2Off size={14} />
                 </button>
               </div>
 
@@ -392,9 +392,9 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
             </div>
 
             <div className="space-y-2.5">
-              {vida && <HPBar current={vida.atual} max={vida.max} label="❤ Vida" color="#f87171" />}
+              {vida && <HPBar current={vida.atual} max={vida.max} label="Vida" color="#f87171" />}
               {pe && pe.max > 0 && <HPBar current={pe.atual} max={pe.max} label="PE" color="#4ad9d9" />}
-              {sanidade && sanidade.max > 0 && <HPBar current={sanidade.atual} max={sanidade.max} label="◈ Sanidade" color="#c084fc" />}
+              {sanidade && sanidade.max > 0 && <HPBar current={sanidade.atual} max={sanidade.max} label="Sanidade" color="#c084fc" />}
             </div>
 
             <div style={{ borderTop: "1px solid #1a2b4c" }} />
@@ -563,7 +563,7 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
 
       <div className="px-4 py-2.5" style={{ borderTop: "1px solid #1a2b4c", background: "rgba(5,10,16,0.72)" }}>
         <p className="text-center text-[8px] uppercase tracking-widest" style={{ color: "#41556f" }}>
-          ⚡ Supabase Realtime · Sync bidirecional
+          Supabase Realtime · Sync bidirecional
         </p>
       </div>
     </div>
