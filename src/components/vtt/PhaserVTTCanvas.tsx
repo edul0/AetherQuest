@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Minus, Plus, RotateCcw } from "lucide-react";
+import { Minus, Plus, RotateCcw, X } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
@@ -14,10 +14,12 @@ const COLORS = {
   hpMid: "#f59e0b",
   hpLow: "#ef4444",
   hpBarBg: "#0a0f18",
+  placeholderText: "#6b7b94",
 };
 
 const DEFAULT_CAMERA = { x: 0, y: 0, zoom: 1 };
 
+type PhaserModule = typeof import("phaser");
 type Point = { x: number; y: number };
 type CameraState = typeof DEFAULT_CAMERA;
 type GestureState =
@@ -26,14 +28,6 @@ type GestureState =
   | { type: "token"; id: string; pointer: Point; start: Point; moved: boolean }
   | { type: "pinch"; center: Point; distance: number; camera: CameraState }
   | null;
-
-type RenderState = {
-  tokens: Token[];
-  fichasMap: Record<string, FichaVTTSnapshot>;
-  selectedTokenId: string | null;
-  mapaUrl?: string;
-  preferences: SceneViewPreferences;
-};
 
 interface VTTCanvasProps {
   cenaId: string;
@@ -47,20 +41,32 @@ interface VTTCanvasProps {
 
 type SceneApi = {
   setState: (state: RenderState) => void;
+  setTool: (toolMode: SceneViewPreferences["toolMode"]) => void;
   resetCamera: () => void;
   zoomBy: (factor: number) => void;
+  destroy: () => void;
+};
+
+type RenderState = {
+  tokens: Token[];
+  fichasMap: Record<string, FichaVTTSnapshot>;
+  selectedTokenId: string | null;
+  mapaUrl?: string;
+  preferences: SceneViewPreferences;
 };
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function tokenSizeForViewport(width: number) {
-  return width < 768 ? 86 : 72;
-}
-
 function getTokenImage(ficha?: FichaVTTSnapshot | null) {
-  return ficha?.dados?.token_images?.portrait || ficha?.dados?.token_images?.top || ficha?.avatar_url || ficha?.dados?.avatar_url || "";
+  return (
+    ficha?.dados?.token_images?.portrait ||
+    ficha?.dados?.token_images?.top ||
+    ficha?.avatar_url ||
+    ficha?.dados?.avatar_url ||
+    ""
+  );
 }
 
 function getInitials(token: Token, ficha?: FichaVTTSnapshot | null) {
@@ -84,94 +90,118 @@ function screenCenter(a: Touch, b: Touch, rect: DOMRect): Point {
   };
 }
 
-function textureKey(prefix: string, value: string) {
-  if (typeof window === "undefined") return `${prefix}-pending`;
-  return `${prefix}-${btoa(value).replace(/[^a-zA-Z0-9]/g, "").slice(0, 40)}`;
+function tokenSizeForViewport(width: number) {
+  return width < 768 ? 86 : 72;
 }
 
-function makeScene(Phaser: typeof import("phaser"), callbacks: {
-  onSelectToken: (token: Token | null) => void;
-  onMoveToken: (token: Token, point: Point) => void;
-  onMapOffset: (point: Point) => void;
-  onCamera: (camera: CameraState) => void;
-}) {
+function createPhaserScene(
+  Phaser: PhaserModule,
+  callbacks: {
+    onSelectToken: (token: Token | null) => void;
+    onMoveToken: (token: Token, point: Point) => void;
+    onMapOffset: (point: Point) => void;
+    onCamera: (camera: CameraState) => void;
+  },
+) {
   return class AetherQuestScene extends Phaser.Scene {
     private state: RenderState = {
       tokens: [],
       fichasMap: {},
       selectedTokenId: null,
-      preferences: { gridSize: 50, gridOpacity: 0.12, showGrid: true, mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "select", snapToGrid: true },
+      preferences: {
+        gridSize: 50,
+        gridOpacity: 0.12,
+        showGrid: true,
+        mapScale: 1,
+        mapOffsetX: 0,
+        mapOffsetY: 0,
+        toolMode: "select",
+        snapToGrid: true,
+      },
     };
+
     private mapImage?: Phaser.GameObjects.Image;
     private grid?: Phaser.GameObjects.Graphics;
     private tokenLayer?: Phaser.GameObjects.Container;
-    private measureLayer?: Phaser.GameObjects.Container;
+    private measurementLayer?: Phaser.GameObjects.Container;
     private tokenObjects = new Map<string, Phaser.GameObjects.Container>();
     private textureKeys = new Map<string, string>();
     private gesture: GestureState = null;
+    private measurementStart: Point | null = null;
+    private measurementEnd: Point | null = null;
     private activeMapUrl = "";
     private mapNaturalSize = { width: 0, height: 0 };
-    private measureStart: Point | null = null;
-    private measureEnd: Point | null = null;
+    private pendingMapImage?: HTMLImageElement;
 
     create() {
       this.cameras.main.setBackgroundColor(COLORS.bg);
       this.grid = this.add.graphics();
       this.tokenLayer = this.add.container(0, 0);
-      this.measureLayer = this.add.container(0, 0);
+      this.measurementLayer = this.add.container(0, 0);
       this.input.mouse?.disableContextMenu();
+
       this.input.on("pointerdown", this.handlePointerDown, this);
       this.input.on("pointermove", this.handlePointerMove, this);
       this.input.on("pointerup", this.handlePointerUp, this);
       this.input.on("pointerupoutside", this.handlePointerUp, this);
       this.input.on("wheel", this.handleWheel, this);
-      this.scale.on("resize", () => this.renderAll());
+      this.scale.on("resize", this.handleResize, this);
     }
 
-    setState(next: RenderState) {
+    public setState(next: RenderState) {
       this.state = next;
-      this.renderAll();
-    }
-
-    resetCamera() {
-      this.cameras.main.setZoom(1);
-      this.cameras.main.scrollX = 0;
-      this.cameras.main.scrollY = 0;
-      callbacks.onCamera(DEFAULT_CAMERA);
-      callbacks.onMapOffset({ x: 0, y: 0 });
-      this.renderGrid();
-    }
-
-    zoomBy(factor: number) {
-      this.zoomAt({ x: this.scale.width / 2, y: this.scale.height / 2 }, this.cameras.main.zoom * factor);
-    }
-
-    private renderAll() {
       this.renderMap();
       this.renderGrid();
       this.renderTokens();
       this.renderMeasurement();
     }
 
-    private cameraState(): CameraState {
-      const camera = this.cameras.main;
-      return { x: camera.scrollX, y: camera.scrollY, zoom: camera.zoom };
+    public setTool(toolMode: SceneViewPreferences["toolMode"]) {
+      this.state = {
+        ...this.state,
+        preferences: { ...this.state.preferences, toolMode },
+      };
     }
 
-    private pointerWorld(pointer: Phaser.Input.Pointer): Point {
+    public resetCamera() {
+      this.cameras.main.setZoom(1);
+      this.cameras.main.scrollX = 0;
+      this.cameras.main.scrollY = 0;
+      callbacks.onCamera(DEFAULT_CAMERA);
+      callbacks.onMapOffset({ x: 0, y: 0 });
+    }
+
+    public zoomBy(factor: number) {
       const camera = this.cameras.main;
-      return { x: camera.scrollX + pointer.x / camera.zoom, y: camera.scrollY + pointer.y / camera.zoom };
+      const center = new Phaser.Math.Vector2(this.scale.width / 2, this.scale.height / 2);
+      this.zoomAt(center, camera.zoom * factor);
+    }
+
+    private handleResize() {
+      this.renderMap();
+      this.renderGrid();
+      this.renderTokens();
+    }
+
+    private pointerToWorld(pointer: Phaser.Input.Pointer): Point {
+      return {
+        x: this.cameras.main.scrollX + pointer.x / this.cameras.main.zoom,
+        y: this.cameras.main.scrollY + pointer.y / this.cameras.main.zoom,
+      };
     }
 
     private snap(point: Point): Point {
       if (!this.state.preferences.snapToGrid) return point;
       const grid = this.state.preferences.gridSize;
-      return { x: Math.round(point.x / grid) * grid, y: Math.round(point.y / grid) * grid };
+      return {
+        x: Math.round(point.x / grid) * grid,
+        y: Math.round(point.y / grid) * grid,
+      };
     }
 
-    private tokenAt(pointer: Phaser.Input.Pointer) {
-      const world = this.pointerWorld(pointer);
-      const size = tokenSizeForViewport(this.scale.width);
+    private getTokenAt(pointer: Phaser.Input.Pointer) {
+      const world = this.pointerToWorld(pointer);
+      const size = tokenSizeForViewport(this.scale.width) / this.cameras.main.zoom;
       return [...this.state.tokens].reverse().find((token) => {
         const cx = token.x + size / 2;
         const cy = token.y + size / 2;
@@ -184,27 +214,51 @@ function makeScene(Phaser: typeof import("phaser"), callbacks: {
       const touches = "touches" in (event ?? {}) ? (event as TouchEvent).touches : null;
       if (touches && touches.length >= 2) {
         const rect = this.game.canvas.getBoundingClientRect();
-        this.gesture = { type: "pinch", center: screenCenter(touches[0], touches[1], rect), distance: screenDistance(touches[0], touches[1]), camera: this.cameraState() };
+        const center = screenCenter(touches[0], touches[1], rect);
+        this.gesture = {
+          type: "pinch",
+          center,
+          distance: screenDistance(touches[0], touches[1]),
+          camera: this.getCameraState(),
+        };
         event?.preventDefault();
         return;
       }
 
-      const token = this.tokenAt(pointer);
+      const token = this.getTokenAt(pointer);
       if (token && this.state.preferences.toolMode === "select") {
-        this.gesture = { type: "token", id: token.id, pointer: this.pointerWorld(pointer), start: { x: token.x, y: token.y }, moved: false };
+        const world = this.pointerToWorld(pointer);
+        this.gesture = {
+          type: "token",
+          id: token.id,
+          pointer: world,
+          start: { x: token.x, y: token.y },
+          moved: false,
+        };
         event?.preventDefault();
         return;
       }
 
       if (this.state.preferences.toolMode === "map") {
-        this.gesture = { type: "map", pointer: { x: pointer.x, y: pointer.y }, offset: { x: this.state.preferences.mapOffsetX, y: this.state.preferences.mapOffsetY } };
+        this.gesture = {
+          type: "map",
+          pointer: { x: pointer.x, y: pointer.y },
+          offset: {
+            x: this.state.preferences.mapOffsetX,
+            y: this.state.preferences.mapOffsetY,
+          },
+        };
         callbacks.onSelectToken(null);
         event?.preventDefault();
         return;
       }
 
       if (this.state.preferences.toolMode === "pan") {
-        this.gesture = { type: "camera", pointer: { x: pointer.x, y: pointer.y }, camera: this.cameraState() };
+        this.gesture = {
+          type: "camera",
+          pointer: { x: pointer.x, y: pointer.y },
+          camera: this.getCameraState(),
+        };
         callbacks.onSelectToken(null);
       }
     }
@@ -212,39 +266,53 @@ function makeScene(Phaser: typeof import("phaser"), callbacks: {
     private handlePointerMove(pointer: Phaser.Input.Pointer) {
       const event = pointer.event as PointerEvent | TouchEvent | undefined;
       const touches = "touches" in (event ?? {}) ? (event as TouchEvent).touches : null;
+
       if (touches && touches.length >= 2) {
         event?.preventDefault();
         const rect = this.game.canvas.getBoundingClientRect();
         const center = screenCenter(touches[0], touches[1], rect);
         const distance = screenDistance(touches[0], touches[1]);
         if (this.gesture?.type !== "pinch") {
-          this.gesture = { type: "pinch", center, distance, camera: this.cameraState() };
+          this.gesture = {
+            type: "pinch",
+            center,
+            distance,
+            camera: this.getCameraState(),
+          };
           return;
         }
-        this.zoomAt(center, this.gesture.camera.zoom * (distance / this.gesture.distance), this.gesture.camera, this.gesture.center);
+
+        const nextZoom = this.gesture.camera.zoom * (distance / this.gesture.distance);
+        this.zoomAt(center, nextZoom, this.gesture.camera, this.gesture.center);
         return;
       }
 
       if (!this.gesture) {
-        if (this.state.preferences.toolMode === "measure" && this.measureStart) {
-          this.measureEnd = this.snap(this.pointerWorld(pointer));
+        if (this.state.preferences.toolMode === "measure" && this.measurementStart) {
+          this.measurementEnd = this.snap(this.pointerToWorld(pointer));
           this.renderMeasurement();
         }
         return;
       }
 
       if (this.gesture.type === "token") {
-        const world = this.pointerWorld(pointer);
+        const world = this.pointerToWorld(pointer);
         const dx = world.x - this.gesture.pointer.x;
         const dy = world.y - this.gesture.pointer.y;
         if (Math.abs(dx) > 1 || Math.abs(dy) > 1) this.gesture.moved = true;
-        this.moveTokenVisual(this.gesture.id, this.snap({ x: this.gesture.start.x + dx, y: this.gesture.start.y + dy }));
+        const token = this.state.tokens.find((entry) => entry.id === this.gesture?.id);
+        if (!token) return;
+        const point = this.snap({ x: this.gesture.start.x + dx, y: this.gesture.start.y + dy });
+        this.moveTokenVisual(token.id, point);
         event?.preventDefault();
         return;
       }
 
       if (this.gesture.type === "map") {
-        callbacks.onMapOffset({ x: Math.round(this.gesture.offset.x + (pointer.x - this.gesture.pointer.x) / this.cameras.main.zoom), y: Math.round(this.gesture.offset.y + (pointer.y - this.gesture.pointer.y) / this.cameras.main.zoom) });
+        callbacks.onMapOffset({
+          x: Math.round(this.gesture.offset.x + (pointer.x - this.gesture.pointer.x) / this.cameras.main.zoom),
+          y: Math.round(this.gesture.offset.y + (pointer.y - this.gesture.pointer.y) / this.cameras.main.zoom),
+        });
         event?.preventDefault();
         return;
       }
@@ -253,8 +321,7 @@ function makeScene(Phaser: typeof import("phaser"), callbacks: {
         const camera = this.cameras.main;
         camera.scrollX = this.gesture.camera.x - (pointer.x - this.gesture.pointer.x) / camera.zoom;
         camera.scrollY = this.gesture.camera.y - (pointer.y - this.gesture.pointer.y) / camera.zoom;
-        callbacks.onCamera(this.cameraState());
-        this.renderGrid();
+        callbacks.onCamera(this.getCameraState());
       }
     }
 
@@ -262,41 +329,59 @@ function makeScene(Phaser: typeof import("phaser"), callbacks: {
       if (this.gesture?.type === "token") {
         const token = this.state.tokens.find((entry) => entry.id === this.gesture?.id);
         if (token) {
-          const world = this.pointerWorld(pointer);
-          const point = this.snap({ x: this.gesture.start.x + (world.x - this.gesture.pointer.x), y: this.gesture.start.y + (world.y - this.gesture.pointer.y) });
-          if (this.gesture.moved) callbacks.onMoveToken(token, point);
-          else callbacks.onSelectToken(this.state.selectedTokenId === token.id ? null : token);
+          const world = this.pointerToWorld(pointer);
+          const dx = world.x - this.gesture.pointer.x;
+          const dy = world.y - this.gesture.pointer.y;
+          const point = this.snap({ x: this.gesture.start.x + dx, y: this.gesture.start.y + dy });
+          if (this.gesture.moved) {
+            callbacks.onMoveToken(token, point);
+          } else {
+            callbacks.onSelectToken(this.state.selectedTokenId === token.id ? null : token);
+          }
         }
       } else if (!this.gesture && this.state.preferences.toolMode === "measure") {
-        const point = this.snap(this.pointerWorld(pointer));
-        if (!this.measureStart) {
-          this.measureStart = point;
-          this.measureEnd = point;
+        const point = this.snap(this.pointerToWorld(pointer));
+        if (!this.measurementStart) {
+          this.measurementStart = point;
+          this.measurementEnd = point;
         } else {
-          this.measureEnd = point;
+          this.measurementEnd = point;
         }
         this.renderMeasurement();
       } else if (!this.gesture && this.state.preferences.toolMode === "select") {
         callbacks.onSelectToken(null);
       }
+
       this.gesture = null;
     }
 
     private handleWheel(pointer: Phaser.Input.Pointer, _objects: unknown, _dx: number, dy: number) {
-      this.zoomAt({ x: pointer.x, y: pointer.y }, this.cameras.main.zoom * (dy > 0 ? 0.9 : 1.1));
+      const factor = dy > 0 ? 0.9 : 1.1;
+      this.zoomAt({ x: pointer.x, y: pointer.y }, this.cameras.main.zoom * factor);
     }
 
     private zoomAt(screenPoint: Point, targetZoom: number, baseCamera?: CameraState, baseScreenPoint?: Point) {
-      const source = baseCamera ?? this.cameraState();
+      const camera = this.cameras.main;
+      const source = baseCamera ?? this.getCameraState();
       const anchor = baseScreenPoint ?? screenPoint;
-      const zoom = clamp(targetZoom, 0.35, 3.2);
+      const nextZoom = clamp(targetZoom, 0.35, 3.2);
       const worldX = source.x + anchor.x / source.zoom;
       const worldY = source.y + anchor.y / source.zoom;
-      this.cameras.main.setZoom(zoom);
-      this.cameras.main.scrollX = worldX - screenPoint.x / zoom;
-      this.cameras.main.scrollY = worldY - screenPoint.y / zoom;
-      callbacks.onCamera(this.cameraState());
+
+      camera.setZoom(nextZoom);
+      camera.scrollX = worldX - screenPoint.x / nextZoom;
+      camera.scrollY = worldY - screenPoint.y / nextZoom;
+      callbacks.onCamera(this.getCameraState());
       this.renderGrid();
+    }
+
+    private getCameraState(): CameraState {
+      const camera = this.cameras.main;
+      return {
+        x: camera.scrollX,
+        y: camera.scrollY,
+        zoom: camera.zoom,
+      };
     }
 
     private renderMap() {
@@ -306,63 +391,89 @@ function makeScene(Phaser: typeof import("phaser"), callbacks: {
         this.activeMapUrl = "";
         return;
       }
+
       if (this.activeMapUrl !== this.state.mapaUrl) {
         this.activeMapUrl = this.state.mapaUrl;
-        const key = textureKey("map", this.state.mapaUrl);
+        const key = `map-${btoa(this.state.mapaUrl).replace(/[^a-zA-Z0-9]/g, "").slice(0, 32)}`;
         if (this.textures.exists(key)) {
-          this.attachMap(key);
+          this.attachMapTexture(key);
           return;
         }
-        this.load.image(key, this.state.mapaUrl);
-        this.load.once(Phaser.Loader.Events.COMPLETE, () => this.attachMap(key));
-        this.load.start();
+        this.pendingMapImage = new Image();
+        this.pendingMapImage.crossOrigin = "anonymous";
+        this.pendingMapImage.referrerPolicy = "no-referrer";
+        this.pendingMapImage.onload = () => {
+          if (this.activeMapUrl !== this.state.mapaUrl || !this.pendingMapImage) return;
+          if (!this.textures.exists(key)) this.textures.addImage(key, this.pendingMapImage);
+          this.attachMapTexture(key);
+        };
+        this.pendingMapImage.onerror = () => {
+          if (this.activeMapUrl !== this.state.mapaUrl) return;
+          console.error("[PhaserVTTCanvas] Falha ao carregar mapa:", this.state.mapaUrl);
+        };
+        this.pendingMapImage.src = this.state.mapaUrl;
         return;
       }
+
       this.positionMap();
     }
 
-    private attachMap(key: string) {
-      const source = this.textures.get(key).getSourceImage() as HTMLImageElement;
-      this.mapNaturalSize = { width: source.width || 1, height: source.height || 1 };
-      if (!this.mapImage) this.mapImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-10).setAlpha(0.96);
-      else this.mapImage.setTexture(key);
+    private attachMapTexture(key: string) {
+      const texture = this.textures.get(key).getSourceImage() as HTMLImageElement;
+      this.mapNaturalSize = { width: texture.width || 1, height: texture.height || 1 };
+      if (!this.mapImage) {
+        this.mapImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-10).setAlpha(0.96);
+      } else {
+        this.mapImage.setTexture(key);
+      }
       this.positionMap();
     }
 
     private positionMap() {
       if (!this.mapImage || !this.mapNaturalSize.width || !this.mapNaturalSize.height) return;
-      const baseScale = Math.max(this.scale.width / this.mapNaturalSize.width, this.scale.height / this.mapNaturalSize.height);
-      const scale = baseScale * this.state.preferences.mapScale;
-      const w = this.mapNaturalSize.width * scale;
-      const h = this.mapNaturalSize.height * scale;
-      this.mapImage.setPosition((this.scale.width - w) / 2 + this.state.preferences.mapOffsetX, (this.scale.height - h) / 2 + this.state.preferences.mapOffsetY);
-      this.mapImage.setDisplaySize(w, h);
+      const width = this.scale.width;
+      const height = this.scale.height;
+      const baseScale = Math.max(width / this.mapNaturalSize.width, height / this.mapNaturalSize.height);
+      const mapScale = baseScale * this.state.preferences.mapScale;
+      const displayWidth = this.mapNaturalSize.width * mapScale;
+      const displayHeight = this.mapNaturalSize.height * mapScale;
+      const x = (width - displayWidth) / 2 + this.state.preferences.mapOffsetX;
+      const y = (height - displayHeight) / 2 + this.state.preferences.mapOffsetY;
+      this.mapImage.setPosition(x, y);
+      this.mapImage.setDisplaySize(displayWidth, displayHeight);
     }
 
     private renderGrid() {
       if (!this.grid) return;
       this.grid.clear();
       if (!this.state.preferences.showGrid) return;
+
       const camera = this.cameras.main;
-      const grid = this.state.preferences.gridSize;
-      const left = camera.scrollX - grid * 2;
-      const right = camera.scrollX + this.scale.width / camera.zoom + grid * 2;
-      const top = camera.scrollY - grid * 2;
-      const bottom = camera.scrollY + this.scale.height / camera.zoom + grid * 2;
+      const gridSize = this.state.preferences.gridSize;
+      const left = camera.scrollX - gridSize * 2;
+      const right = camera.scrollX + this.scale.width / camera.zoom + gridSize * 2;
+      const top = camera.scrollY - gridSize * 2;
+      const bottom = camera.scrollY + this.scale.height / camera.zoom + gridSize * 2;
+
       this.grid.lineStyle(1 / camera.zoom, Phaser.Display.Color.HexStringToColor(COLORS.grid).color, this.state.preferences.gridOpacity);
-      for (let x = Math.floor(left / grid) * grid; x <= right; x += grid) this.grid.lineBetween(x, top, x, bottom);
-      for (let y = Math.floor(top / grid) * grid; y <= bottom; y += grid) this.grid.lineBetween(left, y, right, y);
+      for (let x = Math.floor(left / gridSize) * gridSize; x <= right; x += gridSize) {
+        this.grid.lineBetween(x, top, x, bottom);
+      }
+      for (let y = Math.floor(top / gridSize) * gridSize; y <= bottom; y += gridSize) {
+        this.grid.lineBetween(left, y, right, y);
+      }
     }
 
     private renderTokens() {
       if (!this.tokenLayer) return;
-      const live = new Set(this.state.tokens.map((token) => token.id));
+      const existing = new Set(this.state.tokens.map((token) => token.id));
       for (const [id, object] of this.tokenObjects) {
-        if (!live.has(id)) {
+        if (!existing.has(id)) {
           object.destroy();
           this.tokenObjects.delete(id);
         }
       }
+
       this.state.tokens.forEach((token) => {
         let container = this.tokenObjects.get(token.id);
         if (!container) {
@@ -378,16 +489,24 @@ function makeScene(Phaser: typeof import("phaser"), callbacks: {
       const ficha = token.ficha_id ? this.state.fichasMap[token.ficha_id] : null;
       const size = tokenSizeForViewport(this.scale.width);
       const radius = size * 0.42;
+      const selected = this.state.selectedTokenId === token.id;
       const imageUrl = getTokenImage(ficha);
       container.setPosition(token.x, token.y);
       container.removeAll(true);
-      if (this.state.selectedTokenId === token.id) container.add(this.add.circle(size / 2, size / 2, radius + 8, 0x4ad9d9, 0.14).setStrokeStyle(2, 0x4ad9d9, 0.9));
+
+      if (selected) {
+        container.add(this.add.circle(size / 2, size / 2, radius + 8, 0x4ad9d9, 0.14).setStrokeStyle(2, 0x4ad9d9, 0.9));
+      }
+
       container.add(this.add.circle(size / 2, size / 2, radius, Phaser.Display.Color.HexStringToColor(token.cor || "#ef4444").color, 0.95));
+
       if (imageUrl) {
-        const key = this.textureKeys.get(imageUrl) ?? textureKey("token", imageUrl);
+        const key = this.textureKeys.get(imageUrl) ?? `token-${btoa(imageUrl).replace(/[^a-zA-Z0-9]/g, "").slice(0, 32)}`;
         this.textureKeys.set(imageUrl, key);
-        if (this.textures.exists(key)) container.add(this.add.image(size / 2, size / 2, key).setDisplaySize(radius * 1.8, radius * 1.8).setAlpha(0.96));
-        else {
+        if (this.textures.exists(key)) {
+          const image = this.add.image(size / 2, size / 2, key).setDisplaySize(radius * 1.8, radius * 1.8).setAlpha(0.96);
+          container.add(image);
+        } else {
           this.load.image(key, imageUrl);
           this.load.once(Phaser.Loader.Events.COMPLETE, () => this.renderTokens());
           this.load.start();
@@ -396,39 +515,66 @@ function makeScene(Phaser: typeof import("phaser"), callbacks: {
       } else {
         container.add(this.add.text(size / 2, size / 2 - 8, getInitials(token, ficha), { color: "#ffffff", fontSize: "16px", fontStyle: "700" }).setOrigin(0.5));
       }
+
       container.add(this.add.text(size / 2, size + 3, token.nome, { color: COLORS.tokenLabel, fontSize: "10px", fontFamily: "monospace" }).setOrigin(0.5, 0));
+
       const vida = ficha?.dados?.status?.vida;
       if (vida?.max) {
         const ratio = clamp(vida.atual / vida.max, 0, 1);
-        const barW = size * 0.92;
-        container.add(this.add.rectangle(size / 2, size + 19, barW, 5, Phaser.Display.Color.HexStringToColor(COLORS.hpBarBg).color).setOrigin(0.5, 0.5));
-        container.add(this.add.rectangle(size / 2 - barW / 2, size + 19, barW * ratio, 5, Phaser.Display.Color.HexStringToColor(hpColor(ratio)).color).setOrigin(0, 0.5));
+        const barWidth = size * 0.92;
+        container.add(this.add.rectangle(size / 2, size + 19, barWidth, 5, Phaser.Display.Color.HexStringToColor(COLORS.hpBarBg).color).setOrigin(0.5, 0.5));
+        container.add(this.add.rectangle(size / 2 - barWidth / 2, size + 19, barWidth * ratio, 5, Phaser.Display.Color.HexStringToColor(hpColor(ratio)).color).setOrigin(0, 0.5));
       }
     }
 
     private moveTokenVisual(id: string, point: Point) {
-      this.tokenObjects.get(id)?.setPosition(point.x, point.y);
+      const object = this.tokenObjects.get(id);
+      object?.setPosition(point.x, point.y);
     }
 
     private renderMeasurement() {
-      if (!this.measureLayer) return;
-      this.measureLayer.removeAll(true);
-      if (!this.measureStart || !this.measureEnd) return;
-      const start = this.measureStart;
-      const end = this.measureEnd;
-      const cells = Math.hypot(end.x - start.x, end.y - start.y) / this.state.preferences.gridSize;
+      if (!this.measurementLayer) return;
+      this.measurementLayer.removeAll(true);
+      if (!this.measurementStart || !this.measurementEnd) return;
+
+      const camera = this.cameras.main;
+      const start = this.measurementStart;
+      const end = this.measurementEnd;
+      const distance = Math.hypot(end.x - start.x, end.y - start.y);
+      const cells = distance / this.state.preferences.gridSize;
       const label = `${cells.toFixed(1)} qd - ${(cells * 1.5).toFixed(1)} m`;
-      this.measureLayer.add(this.add.line(0, 0, start.x, start.y, end.x, end.y, 0xf59e0b, 1).setOrigin(0, 0).setLineWidth(3 / this.cameras.main.zoom));
-      this.measureLayer.add(this.add.text((start.x + end.x) / 2, (start.y + end.y) / 2 - 24 / this.cameras.main.zoom, label, { color: "#f8fafc", fontFamily: "monospace", fontSize: `${12 / this.cameras.main.zoom}px`, backgroundColor: "rgba(5,10,16,0.85)", padding: { x: 6, y: 4 } }).setOrigin(0.5));
+      const line = this.add.line(0, 0, start.x, start.y, end.x, end.y, 0xf59e0b, 1).setOrigin(0, 0).setLineWidth(3 / camera.zoom);
+      const text = this.add.text((start.x + end.x) / 2, (start.y + end.y) / 2 - 24 / camera.zoom, label, {
+        color: "#f8fafc",
+        fontFamily: "monospace",
+        fontSize: `${12 / camera.zoom}px`,
+        backgroundColor: "rgba(5,10,16,0.85)",
+        padding: { x: 6, y: 4 },
+      }).setOrigin(0.5);
+      this.measurementLayer.add([line, text]);
     }
   };
 }
 
-export default function PhaserVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSelectToken, onFichasMapChange, onTokensChange, scenePreferences }: VTTCanvasProps) {
+export default function PhaserVTTCanvas({
+  cenaId,
+  mapaUrl,
+  selectedTokenId,
+  onSelectToken,
+  onFichasMapChange,
+  onTokensChange,
+  scenePreferences,
+}: VTTCanvasProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<any>(null);
   const sceneApiRef = useRef<SceneApi | null>(null);
-  const stateRef = useRef<RenderState>({ tokens: [], fichasMap: {}, selectedTokenId, mapaUrl, preferences: scenePreferences });
+  const stateRef = useRef<RenderState>({
+    tokens: [],
+    fichasMap: {},
+    selectedTokenId,
+    mapaUrl,
+    preferences: scenePreferences,
+  });
   const [tokens, setTokens] = useState<Token[]>([]);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [camera, setCamera] = useState(DEFAULT_CAMERA);
@@ -453,24 +599,30 @@ export default function PhaserVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSe
 
   useEffect(() => {
     updateSceneState({ selectedTokenId, mapaUrl, preferences: scenePreferences });
+    sceneApiRef.current?.setTool(scenePreferences.toolMode);
   }, [mapaUrl, scenePreferences, selectedTokenId, updateSceneState]);
 
   useEffect(() => {
     let destroyed = false;
+
     const boot = async () => {
       if (!parentRef.current || gameRef.current) return;
       const Phaser = await import("phaser");
       if (destroyed || !parentRef.current) return;
-      const SceneClass = makeScene(Phaser, {
+
+      const SceneClass = createPhaserScene(Phaser, {
         onSelectToken,
         onMoveToken: async (token, point) => {
           const next = { ...token, x: point.x, y: point.y };
           setTokens((current) => current.map((entry) => (entry.id === token.id ? next : entry)));
           await supabase.from("tokens").update({ x: point.x, y: point.y }).eq("id", token.id);
         },
-        onMapOffset: (point) => window.dispatchEvent(new CustomEvent("aq-map-offset", { detail: point })),
+        onMapOffset: (point) => {
+          window.dispatchEvent(new CustomEvent("aq-map-offset", { detail: point }));
+        },
         onCamera: setCamera,
       });
+
       const game = new Phaser.Game({
         type: Phaser.WEBGL,
         parent: parentRef.current,
@@ -478,10 +630,20 @@ export default function PhaserVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSe
         width: window.innerWidth,
         height: window.innerHeight,
         scene: SceneClass,
-        scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-        input: { activePointers: 3 },
-        render: { antialias: true, pixelArt: false, transparent: false },
+        scale: {
+          mode: Phaser.Scale.RESIZE,
+          autoCenter: Phaser.Scale.CENTER_BOTH,
+        },
+        input: {
+          activePointers: 3,
+        },
+        render: {
+          antialias: true,
+          pixelArt: false,
+          transparent: false,
+        },
       });
+
       gameRef.current = game;
       window.setTimeout(() => {
         const activeScene = game.scene.scenes[0] as unknown as SceneApi | undefined;
@@ -490,7 +652,9 @@ export default function PhaserVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSe
         activeScene.setState(stateRef.current);
       }, 0);
     };
+
     void boot();
+
     return () => {
       destroyed = true;
       sceneApiRef.current = null;
@@ -501,7 +665,8 @@ export default function PhaserVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSe
 
   useEffect(() => {
     if (!cenaId) return;
-    const carregarTokens = async () => {
+
+    const carregarDadosIniciais = async () => {
       try {
         const { data, error } = await supabase.from("tokens").select("*").eq("cena_id", cenaId);
         if (error) throw error;
@@ -512,18 +677,32 @@ export default function PhaserVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSe
         setCanvasError("Nao foi possivel carregar os tokens desta cena.");
       }
     };
-    void carregarTokens();
+
+    void carregarDadosIniciais();
+
     const channel = supabase
       .channel(`phaser_vtt_canvas_${cenaId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tokens", filter: `cena_id=eq.${cenaId}` }, (payload) => {
-        if (payload.eventType === "UPDATE") setTokens((prev) => prev.map((token) => (token.id === payload.new.id ? (payload.new as Token) : token)));
-        else if (payload.eventType === "INSERT") setTokens((prev) => [...prev.filter((token) => token.id !== payload.new.id), payload.new as Token]);
-        else if (payload.eventType === "DELETE") {
-          setTokens((prev) => prev.filter((token) => token.id !== payload.old.id));
-          if (selectedTokenId === payload.old.id) onSelectToken(null);
-        }
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tokens",
+          filter: `cena_id=eq.${cenaId}`,
+        },
+        (payload) => {
+          if (payload.eventType === "UPDATE") {
+            setTokens((prev) => prev.map((token) => (token.id === payload.new.id ? (payload.new as Token) : token)));
+          } else if (payload.eventType === "INSERT") {
+            setTokens((prev) => [...prev.filter((token) => token.id !== payload.new.id), payload.new as Token]);
+          } else if (payload.eventType === "DELETE") {
+            setTokens((prev) => prev.filter((token) => token.id !== payload.old.id));
+            if (selectedTokenId === payload.old.id) onSelectToken(null);
+          }
+        },
+      )
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
@@ -539,19 +718,60 @@ export default function PhaserVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSe
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ background: COLORS.bg }}>
       <div ref={parentRef} className="h-full w-full touch-none" />
-      {canvasError ? <div className="pointer-events-none fixed left-1/2 top-1/2 z-40 max-w-[80vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-center text-sm text-red-100 backdrop-blur-xl">{canvasError}</div> : null}
+
+      {canvasError ? (
+        <div className="pointer-events-none fixed left-1/2 top-1/2 z-40 max-w-[80vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-center text-sm text-red-100 backdrop-blur-xl">
+          {canvasError}
+        </div>
+      ) : null}
+
       <div className="pointer-events-none fixed left-1/2 top-[82px] z-50 flex w-[calc(100vw-0.75rem)] max-w-[560px] -translate-x-1/2 flex-col gap-2 md:top-[18px] md:w-auto md:min-w-[500px]">
         <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-[26px] border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] px-3 py-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.3)] backdrop-blur-xl md:rounded-full md:px-4 md:py-2">
           <div className="flex items-center gap-2.5">
-            <button onClick={() => sceneApiRef.current?.zoomBy(1.12)} className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5" title="Aproximar"><Plus size={18} /></button>
-            <button onClick={() => sceneApiRef.current?.zoomBy(0.88)} className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5" title="Afastar"><Minus size={18} /></button>
-            <button onClick={() => sceneApiRef.current?.resetCamera()} className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5" title="Recentralizar"><RotateCcw size={18} /></button>
+            <button
+              onClick={() => sceneApiRef.current?.zoomBy(1.12)}
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
+              title="Aproximar"
+            >
+              <Plus size={18} />
+            </button>
+            <button
+              onClick={() => sceneApiRef.current?.zoomBy(0.88)}
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
+              title="Afastar"
+            >
+              <Minus size={18} />
+            </button>
+            <button
+              onClick={() => sceneApiRef.current?.resetCamera()}
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
+              title="Recentralizar mapa"
+            >
+              <RotateCcw size={18} />
+            </button>
           </div>
+
           <div className="min-w-0 text-right">
-            <div className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] md:text-xs">{`Zoom ${Math.round(camera.zoom * 100)}%`}</div>
-            <div className="mt-1 line-clamp-2 text-right text-[9px] uppercase leading-relaxed tracking-[0.14em] text-[var(--aq-text-muted)] md:truncate md:text-[10px]">{hudInstruction}</div>
+            <div className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] md:text-xs">
+              {`Zoom ${Math.round(camera.zoom * 100)}%`}
+            </div>
+            <div className="mt-1 line-clamp-2 text-right text-[9px] uppercase leading-relaxed tracking-[0.14em] text-[var(--aq-text-muted)] md:truncate md:text-[10px]">
+              {hudInstruction}
+            </div>
           </div>
         </div>
+
+        {scenePreferences.toolMode === "measure" ? (
+          <button
+            className="pointer-events-auto rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(15,10,2,0.9)] px-4 py-3 text-[10px] uppercase tracking-[0.14em] text-amber-200 backdrop-blur-md md:text-xs md:tracking-[0.16em]"
+            onClick={() => sceneApiRef.current?.setTool("measure")}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <span>Medicao Phaser ativa</span>
+              <X size={14} />
+            </div>
+          </button>
+        ) : null}
       </div>
     </div>
   );
