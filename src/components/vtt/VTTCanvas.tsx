@@ -32,6 +32,12 @@ const COLORS = {
 const DEFAULT_CAMERA = { x: 0, y: 0, scale: 1 };
 
 type Point = { x: number; y: number };
+type CameraState = typeof DEFAULT_CAMERA;
+type ActiveGesture =
+  | { type: "map"; pointer: Point; offset: Point }
+  | { type: "camera"; pointer: Point; camera: CameraState }
+  | { type: "pinch"; center: Point; distance: number; camera: CameraState }
+  | { type: "token" };
 
 interface VTTCanvasProps {
   cenaId: string;
@@ -209,9 +215,8 @@ export default function VTTCanvas({
   scenePreferences,
 }: VTTCanvasProps) {
   const stageRef = useRef<any>(null);
-  const pinchCenterRef = useRef<Point | null>(null);
-  const pinchDistanceRef = useRef(0);
-  const mapGestureRef = useRef<{ pointer: Point; offset: Point } | null>(null);
+  const activeGestureRef = useRef<ActiveGesture | null>(null);
+  const gestureMovedRef = useRef(false);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [image] = useImage(mapaUrl || "");
@@ -271,7 +276,10 @@ export default function VTTCanvas({
   const effectiveMapHeight = mapFraming?.effectiveHeight ?? (image?.height || stageHeight) * scenePreferences.mapScale;
 
   useEffect(() => {
-    if (clampedSceneOffsets.x !== scenePreferences.mapOffsetX || clampedSceneOffsets.y !== scenePreferences.mapOffsetY) {
+    if (
+      clampedSceneOffsets.x !== scenePreferences.mapOffsetX ||
+      clampedSceneOffsets.y !== scenePreferences.mapOffsetY
+    ) {
       window.dispatchEvent(
         new CustomEvent("aq-map-offset", {
           detail: {
@@ -307,9 +315,8 @@ export default function VTTCanvas({
 
   useEffect(() => {
     setCamera(DEFAULT_CAMERA);
-    pinchCenterRef.current = null;
-    pinchDistanceRef.current = 0;
-    mapGestureRef.current = null;
+    activeGestureRef.current = null;
+    gestureMovedRef.current = false;
   }, [cenaId]);
 
   useEffect(() => {
@@ -386,6 +393,36 @@ export default function VTTCanvas({
     return { x: pointer.x, y: pointer.y };
   }, []);
 
+  const touchPoint = useCallback((touch: Touch): Point => {
+    const container = stageRef.current?.container?.();
+    const rect = container?.getBoundingClientRect?.();
+    return {
+      x: touch.clientX - (rect?.left ?? 0),
+      y: touch.clientY - (rect?.top ?? 0),
+    };
+  }, []);
+
+  const isTokenTarget = useCallback((target: any) => {
+    let node = target;
+    while (node) {
+      if (node?.name?.() === "aq-token") {
+        return true;
+      }
+      node = node?.getParent?.();
+    }
+    return false;
+  }, []);
+
+  const isMapSurface = useCallback(
+    (target: any) => {
+      if (isTokenTarget(target)) {
+        return false;
+      }
+      return target === target?.getStage?.() || target?.name?.() === "aq-map";
+    },
+    [isTokenTarget],
+  );
+
   const emitMapOffset = useCallback((x: number, y: number) => {
     window.dispatchEvent(
       new CustomEvent("aq-map-offset", {
@@ -397,15 +434,28 @@ export default function VTTCanvas({
     );
   }, []);
 
-  const beginMapGesture = useCallback((event: any) => {
-    if (scenePreferences.toolMode !== "map") {
+  const beginGesture = useCallback((event: any) => {
+    const touches: TouchList | undefined = event?.evt?.touches;
+    gestureMovedRef.current = false;
+
+    if (touches?.length === 2) {
+      event.evt.preventDefault();
+      const pointA = touchPoint(touches[0]);
+      const pointB = touchPoint(touches[1]);
+      activeGestureRef.current = {
+        type: "pinch",
+        center: {
+          x: (pointA.x + pointB.x) / 2,
+          y: (pointA.y + pointB.y) / 2,
+        },
+        distance: Math.hypot(pointB.x - pointA.x, pointB.y - pointA.y),
+        camera,
+      };
       return;
     }
 
-    const targetName = event?.target?.name?.() ?? "";
-    const isMapSurface = event?.target === event?.target?.getStage?.() || targetName === "aq-map";
-    if (!isMapSurface) {
-      mapGestureRef.current = null;
+    if (isTokenTarget(event?.target)) {
+      activeGestureRef.current = null;
       return;
     }
 
@@ -414,40 +464,71 @@ export default function VTTCanvas({
       return;
     }
 
-    mapGestureRef.current = {
-      pointer,
-      offset: {
-        x: clampedSceneOffsets.x,
-        y: clampedSceneOffsets.y,
-      },
-    };
-    onSelectToken(null);
-  }, [clampedSceneOffsets.x, clampedSceneOffsets.y, onSelectToken, scenePreferences.toolMode, screenPointer]);
-
-  const updateMapGesture = useCallback(() => {
-    if (scenePreferences.toolMode !== "map" || !mapGestureRef.current) {
-      return false;
-    }
-
-    const pointer = screenPointer();
-    if (!pointer) {
-      return false;
-    }
-
-    const deltaX = (pointer.x - mapGestureRef.current.pointer.x) / camera.scale;
-    const deltaY = (pointer.y - mapGestureRef.current.pointer.y) / camera.scale;
-    emitMapOffset(mapGestureRef.current.offset.x + deltaX, mapGestureRef.current.offset.y + deltaY);
-    return true;
-  }, [camera.scale, emitMapOffset, scenePreferences.toolMode, screenPointer]);
-
-  const finishMapGesture = useCallback(() => {
-    if (!mapGestureRef.current) {
+    if (scenePreferences.toolMode === "map" && isMapSurface(event?.target)) {
+      event.evt?.preventDefault?.();
+      activeGestureRef.current = {
+        type: "map",
+        pointer,
+        offset: {
+          x: clampedSceneOffsets.x,
+          y: clampedSceneOffsets.y,
+        },
+      };
+      onSelectToken(null);
       return;
     }
 
-    updateMapGesture();
-    mapGestureRef.current = null;
-  }, [updateMapGesture]);
+    if (scenePreferences.toolMode === "pan") {
+      event.evt?.preventDefault?.();
+      activeGestureRef.current = { type: "camera", pointer, camera };
+      onSelectToken(null);
+      return;
+    }
+
+    activeGestureRef.current = null;
+  }, [camera, clampedSceneOffsets.x, clampedSceneOffsets.y, isMapSurface, isTokenTarget, onSelectToken, scenePreferences.toolMode, screenPointer, touchPoint]);
+
+  const updateGesture = useCallback((pointer?: Point) => {
+    const gesture = activeGestureRef.current;
+    if (!gesture) {
+      return false;
+    }
+
+    const currentPointer = pointer ?? screenPointer();
+    if (!currentPointer) {
+      return false;
+    }
+
+    if (gesture.type === "map") {
+      const deltaX = (currentPointer.x - gesture.pointer.x) / camera.scale;
+      const deltaY = (currentPointer.y - gesture.pointer.y) / camera.scale;
+      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+        gestureMovedRef.current = true;
+      }
+      emitMapOffset(gesture.offset.x + deltaX, gesture.offset.y + deltaY);
+      return true;
+    }
+
+    if (gesture.type === "camera") {
+      const deltaX = currentPointer.x - gesture.pointer.x;
+      const deltaY = currentPointer.y - gesture.pointer.y;
+      if (Math.abs(deltaX) > 2 || Math.abs(deltaY) > 2) {
+        gestureMovedRef.current = true;
+      }
+      setCamera({
+        ...gesture.camera,
+        x: gesture.camera.x + deltaX,
+        y: gesture.camera.y + deltaY,
+      });
+      return true;
+    }
+
+    return false;
+  }, [camera.scale, emitMapOffset, screenPointer]);
+
+  const finishGesture = useCallback(() => {
+    activeGestureRef.current = null;
+  }, []);
 
   const snapPoint = useCallback(
     (point: Point) => {
@@ -496,6 +577,7 @@ export default function VTTCanvas({
 
   const handleDragEnd = useCallback(
     async (id: string, event: any) => {
+      event.cancelBubble = true;
       const baseX = event.target.x();
       const baseY = event.target.y();
       const newX = scenePreferences.snapToGrid ? Math.round(baseX / scenePreferences.gridSize) * scenePreferences.gridSize : baseX;
@@ -503,6 +585,7 @@ export default function VTTCanvas({
 
       setTokens((prev) => prev.map((token) => (token.id === id ? { ...token, x: newX, y: newY } : token)));
       await supabase.from("tokens").update({ x: newX, y: newY }).eq("id", id);
+      activeGestureRef.current = null;
     },
     [scenePreferences.gridSize, scenePreferences.snapToGrid],
   );
@@ -510,7 +593,9 @@ export default function VTTCanvas({
   const handleTokenDragStart = useCallback(
     (_token: Token, event: any) => {
       event.cancelBubble = true;
-      mapGestureRef.current = null;
+      event.evt?.preventDefault?.();
+      activeGestureRef.current = { type: "token" };
+      gestureMovedRef.current = true;
     },
     [],
   );
@@ -518,6 +603,7 @@ export default function VTTCanvas({
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
       event.cancelBubble = true;
+      event.evt?.preventDefault?.();
       if (scenePreferences.toolMode !== "select") {
         return;
       }
@@ -527,6 +613,11 @@ export default function VTTCanvas({
   );
 
   const handleStageClick = useCallback(() => {
+    if (gestureMovedRef.current) {
+      gestureMovedRef.current = false;
+      return;
+    }
+
     if (scenePreferences.toolMode === "measure") {
       const world = worldFromPointer();
       if (!world) {
@@ -552,7 +643,7 @@ export default function VTTCanvas({
   }, [measureStart, onSelectToken, scenePreferences.toolMode, snapPoint, worldFromPointer]);
 
   const handleStageMouseMove = useCallback(() => {
-    if (updateMapGesture()) {
+    if (updateGesture()) {
       return;
     }
 
@@ -566,64 +657,55 @@ export default function VTTCanvas({
     }
 
     setMeasureEnd(snapPoint(world));
-  }, [measureStart, scenePreferences.toolMode, snapPoint, updateMapGesture, worldFromPointer]);
+  }, [measureStart, scenePreferences.toolMode, snapPoint, updateGesture, worldFromPointer]);
 
   const handleTouchMove = useCallback(
     (event: any) => {
       const touches = event.evt.touches;
       if (touches.length === 2) {
         event.evt.preventDefault();
-        mapGestureRef.current = null;
 
-        const pointA = { x: touches[0].clientX, y: touches[0].clientY };
-        const pointB = { x: touches[1].clientX, y: touches[1].clientY };
+        const pointA = touchPoint(touches[0]);
+        const pointB = touchPoint(touches[1]);
         const center = {
           x: (pointA.x + pointB.x) / 2,
           y: (pointA.y + pointB.y) / 2,
         };
         const distance = Math.hypot(pointB.x - pointA.x, pointB.y - pointA.y);
 
-        if (!pinchCenterRef.current || !pinchDistanceRef.current) {
-          pinchCenterRef.current = center;
-          pinchDistanceRef.current = distance;
+        if (activeGestureRef.current?.type !== "pinch") {
+          activeGestureRef.current = { type: "pinch", center, distance, camera };
           return;
         }
 
-        setCamera((current) => {
-          const scaleBy = distance / pinchDistanceRef.current;
-          const nextScale = clamp(current.scale * scaleBy, 0.4, 2.8);
-          const worldX = (center.x - current.x) / current.scale;
-          const worldY = (center.y - current.y) / current.scale;
-          const deltaX = center.x - pinchCenterRef.current!.x;
-          const deltaY = center.y - pinchCenterRef.current!.y;
+        const gesture = activeGestureRef.current;
+        const scaleBy = distance / gesture.distance;
+        const nextScale = clamp(gesture.camera.scale * scaleBy, 0.4, 2.8);
+        const worldX = (gesture.center.x - gesture.camera.x) / gesture.camera.scale;
+        const worldY = (gesture.center.y - gesture.camera.y) / gesture.camera.scale;
 
-          return {
-            scale: nextScale,
-            x: center.x - worldX * nextScale + deltaX,
-            y: center.y - worldY * nextScale + deltaY,
-          };
+        gestureMovedRef.current = true;
+        setCamera({
+          scale: nextScale,
+          x: center.x - worldX * nextScale,
+          y: center.y - worldY * nextScale,
         });
-
-        pinchCenterRef.current = center;
-        pinchDistanceRef.current = distance;
         return;
       }
 
-      if (touches.length === 1 && updateMapGesture()) {
+      if (touches.length === 1 && updateGesture(touchPoint(touches[0]))) {
         event.evt.preventDefault();
         return;
       }
 
       handleStageMouseMove();
     },
-    [handleStageMouseMove, updateMapGesture],
+    [camera, handleStageMouseMove, touchPoint, updateGesture],
   );
 
-  const clearPinch = useCallback(() => {
-    pinchCenterRef.current = null;
-    pinchDistanceRef.current = 0;
-    finishMapGesture();
-  }, [finishMapGesture]);
+  const clearGesture = useCallback(() => {
+    finishGesture();
+  }, [finishGesture]);
 
   const gridLines = useMemo(() => {
     if (!scenePreferences.showGrid) {
@@ -691,18 +773,17 @@ export default function VTTCanvas({
         y={camera.y}
         scaleX={camera.scale}
         scaleY={camera.scale}
-        draggable={scenePreferences.toolMode === "pan"}
-        onDragEnd={(event) => setCamera((current) => ({ ...current, x: event.target.x(), y: event.target.y() }))}
-        onMouseDown={beginMapGesture}
-        onMouseUp={finishMapGesture}
-        onMouseLeave={finishMapGesture}
-        onTouchStart={beginMapGesture}
+        draggable={false}
+        onMouseDown={beginGesture}
+        onMouseUp={finishGesture}
+        onMouseLeave={finishGesture}
+        onTouchStart={beginGesture}
         onClick={handleStageClick}
         onTap={handleStageClick}
         onMouseMove={handleStageMouseMove}
         onTouchMove={handleTouchMove}
-        onTouchEnd={clearPinch}
-        onTouchCancel={clearPinch}
+        onTouchEnd={clearGesture}
+        onTouchCancel={clearGesture}
         onWheel={handleWheel}
       >
         <Layer>
@@ -715,7 +796,7 @@ export default function VTTCanvas({
               width={effectiveMapWidth}
               height={effectiveMapHeight}
               opacity={0.96}
-              listening
+              listening={scenePreferences.toolMode === "map"}
             />
           ) : (
             <KonvaText
@@ -740,7 +821,7 @@ export default function VTTCanvas({
                 ficha={ficha}
                 isSelected={selectedTokenId === token.id}
                 size={tokenSize}
-                draggable={scenePreferences.toolMode !== "measure" && scenePreferences.toolMode !== "pan"}
+                draggable={scenePreferences.toolMode === "select"}
                 onDragStart={(event) => handleTokenDragStart(token, event)}
                 onDragEnd={(event) => handleDragEnd(token.id, event)}
                 onClick={(event) => handleTokenClick(token, event)}
