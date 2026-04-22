@@ -8,8 +8,8 @@ export function useTokenFichaSync(fichaIds: string[]): Record<string, FichaVTTSn
   const [fichasMap, setFichasMap] = useState<Record<string, FichaVTTSnapshot>>({});
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const validIds = useMemo(() => fichaIds.filter(Boolean), [fichaIds]);
-  const idsKey = useMemo(() => [...validIds].sort().join(","), [validIds]);
+  const idsKey = useMemo(() => Array.from(new Set(fichaIds.filter(Boolean))).sort().join(","), [fichaIds]);
+  const validIds = useMemo(() => (idsKey ? idsKey.split(",") : []), [idsKey]);
 
   useEffect(() => {
     if (validIds.length === 0) {
@@ -17,14 +17,19 @@ export function useTokenFichaSync(fichaIds: string[]): Record<string, FichaVTTSn
       return;
     }
 
+    let active = true;
+
     const fetchFichas = async () => {
       const { data, error } = await supabase
         .from("fichas")
         .select("id, nome_personagem, sistema_preset, avatar_url, dados")
         .in("id", validIds);
 
+      if (!active) return;
+
       if (error) {
-        console.error("[useTokenFichaSync] Fetch error:", error.message);
+        console.error("[useTokenFichaSync] Fetch error:", error);
+        setFichasMap({});
         return;
       }
 
@@ -35,7 +40,7 @@ export function useTokenFichaSync(fichaIds: string[]): Record<string, FichaVTTSn
       setFichasMap(nextMap);
     };
 
-    fetchFichas();
+    void fetchFichas();
 
     if (channelRef.current) {
       supabase.removeChannel(channelRef.current);
@@ -49,19 +54,14 @@ export function useTokenFichaSync(fichaIds: string[]): Record<string, FichaVTTSn
         { event: "UPDATE", schema: "public", table: "fichas" },
         (payload) => {
           const updated = payload.new as FichaVTTSnapshot;
-          if (!validIds.includes(updated.id)) {
-            return;
-          }
-
-          setFichasMap((prev) => ({
-            ...prev,
-            [updated.id]: updated,
-          }));
+          if (!validIds.includes(updated.id)) return;
+          setFichasMap((prev) => ({ ...prev, [updated.id]: updated }));
         },
       )
       .subscribe();
 
     return () => {
+      active = false;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
