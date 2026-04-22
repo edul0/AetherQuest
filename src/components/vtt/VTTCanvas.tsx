@@ -63,6 +63,7 @@ function AvatarToken({
   size,
   draggable,
   onDragEnd,
+  onDragStart,
   onClick,
 }: {
   token: Token;
@@ -71,6 +72,7 @@ function AvatarToken({
   size: number;
   draggable: boolean;
   onDragEnd: (event: any) => void;
+  onDragStart: (event: any) => void;
   onClick: (event: any) => void;
 }) {
   const [avatar] = useImage(ficha?.avatar_url || "");
@@ -80,22 +82,32 @@ function AvatarToken({
   const hpColor = hpRatio === null ? COLORS.hpHigh : hpRatio > 0.5 ? COLORS.hpHigh : hpRatio > 0.25 ? COLORS.hpMid : COLORS.hpLow;
 
   const radius = size * 0.42;
-  const cx = token.x + size / 2;
-  const cy = token.y + size / 2;
+  const cx = size / 2;
+  const cy = size / 2;
   const barW = size * 0.9;
   const barH = 4;
-  const barX = token.x + (size - barW) / 2;
-  const barY = token.y + size + 5;
+  const barX = (size - barW) / 2;
+  const barY = size + 5;
+  const isDead = (vida?.atual ?? 1) <= 0;
   const avatarInset = 5;
   const avatarSize = size - avatarInset * 2;
-  const isDead = (vida?.atual ?? 1) <= 0;
 
   return (
-    <Group onClick={onClick} onTap={onClick}>
+    <Group
+      x={token.x}
+      y={token.y}
+      name="aq-token"
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onClick={onClick}
+      onTap={onClick}
+      hitStrokeWidth={24}
+    >
       {isSelected ? (
         <>
-          <Circle x={cx} y={cy} radius={radius + 7} stroke={COLORS.selectionRing} strokeWidth={1.7} dash={[6, 3]} opacity={0.9} />
-          <Circle x={cx} y={cy} radius={radius + 12} stroke={COLORS.selectionRing} strokeWidth={0.6} opacity={0.3} />
+          <Circle x={cx} y={cy} radius={radius + 6} stroke={COLORS.selectionRing} strokeWidth={1.5} dash={[6, 3]} opacity={0.9} />
+          <Circle x={cx} y={cy} radius={radius + 10} stroke={COLORS.selectionRing} strokeWidth={0.5} opacity={0.3} />
         </>
       ) : null}
 
@@ -104,11 +116,9 @@ function AvatarToken({
         y={cy}
         radius={radius}
         fill={isDead ? "#6b7280" : token.cor || "#ef4444"}
-        draggable={draggable}
-        onDragEnd={onDragEnd}
-        shadowBlur={isSelected ? 24 : 12}
+        shadowBlur={isSelected ? 24 : 10}
         shadowColor={isSelected ? COLORS.selectionRing : token.cor || "#ef4444"}
-        shadowOpacity={isSelected ? 0.72 : 0.46}
+        shadowOpacity={isSelected ? 0.7 : 0.4}
         opacity={isDead ? 0.65 : 1}
       />
 
@@ -119,16 +129,16 @@ function AvatarToken({
             context.arc(cx, cy, radius - 2, 0, Math.PI * 2, false);
           }}
         >
-          <KonvaImage image={avatar} x={token.x + avatarInset} y={token.y + avatarInset} width={avatarSize} height={avatarSize} opacity={isDead ? 0.45 : 0.96} />
+          <KonvaImage image={avatar} x={avatarInset} y={avatarInset} width={avatarSize} height={avatarSize} opacity={isDead ? 0.45 : 0.96} />
         </Group>
       ) : (
         <KonvaText
-          x={token.x + 8}
+          x={8}
           y={cy - 8}
           width={size - 16}
           text={token.nome.slice(0, 2).toUpperCase()}
           fontSize={size >= 68 ? 15 : 13}
-          fill="rgba(255,255,255,0.88)"
+          fill="rgba(255,255,255,0.85)"
           align="center"
           fontStyle="bold"
           listening={false}
@@ -136,11 +146,18 @@ function AvatarToken({
       )}
 
       {ficha ? (
-        <KonvaText x={cx - 5} y={cy - 5} text={isDead ? "X" : "+"} fontSize={10} fill="rgba(255,255,255,0.75)" listening={false} />
+        <KonvaText
+          x={cx - 5}
+          y={cy - 5}
+          text={isDead ? "X" : "+"}
+          fontSize={10}
+          fill="rgba(255,255,255,0.75)"
+          listening={false}
+        />
       ) : null}
 
       <KonvaText
-        x={token.x - 10}
+        x={-10}
         y={cy + radius + 4}
         width={size + 20}
         text={token.nome}
@@ -153,7 +170,17 @@ function AvatarToken({
 
       {hpRatio !== null ? (
         <>
-          <Rect x={barX} y={barY} width={barW} height={barH} fill={COLORS.hpBarBg} cornerRadius={2} stroke="#1a2b4c" strokeWidth={0.5} listening={false} />
+          <Rect
+            x={barX}
+            y={barY}
+            width={barW}
+            height={barH}
+            fill={COLORS.hpBarBg}
+            cornerRadius={2}
+            stroke="#1a2b4c"
+            strokeWidth={0.5}
+            listening={false}
+          />
           <Rect x={barX} y={barY} width={barW * hpRatio} height={barH} fill={hpColor} cornerRadius={2} listening={false} />
           <KonvaText
             x={barX}
@@ -370,8 +397,15 @@ export default function VTTCanvas({
     );
   }, []);
 
-  const beginMapGesture = useCallback(() => {
+  const beginMapGesture = useCallback((event: any) => {
     if (scenePreferences.toolMode !== "map") {
+      return;
+    }
+
+    const targetName = event?.target?.name?.() ?? "";
+    const isMapSurface = event?.target === event?.target?.getStage?.() || targetName === "aq-map";
+    if (!isMapSurface) {
+      mapGestureRef.current = null;
       return;
     }
 
@@ -473,10 +507,19 @@ export default function VTTCanvas({
     [scenePreferences.gridSize, scenePreferences.snapToGrid],
   );
 
+  const handleTokenDragStart = useCallback(
+    (token: Token, event: any) => {
+      event.cancelBubble = true;
+      mapGestureRef.current = null;
+      onSelectToken(token);
+    },
+    [onSelectToken],
+  );
+
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
       event.cancelBubble = true;
-      if (scenePreferences.toolMode === "measure" || scenePreferences.toolMode === "map") {
+      if (scenePreferences.toolMode === "measure") {
         return;
       }
       onSelectToken(selectedTokenId === token.id ? null : token);
@@ -666,6 +709,7 @@ export default function VTTCanvas({
         <Layer>
           {image ? (
             <KonvaImage
+              name="aq-map"
               image={image}
               x={effectiveMapOffsetX}
               y={effectiveMapOffsetY}
@@ -697,7 +741,8 @@ export default function VTTCanvas({
                 ficha={ficha}
                 isSelected={selectedTokenId === token.id}
                 size={tokenSize}
-                draggable={scenePreferences.toolMode === "select"}
+                draggable={scenePreferences.toolMode !== "measure" && scenePreferences.toolMode !== "pan"}
+                onDragStart={(event) => handleTokenDragStart(token, event)}
                 onDragEnd={(event) => handleDragEnd(token.id, event)}
                 onClick={(event) => handleTokenClick(token, event)}
               />
