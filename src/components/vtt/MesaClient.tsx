@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Cinzel, Inter } from "next/font/google";
-import { ArrowLeft, Crosshair, Eye, KeyRound, Layers3, Link2, Menu, Plus, ScrollText, Sparkles, Users, X } from "lucide-react";
+import { ArrowLeft, Crosshair, Eye, KeyRound, Layers3, Link2, Menu, Plus, ScrollText, Sparkles, Trash2, Users, X } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { DEFAULT_SCENE_VIEW_PREFERENCES, normalizeScenePreferences } from "@/src/lib/vttScenePreferences";
@@ -392,6 +392,31 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     setSalas((current) => current.map((sala) => (sala.id === data.id ? (data as Sala) : sala)));
   };
 
+  const excluirSala = async (sala: Sala) => {
+    const confirmar = window.confirm(`Excluir a sessao "${sala.nome}"? Cenas e tokens dessa sessao tambem serao removidos.`);
+    if (!confirmar) return;
+
+    await runFresh(() => supabase.from("tokens").delete().eq("sala", sala.id));
+    await runFresh(() => supabase.from("cenas").delete().eq("sala_id", sala.id));
+    await runFresh(() => supabase.from("sala_membros").delete().eq("sala_id", sala.id)).catch(() => ({ data: null, error: null }));
+
+    const { error } = await runFresh(() => supabase.from("salas").delete().eq("id", sala.id));
+    if (error) {
+      alert(`Falha ao excluir sessao: ${error.message}`);
+      return;
+    }
+
+    setSalas((current) => current.filter((entry) => entry.id !== sala.id));
+    if (salaAtiva?.id === sala.id) {
+      setSalaAtiva(null);
+      setCenaAtiva(null);
+      setCenas([]);
+      setTokens([]);
+      setSelectedToken(null);
+      setRoomNameDraft("");
+    }
+  };
+
   const criarCena = async () => {
     if (!salaAtiva?.id) return;
     const activeSala = await claimSalaIfNeeded(salaAtiva);
@@ -481,7 +506,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
           <VTTCanvas cenaId={cenaAtiva.id} mapaUrl={cenaAtiva.mapa_url ?? undefined} selectedTokenId={selectedToken?.id ?? null} onSelectToken={setSelectedToken} onFichasMapChange={setFichasMap} onTokensChange={setTokens} scenePreferences={scenePreferences} />
           <SceneNav salaId={salaAtiva.id} onSelectCena={setCenaAtiva} cenaAtivaId={cenaAtiva.id} />
           {role === "mestre" ? <VTTControls cenaId={cenaAtiva.id} salaId={salaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} /> : null}
-          <TokenPanel token={selectedToken} fichaData={fichaSelecionada} onClose={() => setSelectedToken(null)} onTokenUpdate={setSelectedToken} />
+          <TokenPanel token={selectedToken} fichaData={fichaSelecionada} salaId={salaAtiva.id} onClose={() => setSelectedToken(null)} onTokenUpdate={setSelectedToken} />
           <Chat salaId={salaAtiva.id} />
         </>
       ) : null}
@@ -519,10 +544,10 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
             <div className="mt-6 space-y-4">
               <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                 <div className="flex items-center justify-between gap-3"><div><div className="aq-kicker">Sessoes</div><p className="mt-2 text-sm text-[var(--aq-text-muted)]">Crie ou escolha uma sessao. Cada uma gera um codigo curto.</p></div><button onClick={criarSala} className="aq-button-primary"><Plus size={14} /> Nova sessao</button></div>
-                <div className="mt-4 flex flex-wrap gap-2">{salas.map((sala) => <button key={sala.id} onClick={() => setSalaAtiva(sala)} className={salaAtiva?.id === sala.id ? "aq-button-primary" : "aq-button-secondary"}>{sala.nome}</button>)}</div>
+                <div className="mt-4 grid gap-2">{salas.map((sala) => <div key={sala.id} className={`flex items-center gap-2 rounded-2xl border px-2 py-2 ${salaAtiva?.id === sala.id ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.1)]" : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.54)]"}`}><button onClick={() => setSalaAtiva(sala)} className="min-w-0 flex-1 text-left"><div className="truncate text-[11px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)]">{sala.nome}</div><div className="mt-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-accent)]">{roomCode(sala.id)}</div></button><button onClick={() => setSalaAtiva(sala)} className="rounded-full border border-[var(--aq-border)] px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-[var(--aq-text-muted)]">Editar</button><button onClick={() => void excluirSala(sala)} className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-200 transition hover:bg-red-500/20" aria-label={`Excluir ${sala.nome}`}><Trash2 size={13} /></button></div>)}</div>
               </div>
 
-              {salaAtiva ? <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4"><div className="aq-kicker">Sessao ativa</div><input value={roomNameDraft} onChange={(event) => setRoomNameDraft(event.target.value)} className="aq-input mt-3" placeholder="Nome da sessao" /><div className="mt-3 rounded-2xl border border-[var(--aq-border)] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Codigo da sala</div><div className="mt-2 text-2xl font-black text-[var(--aq-title)]">{roomCode(salaAtiva.id)}</div></div><div className="mt-3 flex flex-wrap gap-3"><button onClick={renomearSala} className="aq-button-secondary"><ScrollText size={14} /> Salvar nome</button><button onClick={copyInvite} className="aq-button-secondary"><Link2 size={14} /> {copiedInvite ? "Copiado" : "Copiar link"}</button></div></div> : null}
+              {salaAtiva ? <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4"><div className="flex items-center justify-between gap-3"><div className="aq-kicker">Sessao ativa</div><button onClick={() => void excluirSala(salaAtiva)} className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-red-200 transition hover:bg-red-500/20"><Trash2 size={13} /> Excluir</button></div><input value={roomNameDraft} onChange={(event) => setRoomNameDraft(event.target.value)} className="aq-input mt-3" placeholder="Nome da sessao" /><div className="mt-3 rounded-2xl border border-[var(--aq-border)] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Codigo da sala</div><div className="mt-2 text-2xl font-black text-[var(--aq-title)]">{roomCode(salaAtiva.id)}</div></div><div className="mt-3 flex flex-wrap gap-3"><button onClick={renomearSala} className="aq-button-secondary"><ScrollText size={14} /> Salvar nome</button><button onClick={copyInvite} className="aq-button-secondary"><Link2 size={14} /> {copiedInvite ? "Copiado" : "Copiar link"}</button></div></div> : null}
 
               <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Layers3 className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{cenas.length}</div><div className="aq-kicker mt-1">Cenas</div></div><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Crosshair className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{tokens.length}</div><div className="aq-kicker mt-1">Tokens</div></div><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Sparkles className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-sm font-black">{cenaAtiva?.mapa_url ? "Online" : "Sem mapa"}</div><div className="aq-kicker mt-1">Mapa</div></div></div>
 
