@@ -60,6 +60,7 @@ function AvatarToken({
   token,
   ficha,
   isSelected,
+  size,
   draggable,
   onDragEnd,
   onClick,
@@ -67,6 +68,7 @@ function AvatarToken({
   token: Token;
   ficha: FichaVTTSnapshot | null;
   isSelected: boolean;
+  size: number;
   draggable: boolean;
   onDragEnd: (event: any) => void;
   onClick: (event: any) => void;
@@ -77,21 +79,23 @@ function AvatarToken({
   const hpRatio = vida ? Math.max(0, Math.min(1, vida.atual / (vida.max || 1))) : null;
   const hpColor = hpRatio === null ? COLORS.hpHigh : hpRatio > 0.5 ? COLORS.hpHigh : hpRatio > 0.25 ? COLORS.hpMid : COLORS.hpLow;
 
-  const radius = 21;
-  const cx = token.x + 25;
-  const cy = token.y + 25;
-  const barW = 46;
+  const radius = size * 0.42;
+  const cx = token.x + size / 2;
+  const cy = token.y + size / 2;
+  const barW = size * 0.9;
   const barH = 4;
-  const barX = token.x + 2;
-  const barY = token.y + 55;
+  const barX = token.x + (size - barW) / 2;
+  const barY = token.y + size + 5;
+  const avatarInset = 5;
+  const avatarSize = size - avatarInset * 2;
   const isDead = (vida?.atual ?? 1) <= 0;
 
   return (
     <Group onClick={onClick} onTap={onClick}>
       {isSelected ? (
         <>
-          <Circle x={cx} y={cy} radius={radius + 6} stroke={COLORS.selectionRing} strokeWidth={1.5} dash={[6, 3]} opacity={0.9} />
-          <Circle x={cx} y={cy} radius={radius + 10} stroke={COLORS.selectionRing} strokeWidth={0.5} opacity={0.3} />
+          <Circle x={cx} y={cy} radius={radius + 7} stroke={COLORS.selectionRing} strokeWidth={1.7} dash={[6, 3]} opacity={0.9} />
+          <Circle x={cx} y={cy} radius={radius + 12} stroke={COLORS.selectionRing} strokeWidth={0.6} opacity={0.3} />
         </>
       ) : null}
 
@@ -102,9 +106,9 @@ function AvatarToken({
         fill={isDead ? "#6b7280" : token.cor || "#ef4444"}
         draggable={draggable}
         onDragEnd={onDragEnd}
-        shadowBlur={isSelected ? 24 : 10}
+        shadowBlur={isSelected ? 24 : 12}
         shadowColor={isSelected ? COLORS.selectionRing : token.cor || "#ef4444"}
-        shadowOpacity={isSelected ? 0.7 : 0.4}
+        shadowOpacity={isSelected ? 0.72 : 0.46}
         opacity={isDead ? 0.65 : 1}
       />
 
@@ -115,16 +119,16 @@ function AvatarToken({
             context.arc(cx, cy, radius - 2, 0, Math.PI * 2, false);
           }}
         >
-          <KonvaImage image={avatar} x={token.x + 4} y={token.y + 4} width={42} height={42} opacity={isDead ? 0.45 : 0.96} />
+          <KonvaImage image={avatar} x={token.x + avatarInset} y={token.y + avatarInset} width={avatarSize} height={avatarSize} opacity={isDead ? 0.45 : 0.96} />
         </Group>
       ) : (
         <KonvaText
           x={token.x + 8}
-          y={token.y + 15}
-          width={34}
+          y={cy - 8}
+          width={size - 16}
           text={token.nome.slice(0, 2).toUpperCase()}
-          fontSize={12}
-          fill="rgba(255,255,255,0.85)"
+          fontSize={size >= 68 ? 15 : 13}
+          fill="rgba(255,255,255,0.88)"
           align="center"
           fontStyle="bold"
           listening={false}
@@ -132,22 +136,15 @@ function AvatarToken({
       )}
 
       {ficha ? (
-        <KonvaText
-          x={cx - 5}
-          y={cy - 5}
-          text={isDead ? "X" : "+"}
-          fontSize={10}
-          fill="rgba(255,255,255,0.75)"
-          listening={false}
-        />
+        <KonvaText x={cx - 5} y={cy - 5} text={isDead ? "X" : "+"} fontSize={10} fill="rgba(255,255,255,0.75)" listening={false} />
       ) : null}
 
       <KonvaText
-        x={token.x - 5}
+        x={token.x - 10}
         y={cy + radius + 4}
-        width={60}
+        width={size + 20}
         text={token.nome}
-        fontSize={9}
+        fontSize={size >= 68 ? 10 : 9}
         fill={isDead ? "#9ca3af" : COLORS.tokenLabel}
         align="center"
         fontFamily="monospace"
@@ -156,24 +153,14 @@ function AvatarToken({
 
       {hpRatio !== null ? (
         <>
-          <Rect
-            x={barX}
-            y={barY}
-            width={barW}
-            height={barH}
-            fill={COLORS.hpBarBg}
-            cornerRadius={2}
-            stroke="#1a2b4c"
-            strokeWidth={0.5}
-            listening={false}
-          />
+          <Rect x={barX} y={barY} width={barW} height={barH} fill={COLORS.hpBarBg} cornerRadius={2} stroke="#1a2b4c" strokeWidth={0.5} listening={false} />
           <Rect x={barX} y={barY} width={barW * hpRatio} height={barH} fill={hpColor} cornerRadius={2} listening={false} />
           <KonvaText
             x={barX}
             y={barY + barH + 2}
             width={barW}
             text={`${vida!.atual}/${vida!.max}`}
-            fontSize={7}
+            fontSize={size >= 68 ? 8 : 7}
             fill={hpColor}
             align="center"
             fontFamily="monospace"
@@ -197,7 +184,7 @@ export default function VTTCanvas({
   const stageRef = useRef<any>(null);
   const pinchCenterRef = useRef<Point | null>(null);
   const pinchDistanceRef = useRef(0);
-  const mapDragStartRef = useRef<Point | null>(null);
+  const mapGestureRef = useRef<{ pointer: Point; offset: Point } | null>(null);
   const [tokens, setTokens] = useState<Token[]>([]);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [image] = useImage(mapaUrl || "");
@@ -210,6 +197,7 @@ export default function VTTCanvas({
   const fichasMap = useTokenFichaSync(fichaIds);
   const stageHeight = Math.max(windowSize.h, 320);
   const isMobile = windowSize.w < 768;
+  const tokenSize = isMobile ? 74 : 62;
 
   const mapFraming = useMemo(() => {
     if (!image?.width || !image?.height) {
@@ -256,10 +244,7 @@ export default function VTTCanvas({
   const effectiveMapHeight = mapFraming?.effectiveHeight ?? (image?.height || stageHeight) * scenePreferences.mapScale;
 
   useEffect(() => {
-    if (
-      clampedSceneOffsets.x !== scenePreferences.mapOffsetX ||
-      clampedSceneOffsets.y !== scenePreferences.mapOffsetY
-    ) {
+    if (clampedSceneOffsets.x !== scenePreferences.mapOffsetX || clampedSceneOffsets.y !== scenePreferences.mapOffsetY) {
       window.dispatchEvent(
         new CustomEvent("aq-map-offset", {
           detail: {
@@ -297,7 +282,7 @@ export default function VTTCanvas({
     setCamera(DEFAULT_CAMERA);
     pinchCenterRef.current = null;
     pinchDistanceRef.current = 0;
-    mapDragStartRef.current = null;
+    mapGestureRef.current = null;
   }, [cenaId]);
 
   useEffect(() => {
@@ -364,6 +349,72 @@ export default function VTTCanvas({
     };
   }, [camera]);
 
+  const screenPointer = useCallback(() => {
+    const stage = stageRef.current;
+    const pointer = stage?.getPointerPosition();
+    if (!stage || !pointer) {
+      return null;
+    }
+
+    return { x: pointer.x, y: pointer.y };
+  }, []);
+
+  const emitMapOffset = useCallback((x: number, y: number) => {
+    window.dispatchEvent(
+      new CustomEvent("aq-map-offset", {
+        detail: {
+          x: Number(x.toFixed(0)),
+          y: Number(y.toFixed(0)),
+        },
+      }),
+    );
+  }, []);
+
+  const beginMapGesture = useCallback(() => {
+    if (scenePreferences.toolMode !== "map") {
+      return;
+    }
+
+    const pointer = screenPointer();
+    if (!pointer) {
+      return;
+    }
+
+    mapGestureRef.current = {
+      pointer,
+      offset: {
+        x: clampedSceneOffsets.x,
+        y: clampedSceneOffsets.y,
+      },
+    };
+    onSelectToken(null);
+  }, [clampedSceneOffsets.x, clampedSceneOffsets.y, onSelectToken, scenePreferences.toolMode, screenPointer]);
+
+  const updateMapGesture = useCallback(() => {
+    if (scenePreferences.toolMode !== "map" || !mapGestureRef.current) {
+      return false;
+    }
+
+    const pointer = screenPointer();
+    if (!pointer) {
+      return false;
+    }
+
+    const deltaX = (pointer.x - mapGestureRef.current.pointer.x) / camera.scale;
+    const deltaY = (pointer.y - mapGestureRef.current.pointer.y) / camera.scale;
+    emitMapOffset(mapGestureRef.current.offset.x + deltaX, mapGestureRef.current.offset.y + deltaY);
+    return true;
+  }, [camera.scale, emitMapOffset, scenePreferences.toolMode, screenPointer]);
+
+  const finishMapGesture = useCallback(() => {
+    if (!mapGestureRef.current) {
+      return;
+    }
+
+    updateMapGesture();
+    mapGestureRef.current = null;
+  }, [updateMapGesture]);
+
   const snapPoint = useCallback(
     (point: Point) => {
       if (!scenePreferences.snapToGrid) {
@@ -422,39 +473,10 @@ export default function VTTCanvas({
     [scenePreferences.gridSize, scenePreferences.snapToGrid],
   );
 
-  const handleMapDragStart = useCallback((event: any) => {
-    mapDragStartRef.current = {
-      x: event.target.x(),
-      y: event.target.y(),
-    };
-  }, []);
-
-  const handleMapDragEnd = useCallback(
-    (event: any) => {
-      onSelectToken(null);
-
-      const dragStart = mapDragStartRef.current ?? { x: effectiveMapOffsetX, y: effectiveMapOffsetY };
-      const deltaX = event.target.x() - dragStart.x;
-      const deltaY = event.target.y() - dragStart.y;
-      const nextX = Number((clampedSceneOffsets.x + deltaX).toFixed(0));
-      const nextY = Number((clampedSceneOffsets.y + deltaY).toFixed(0));
-
-      mapDragStartRef.current = null;
-      event.target.position({ x: effectiveMapOffsetX, y: effectiveMapOffsetY });
-
-      window.dispatchEvent(
-        new CustomEvent("aq-map-offset", {
-          detail: { x: nextX, y: nextY },
-        }),
-      );
-    },
-    [clampedSceneOffsets.x, clampedSceneOffsets.y, effectiveMapOffsetX, effectiveMapOffsetY, onSelectToken],
-  );
-
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
       event.cancelBubble = true;
-      if (scenePreferences.toolMode === "measure") {
+      if (scenePreferences.toolMode === "measure" || scenePreferences.toolMode === "map") {
         return;
       }
       onSelectToken(selectedTokenId === token.id ? null : token);
@@ -488,6 +510,10 @@ export default function VTTCanvas({
   }, [measureStart, onSelectToken, scenePreferences.toolMode, snapPoint, worldFromPointer]);
 
   const handleStageMouseMove = useCallback(() => {
+    if (updateMapGesture()) {
+      return;
+    }
+
     if (scenePreferences.toolMode !== "measure" || !measureStart) {
       return;
     }
@@ -498,13 +524,14 @@ export default function VTTCanvas({
     }
 
     setMeasureEnd(snapPoint(world));
-  }, [measureStart, scenePreferences.toolMode, snapPoint, worldFromPointer]);
+  }, [measureStart, scenePreferences.toolMode, snapPoint, updateMapGesture, worldFromPointer]);
 
   const handleTouchMove = useCallback(
     (event: any) => {
       const touches = event.evt.touches;
       if (touches.length === 2) {
         event.evt.preventDefault();
+        mapGestureRef.current = null;
 
         const pointA = { x: touches[0].clientX, y: touches[0].clientY };
         const pointB = { x: touches[1].clientX, y: touches[1].clientY };
@@ -540,15 +567,21 @@ export default function VTTCanvas({
         return;
       }
 
+      if (touches.length === 1 && updateMapGesture()) {
+        event.evt.preventDefault();
+        return;
+      }
+
       handleStageMouseMove();
     },
-    [handleStageMouseMove],
+    [handleStageMouseMove, updateMapGesture],
   );
 
   const clearPinch = useCallback(() => {
     pinchCenterRef.current = null;
     pinchDistanceRef.current = 0;
-  }, []);
+    finishMapGesture();
+  }, [finishMapGesture]);
 
   const gridLines = useMemo(() => {
     if (!scenePreferences.showGrid) {
@@ -618,6 +651,10 @@ export default function VTTCanvas({
         scaleY={camera.scale}
         draggable={scenePreferences.toolMode === "pan"}
         onDragEnd={(event) => setCamera((current) => ({ ...current, x: event.target.x(), y: event.target.y() }))}
+        onMouseDown={beginMapGesture}
+        onMouseUp={finishMapGesture}
+        onMouseLeave={finishMapGesture}
+        onTouchStart={beginMapGesture}
         onClick={handleStageClick}
         onTap={handleStageClick}
         onMouseMove={handleStageMouseMove}
@@ -635,9 +672,7 @@ export default function VTTCanvas({
               width={effectiveMapWidth}
               height={effectiveMapHeight}
               opacity={0.96}
-              draggable={scenePreferences.toolMode === "map"}
-              onDragStart={handleMapDragStart}
-              onDragEnd={handleMapDragEnd}
+              listening
             />
           ) : (
             <KonvaText
@@ -661,7 +696,8 @@ export default function VTTCanvas({
                 token={token}
                 ficha={ficha}
                 isSelected={selectedTokenId === token.id}
-                draggable={scenePreferences.toolMode !== "measure"}
+                size={tokenSize}
+                draggable={scenePreferences.toolMode === "select"}
                 onDragEnd={(event) => handleDragEnd(token.id, event)}
                 onClick={(event) => handleTokenClick(token, event)}
               />
