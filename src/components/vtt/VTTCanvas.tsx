@@ -508,18 +508,17 @@ export default function VTTCanvas({
   );
 
   const handleTokenDragStart = useCallback(
-    (token: Token, event: any) => {
+    (_token: Token, event: any) => {
       event.cancelBubble = true;
       mapGestureRef.current = null;
-      onSelectToken(token);
     },
-    [onSelectToken],
+    [],
   );
 
   const handleTokenClick = useCallback(
     (token: Token, event: any) => {
       event.cancelBubble = true;
-      if (scenePreferences.toolMode === "measure") {
+      if (scenePreferences.toolMode !== "select") {
         return;
       }
       onSelectToken(selectedTokenId === token.id ? null : token);
