@@ -15,6 +15,7 @@ import {
   Skull,
   Sparkles,
   ScrollText,
+  AlertTriangle,
 } from "lucide-react";
 
 function HPBar({
@@ -150,14 +151,66 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
   const [showVincular, setShowVincular] = useState(false);
   const [danoValor, setDanoValor] = useState(5);
   const [loading, setLoading] = useState(false);
+  const [fallbackFicha, setFallbackFicha] = useState<FichaVTTSnapshot | null>(null);
+  const [fichaLoadError, setFichaLoadError] = useState("");
+  const fichaEfetiva = fichaData ?? fallbackFicha;
 
   useEffect(() => {
     setShowVincular(false);
+    setFallbackFicha(null);
+    setFichaLoadError("");
   }, [token?.id]);
 
+  useEffect(() => {
+    if (!token?.ficha_id || fichaData) {
+      setFallbackFicha(null);
+      setFichaLoadError("");
+      return;
+    }
+
+    let active = true;
+
+    const carregarFichaVinculada = async () => {
+      setFichaLoadError("");
+      const { data, error } = await supabase
+        .from("fichas")
+        .select("id, nome_personagem, sistema_preset, avatar_url, dados")
+        .eq("id", token.ficha_id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        console.error("[TokenPanel] Erro ao puxar ficha vinculada:", error);
+        setFallbackFicha(null);
+        setFichaLoadError(error.message);
+        return;
+      }
+
+      if (!data) {
+        setFallbackFicha(null);
+        setFichaLoadError("Ficha vinculada nao encontrada ou sem permissao para leitura.");
+        return;
+      }
+
+      setFallbackFicha(data as FichaVTTSnapshot);
+    };
+
+    void carregarFichaVinculada();
+
+    return () => {
+      active = false;
+    };
+  }, [fichaData, token?.ficha_id]);
+
   const carregarFichas = useCallback(async () => {
-    const { data } = await supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem");
-    if (data) setFichasList(data);
+    const { data, error } = await supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem");
+    if (error) {
+      console.error("[TokenPanel] Erro ao carregar fichas:", error);
+      setFichasList([]);
+      return;
+    }
+    setFichasList(data ?? []);
   }, []);
 
   useEffect(() => {
@@ -169,7 +222,15 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
     setLoading(true);
     const { data, error } = await supabase.from("tokens").update({ ficha_id: fichaId }).eq("id", token.id).select().single();
 
-    if (!error && data) onTokenUpdate(data as Token);
+    if (error) {
+      console.error("[TokenPanel] Erro ao vincular ficha:", error);
+    }
+
+    if (!error && data) {
+      onTokenUpdate(data as Token);
+      setFallbackFicha(null);
+      setFichaLoadError("");
+    }
     setShowVincular(false);
     setLoading(false);
   };
@@ -179,23 +240,25 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
     setLoading(true);
     await supabase.from("tokens").update({ ficha_id: null }).eq("id", token.id);
     onTokenUpdate({ ...token, ficha_id: null });
+    setFallbackFicha(null);
+    setFichaLoadError("");
     setLoading(false);
   };
 
   const modificarVida = async (delta: number) => {
-    if (!token?.ficha_id || !fichaData) return;
+    if (!token?.ficha_id || !fichaEfetiva) return;
     setLoading(true);
 
-    const vidaAtual = fichaData.dados?.status?.vida?.atual ?? 0;
-    const vidaMax = fichaData.dados?.status?.vida?.max ?? 0;
+    const vidaAtual = fichaEfetiva.dados?.status?.vida?.atual ?? 0;
+    const vidaMax = fichaEfetiva.dados?.status?.vida?.max ?? 0;
     const novaVida = Math.max(0, Math.min(vidaMax, vidaAtual + delta));
 
     const novosDados = {
-      ...fichaData.dados,
+      ...fichaEfetiva.dados,
       status: {
-        ...fichaData.dados?.status,
+        ...fichaEfetiva.dados?.status,
         vida: {
-          ...fichaData.dados?.status?.vida,
+          ...fichaEfetiva.dados?.status?.vida,
           atual: novaVida,
         },
       },
@@ -207,25 +270,19 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
     setLoading(false);
   };
 
-  if (!token) return null;
-
-  const vida = fichaData?.dados?.status?.vida;
-  const pe = fichaData?.dados?.status?.pe;
-  const sanidade = fichaData?.dados?.status?.sanidade;
-
   const alterarStatus = async (key: "vida" | "pe" | "sanidade", delta: number) => {
-    if (!token?.ficha_id || !fichaData) return;
+    if (!token?.ficha_id || !fichaEfetiva) return;
     setLoading(true);
 
-    const statusAtual = fichaData.dados?.status?.[key];
+    const statusAtual = fichaEfetiva.dados?.status?.[key];
     const atual = statusAtual?.atual ?? 0;
     const max = statusAtual?.max ?? 0;
     const proximoValor = Math.max(0, Math.min(max, atual + delta));
 
     const novosDados = {
-      ...fichaData.dados,
+      ...fichaEfetiva.dados,
       status: {
-        ...fichaData.dados?.status,
+        ...fichaEfetiva.dados?.status,
         [key]: {
           ...statusAtual,
           atual: proximoValor,
@@ -238,6 +295,12 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
     if (error) console.error(`[TokenPanel] Erro ao modificar ${key}:`, error.message);
     setLoading(false);
   };
+
+  if (!token) return null;
+
+  const vida = fichaEfetiva?.dados?.status?.vida;
+  const pe = fichaEfetiva?.dados?.status?.pe;
+  const sanidade = fichaEfetiva?.dados?.status?.sanidade;
 
   return (
     <div
@@ -277,7 +340,7 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
           </p>
         </div>
 
-        {fichaData ? (
+        {fichaEfetiva ? (
           <div className="space-y-3">
             <div
               className="rounded-xl px-3 py-3"
@@ -298,9 +361,9 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
                     <p className="text-[9px] uppercase tracking-wider" style={{ color: "#8b9bb4" }}>
                       Ficha vinculada
                     </p>
-                    <p className="text-[12px] font-bold leading-tight text-white">{fichaData.nome_personagem}</p>
+                    <p className="text-[12px] font-bold leading-tight text-white">{fichaEfetiva.nome_personagem}</p>
                     <p className="text-[9px] uppercase tracking-wider" style={{ color: "#6b7b94" }}>
-                      {fichaData.sistema_preset?.replace("_", " ")}
+                      {fichaEfetiva.sistema_preset?.replace("_", " ")}
                     </p>
                   </div>
                 </div>
@@ -382,6 +445,32 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
               </div>
             </div>
           </div>
+        ) : token.ficha_id ? (
+          <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-4 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/10 text-amber-200 ring-1 ring-amber-400/20">
+              <AlertTriangle size={20} />
+            </div>
+            <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-amber-100">Ficha nao carregou</p>
+            <p className="mb-4 text-[10px] leading-relaxed text-amber-100/70">
+              O token tem ficha vinculada, mas a mesa nao conseguiu ler essa ficha agora.
+              {fichaLoadError ? ` Erro: ${fichaLoadError}` : " Tentando sincronizar..."}
+            </p>
+            <div className="grid gap-2">
+              <button
+                onClick={() => router.push(`/fichas/${token.ficha_id}`)}
+                className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-100"
+              >
+                Abrir ficha vinculada
+              </button>
+              <button
+                onClick={desvincularFicha}
+                disabled={loading}
+                className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-200 disabled:opacity-40"
+              >
+                Desvincular ficha
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="py-5 text-center">
             <div
@@ -391,7 +480,7 @@ export default function TokenPanel({ token, fichaData, onClose, onTokenUpdate }:
               <Link2 size={20} style={{ color: "#6b7b94" }} />
             </div>
             <p className="mb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: "#8b9bb4" }}>
-              Token burro
+              Token sem ficha
             </p>
             <p className="mb-4 text-[10px]" style={{ color: "#6b7b94" }}>
               Vincule uma ficha para ativar
