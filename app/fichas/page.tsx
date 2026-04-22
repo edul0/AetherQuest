@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Cinzel, Inter } from "next/font/google";
 import { Plus, Shield, Swords, Trash2 } from "lucide-react";
-import { supabase } from "@/src/lib/supabase";
+import { isExpiredJwtError, recoverExpiredSession, supabase, withFreshSession } from "@/src/lib/supabase";
 import { PRESETS } from "@/src/lib/constants";
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
@@ -16,14 +16,24 @@ export default function FichasHubPage() {
   const [loading, setLoading] = useState(true);
   const [selectedPresetId, setSelectedPresetId] = useState("ordem_paranormal");
 
+  const redirectToLogin = useCallback(() => {
+    router.replace(`/login?next=${encodeURIComponent("/fichas")}`);
+  }, [router]);
+
   useEffect(() => {
     const carregarFichas = async () => {
       try {
-        const { data, error } = await supabase
-          .from("fichas")
-          .select("id, nome_personagem, sistema_preset, dados")
-          .order("nome_personagem");
+        const { data, error } = await withFreshSession(() =>
+          supabase
+            .from("fichas")
+            .select("id, nome_personagem, sistema_preset, dados")
+            .order("nome_personagem"),
+        );
         if (error) {
+          if (isExpiredJwtError(error)) {
+            redirectToLogin();
+            return;
+          }
           throw error;
         }
         setFichas(data ?? []);
@@ -35,15 +45,20 @@ export default function FichasHubPage() {
     };
 
     carregarFichas();
-  }, []);
+  }, [redirectToLogin]);
 
   const criarNovaFicha = async () => {
     try {
-      // 1. Busca a sessão atual para garantir que o usuário está logado
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      let session = sessionData.session;
+
       if (sessionError || !session?.user) {
+        session = await recoverExpiredSession();
+      }
+      
+      if (!session?.user) {
         alert("Sua sessão expirou ou não foi encontrada. Faça login novamente.");
+        redirectToLogin();
         return;
       }
 
@@ -57,7 +72,7 @@ export default function FichasHubPage() {
       const novaFicha = {
         nome_personagem: "Novo Personagem",
         sistema_preset: selectedPresetId,
-        user_id: session.user.id, // <--- A ASSINATURA DE SEGURANÇA AQUI
+        user_id: session.user.id,
         dados: {
           nex: progressValue,
           progressao: progressValue,
@@ -73,6 +88,8 @@ export default function FichasHubPage() {
           idade: "",
           altura: "",
           gostos: "",
+          avatar_url: "",
+          token_images: { portrait: "", top: "", side: "" },
           atributos: { forca: 1, agilidade: 1, destreza: 1, vigor: 1, intelecto: 1, presenca: 1, sabedoria: 1, carisma: 1 },
           rolagens_status: Object.fromEntries((preset.statusRolls ?? []).map((entry) => [entry.key, 0])),
           status: {
@@ -87,8 +104,13 @@ export default function FichasHubPage() {
         },
       };
 
-      const { data, error } = await supabase.from("fichas").insert([novaFicha]).select().single();
+      const { data, error } = await withFreshSession(() => supabase.from("fichas").insert([novaFicha]).select().single());
       if (error) {
+        if (isExpiredJwtError(error)) {
+          alert("Sua sessão expirou. Faça login novamente para criar a ficha.");
+          redirectToLogin();
+          return;
+        }
         throw error;
       }
 
@@ -107,8 +129,13 @@ export default function FichasHubPage() {
     }
 
     try {
-      const { error } = await supabase.from("fichas").delete().eq("id", id);
+      const { error } = await withFreshSession(() => supabase.from("fichas").delete().eq("id", id));
       if (error) {
+        if (isExpiredJwtError(error)) {
+          alert("Sua sessão expirou. Faça login novamente para excluir a ficha.");
+          redirectToLogin();
+          return;
+        }
         throw error;
       }
       setFichas((current) => current.filter((ficha) => ficha.id !== id));
