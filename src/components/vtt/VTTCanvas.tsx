@@ -53,7 +53,7 @@ function formatDistance(start: Point, end: Point, gridSize: number) {
   const px = Math.sqrt(dx * dx + dy * dy);
   const cells = px / gridSize;
   const meters = cells * 1.5;
-  return `${cells.toFixed(1)} qd • ${meters.toFixed(1)} m`;
+  return `${cells.toFixed(1)} qd - ${meters.toFixed(1)} m`;
 }
 
 function AvatarToken({
@@ -698,22 +698,22 @@ export default function VTTCanvas({
         </Layer>
       </Stage>
 
-      <div className="pointer-events-none fixed left-1/2 top-[84px] z-50 flex w-[calc(100vw-1rem)] max-w-[420px] -translate-x-1/2 flex-col gap-2 md:top-[18px] md:max-w-[420px]">
-        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.82)] px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.24)] backdrop-blur-xl md:px-4">
-          <div className="flex items-center gap-2">
+      <div className="pointer-events-none fixed left-1/2 top-[82px] z-50 flex w-[calc(100vw-0.75rem)] max-w-[560px] -translate-x-1/2 flex-col gap-2 md:top-[18px] md:w-auto md:min-w-[500px]">
+        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-[26px] border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] px-3 py-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.3)] backdrop-blur-xl md:rounded-full md:px-4 md:py-2">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => applyZoom(1.12)}
-              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
               title="Aproximar"
             >
-              <Plus size={15} />
+              <Plus size={18} />
             </button>
             <button
               onClick={() => applyZoom(0.88)}
-              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
               title="Afastar"
             >
-              <Minus size={15} />
+              <Minus size={18} />
             </button>
             <button
               onClick={() => {
@@ -724,18 +724,18 @@ export default function VTTCanvas({
                   }),
                 );
               }}
-              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.86)] p-2 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]"
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
               title="Recentralizar mapa"
             >
-              <RotateCcw size={15} />
+              <RotateCcw size={18} />
             </button>
           </div>
 
           <div className="min-w-0 text-right">
-            <div className="truncate text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] md:text-[11px]">
+            <div className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] md:text-xs">
               {`Zoom ${Math.round(camera.scale * 100)}%`}
             </div>
-            <div className="mt-1 truncate text-[9px] uppercase tracking-[0.14em] text-[var(--aq-text-muted)] md:text-[10px]">
+            <div className="mt-1 line-clamp-2 text-right text-[9px] uppercase leading-relaxed tracking-[0.14em] text-[var(--aq-text-muted)] md:truncate md:text-[10px]">
               {hudInstruction}
             </div>
           </div>
