@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, KeyRound, Mail, Shield, Sparkles } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
@@ -37,34 +37,26 @@ function humanizeAuthError(message: string) {
     return "Use uma senha com pelo menos 6 caracteres.";
   }
 
+  if (lower.includes("jwt expired") || lower.includes("refresh token")) {
+    return "Sua sessao antiga expirou. Entre novamente para continuar.";
+  }
+
   return message;
 }
 
 function setAuthHandoff() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
+  if (typeof window === "undefined") return;
   window.sessionStorage.setItem(AUTH_HANDOFF_KEY, String(Date.now()));
 }
 
 function clearAuthHandoff() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
+  if (typeof window === "undefined") return;
   window.sessionStorage.removeItem(AUTH_HANDOFF_KEY);
 }
 
 function getSafeNextPath(nextPath?: string) {
-  if (!nextPath || !nextPath.startsWith("/")) {
-    return DEFAULT_AFTER_LOGIN_PATH;
-  }
-
-  if (nextPath.startsWith("/login")) {
-    return DEFAULT_AFTER_LOGIN_PATH;
-  }
-
+  if (!nextPath || !nextPath.startsWith("/")) return DEFAULT_AFTER_LOGIN_PATH;
+  if (nextPath.startsWith("/login")) return DEFAULT_AFTER_LOGIN_PATH;
   return nextPath;
 }
 
@@ -76,90 +68,107 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const redirectingRef = useRef(false);
 
   const destinationPath = useMemo(() => getSafeNextPath(nextPath), [nextPath]);
 
   const hasRecoveryMarker = useMemo(() => {
-    if (typeof window === "undefined") {
-      return recoveryType === "recovery";
-    }
-
+    if (typeof window === "undefined") return recoveryType === "recovery";
     return recoveryType === "recovery" || window.location.hash.includes("type=recovery");
   }, [recoveryType]);
 
-  const goTo = (path: string) => {
-    if (typeof window === "undefined") {
-      return;
+  const goTo = useCallback((path: string) => {
+    if (typeof window === "undefined" || redirectingRef.current) return;
+    redirectingRef.current = true;
+    window.location.assign(new URL(path, window.location.origin).toString());
+  }, []);
+
+  const getValidSession = useCallback(async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session) return null;
+
+    const expiresAt = data.session.expires_at ? data.session.expires_at * 1000 : 0;
+    const mustRefresh = !expiresAt || expiresAt - Date.now() < 60_000;
+
+    if (!mustRefresh) return data.session;
+
+    const refreshed = await supabase.auth.refreshSession();
+    if (refreshed.error || !refreshed.data.session) {
+      await supabase.auth.signOut();
+      clearAuthHandoff();
+      return null;
     }
 
-    const absoluteTarget = new URL(path, window.location.origin).toString();
-    window.location.href = absoluteTarget;
-  };
+    return refreshed.data.session;
+  }, []);
+
+  const validateAndRedirect = useCallback(
+    async (message = "Sessao encontrada. Abrindo destino...") => {
+      if (hasRecoveryMarker || redirectingRef.current) return;
+
+      try {
+        const session = await getValidSession();
+        if (!session) {
+          setHasActiveSession(false);
+          setFeedback((current) => current || "");
+          return;
+        }
+
+        setHasActiveSession(true);
+        clearAuthHandoff();
+        setFeedback(message);
+        goTo(destinationPath);
+      } catch (error) {
+        console.error("[login] sessao invalida", error);
+        await supabase.auth.signOut();
+        clearAuthHandoff();
+        setHasActiveSession(false);
+        setFeedback("Sua sessao antiga expirou. Entre novamente para continuar.");
+      }
+    },
+    [destinationPath, getValidSession, goTo, hasRecoveryMarker],
+  );
 
   useEffect(() => {
     let active = true;
-
-    const syncExistingSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!active || hasRecoveryMarker) {
-          return;
-        }
-
-        if (session) {
-          setHasActiveSession(true);
-          clearAuthHandoff();
-          setFeedback("Sessao encontrada. Abrindo fichas...");
-          goTo(destinationPath);
-          return;
-        }
-
-        setHasActiveSession(false);
-      } catch (error) {
-        console.error("[login] erro ao sincronizar sessao existente", error);
-      }
-    };
 
     if (hasRecoveryMarker) {
       setMode("recovery");
       setFeedback("Abra o link recebido e escolha sua nova senha.");
     } else {
-      void syncExistingSession();
+      void validateAndRedirect();
     }
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active) {
-        return;
-      }
+      if (!active) return;
 
       if (event === "PASSWORD_RECOVERY") {
+        redirectingRef.current = false;
         setMode("recovery");
         setSending(false);
         setFeedback("Link de recuperacao validado. Agora defina sua nova senha.");
         return;
       }
 
-      if (session && !hasRecoveryMarker) {
-        setHasActiveSession(true);
-        clearAuthHandoff();
-        setFeedback("Login realizado. Abrindo fichas...");
-        goTo(destinationPath);
+      if (event === "SIGNED_OUT" || !session) {
+        redirectingRef.current = false;
+        setHasActiveSession(false);
         return;
       }
 
-      setHasActiveSession(false);
+      if (!hasRecoveryMarker) {
+        void validateAndRedirect("Login realizado. Abrindo destino...");
+      }
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, [destinationPath, hasRecoveryMarker]);
+  }, [hasRecoveryMarker, validateAndRedirect]);
 
   const signInWithPassword = async () => {
     if (!email.trim() || !password.trim()) {
@@ -169,6 +178,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
 
     setSending(true);
     setFeedback("");
+    redirectingRef.current = false;
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -195,7 +205,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
 
       setHasActiveSession(true);
       setAuthHandoff();
-      setFeedback("Login realizado. Abrindo fichas...");
+      setFeedback("Login realizado. Abrindo destino...");
       goTo(destinationPath);
     } catch (error) {
       console.error("[login] erro inesperado no signIn", error);
@@ -339,6 +349,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
 
       await supabase.auth.signOut();
       clearAuthHandoff();
+      redirectingRef.current = false;
       setHasActiveSession(false);
       setFeedback("Senha atualizada com sucesso. Entre novamente com a nova senha.");
       setMode("signin");
@@ -361,7 +372,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
         <div className="mb-8 flex items-center justify-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.08)] px-4 py-2">
           <Shield size={10} className="text-[var(--aq-accent)]" />
           <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--aq-accent)]">
-            Acesso Protegido
+            {hasActiveSession ? "Sessao Validada" : "Acesso Protegido"}
           </span>
         </div>
 
@@ -376,7 +387,7 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
         <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--aq-text)] md:text-base">
           {mode === "recovery"
             ? "O link de recuperacao foi aceito. Defina sua nova senha para voltar para a mesa."
-            : "Vamos simplificar: entre com email e senha. O link magico fica como plano B, nao como fluxo principal."}
+            : "Entre com email e senha. Se a sessao antiga expirar, limpamos ela antes de redirecionar."}
         </p>
 
         {mode !== "recovery" ? (
@@ -466,12 +477,9 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           {(mode === "recovery"
             ? ["Senha redefinida na propria tela", "Sem voltar para localhost", "Fluxo pronto para celular"]
-            : ["Entrada por senha mais pratica", "Recuperacao por email disponivel", "Magic link fica opcional"]
+            : ["Entrada por senha mais pratica", "Sessao validada antes do redirect", "Magic link fica opcional"]
           ).map((label) => (
-            <div
-              key={label}
-              className="flex items-center gap-2 rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] px-3 py-2"
-            >
+            <div key={label} className="flex items-center gap-2 rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] px-3 py-2">
               <Sparkles size={11} className="text-[var(--aq-accent)]" />
               <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text)]">{label}</span>
             </div>
