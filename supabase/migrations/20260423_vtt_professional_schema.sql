@@ -51,6 +51,16 @@ create table if not exists public.iniciativa (
   created_at timestamptz not null default now()
 );
 
+alter table public.iniciativa
+  add column if not exists cena_id uuid references public.cenas(id) on delete cascade,
+  add column if not exists token_id uuid references public.tokens(id) on delete cascade,
+  add column if not exists ficha_id uuid references public.fichas(id) on delete set null,
+  add column if not exists nome text not null default 'Combatente',
+  add column if not exists initiative integer not null default 0,
+  add column if not exists ordem integer not null default 0,
+  add column if not exists active boolean not null default false,
+  add column if not exists created_at timestamptz not null default now();
+
 create index if not exists iniciativa_cena_order_idx on public.iniciativa(cena_id, initiative desc, ordem asc);
 create index if not exists tokens_cena_layer_idx on public.tokens(cena_id, layer, z_index);
 create index if not exists tokens_visible_idx on public.tokens(cena_id, visible_to_players);
