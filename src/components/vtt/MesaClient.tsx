@@ -8,6 +8,7 @@ import { ArrowLeft, Crosshair, Eye, KeyRound, Layers3, Link2, Menu, Plus, Scroll
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { DEFAULT_SCENE_VIEW_PREFERENCES, normalizeScenePreferences } from "@/src/lib/vttScenePreferences";
+import { PRESETS } from "@/src/lib/constants";
 
 const VTTCanvas = dynamic(() => import("@/src/components/vtt/VTTCanvas"), { ssr: false });
 const SceneNav = dynamic(() => import("@/src/components/vtt/SceneNav"), { ssr: false });
@@ -42,6 +43,7 @@ type Cena = {
 
 type FichaListItem = {
   id: string;
+  user_id?: string | null;
   nome_personagem: string;
   sistema_preset: string;
 };
@@ -109,6 +111,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [salaAtiva, setSalaAtiva] = useState<Sala | null>(null);
   const [cenaAtiva, setCenaAtiva] = useState<Cena | null>(null);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
@@ -141,16 +144,27 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       });
   }, [fichasMap, tokens]);
 
+  const visibleRoster = useMemo(() => {
+    if (role === "mestre") return roster;
+    return roster.filter(({ token, ficha }) => {
+      if (fichaEscolhidaId && token.ficha_id === fichaEscolhidaId) return true;
+      if (currentUserId && ficha?.user_id === currentUserId) return true;
+      return false;
+    });
+  }, [currentUserId, fichaEscolhidaId, role, roster]);
+
   const ensureSession = async () => {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
     if (!data.session) throw new Error("NO_SESSION");
+    setCurrentUserId(data.session.user.id);
 
     const expiresAt = data.session.expires_at ? data.session.expires_at * 1000 : 0;
     if (!expiresAt || expiresAt - Date.now() < 60_000) {
       const refreshed = await supabase.auth.refreshSession();
       if (refreshed.error || !refreshed.data.session) throw refreshed.error ?? new Error("NO_SESSION");
       setHasSession(true);
+      setCurrentUserId(refreshed.data.session.user.id);
       return refreshed.data.session;
     }
 
@@ -217,7 +231,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   const loadFichas = async () => {
     try {
-      const { data, error } = await runFresh<FichaListItem[]>(() => supabase.from("fichas").select("id, nome_personagem, sistema_preset").order("nome_personagem"));
+      const { data, error } = await runFresh<FichaListItem[]>(() => supabase.from("fichas").select("id, user_id, nome_personagem, sistema_preset").order("nome_personagem"));
       if (error) throw error;
       setFichas((data ?? []) as FichaListItem[]);
     } catch (error) {
@@ -263,6 +277,14 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     });
   };
 
+  const updateCenaMapaLocal = (url: string | null) => {
+    const activeCenaId = cenaAtiva?.id;
+    if (!activeCenaId) return;
+
+    setCenaAtiva((current) => (current?.id === activeCenaId ? { ...current, mapa_url: url } : current));
+    setCenas((current) => current.map((cena) => (cena.id === activeCenaId ? { ...cena, mapa_url: url } : cena)));
+  };
+
   useEffect(() => {
     let active = true;
     void ensureSession()
@@ -281,6 +303,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       setHasSession(Boolean(session));
+      setCurrentUserId(session?.user?.id ?? null);
       setAuthReady(true);
     });
 
@@ -477,6 +500,61 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     }
   };
 
+  const criarFichaJogadorRapida = async () => {
+    try {
+      const session = await ensureSession();
+      const preset = PRESETS.ordem_paranormal;
+      const firstClass = preset.classes?.[0];
+      const firstRace = preset.racas?.[0];
+      const firstOrigin = preset.origens?.[0];
+      const firstPath = firstClass?.caminhos?.[0];
+      const progressValue = preset.progressMin ?? 1;
+      const payload = {
+        user_id: session.user.id,
+        nome_personagem: "Novo Personagem",
+        sistema_preset: "ordem_paranormal",
+        sala_id: salaAtiva?.id ?? null,
+        avatar_url: null,
+        dados: {
+          nex: progressValue,
+          progressao: progressValue,
+          classe: firstClass?.nome ?? "",
+          classe_custom: "",
+          trilha: firstPath?.nome ?? "",
+          trilha_custom: "",
+          origem: firstOrigin?.nome ?? "",
+          origem_custom: "",
+          raca: firstRace?.nome ?? "",
+          raca_custom: "",
+          deslocamento: firstRace?.deslocamento ?? "9m",
+          idade: "",
+          altura: "",
+          gostos: "",
+          avatar_url: "",
+          token_images: { portrait: "", top: "", side: "" },
+          atributos: { forca: 1, agilidade: 1, destreza: 1, vigor: 1, intelecto: 1, presenca: 1, sabedoria: 1, carisma: 1 },
+          rolagens_status: Object.fromEntries((preset.statusRolls ?? []).map((entry) => [entry.key, 0])),
+          status: {
+            vida: { atual: 10, max: 10 },
+            sanidade: { atual: 10, max: 10 },
+            pe: { atual: 10, max: 10 },
+          },
+          habilidades: [],
+          armas: [],
+          pericias: {},
+          defesa: { passiva: 10, bloqueio: 0, esquiva: 0 },
+        },
+      };
+      const { data, error } = await runFresh<FichaListItem>(() => supabase.from("fichas").insert([payload]).select("id, user_id, nome_personagem, sistema_preset").single());
+      if (error || !data) throw error ?? new Error("Falha ao criar ficha.");
+      setFichas((current) => [data as FichaListItem, ...current]);
+      setFichaEscolhidaId((data as FichaListItem).id);
+    } catch (error: any) {
+      alert(`Falha ao criar ficha: ${error?.message ?? "erro desconhecido"}`);
+      if (isJwtExpired(error)) redirectLogin();
+    }
+  };
+
   const copyInvite = async () => {
     if (!salaAtiva?.id) return;
     const link = `${window.location.origin}/mesa?convite=${roomCode(salaAtiva.id)}`;
@@ -505,7 +583,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
         <>
           <VTTCanvas cenaId={cenaAtiva.id} mapaUrl={cenaAtiva.mapa_url ?? undefined} selectedTokenId={selectedToken?.id ?? null} onSelectToken={setSelectedToken} onFichasMapChange={setFichasMap} onTokensChange={setTokens} scenePreferences={scenePreferences} />
           <SceneNav salaId={salaAtiva.id} onSelectCena={setCenaAtiva} cenaAtivaId={cenaAtiva.id} />
-          {role === "mestre" ? <VTTControls cenaId={cenaAtiva.id} salaId={salaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} /> : null}
+          {role === "mestre" ? <VTTControls cenaId={cenaAtiva.id} salaId={salaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} onMapUrlChange={updateCenaMapaLocal} /> : null}
           <TokenPanel token={selectedToken} fichaData={fichaSelecionada} salaId={salaAtiva.id} onClose={() => setSelectedToken(null)} onTokenUpdate={setSelectedToken} />
           <Chat salaId={salaAtiva.id} />
         </>
@@ -558,14 +636,70 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
           ) : null}
 
           {role === "jogador" ? (
-            <div className="mt-6 space-y-4"><div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4"><div className="aq-kicker">Entrar na sessao</div><p className="mt-2 text-sm text-[var(--aq-text-muted)]">Digite o codigo curto que o mestre compartilhou.</p><div className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3"><KeyRound size={16} className="text-[var(--aq-accent)]" /><input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Codigo" className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none" /></div><button onClick={entrarComoJogador} className="aq-button-primary mt-4 w-full justify-center"><Users size={14} /> Entrar</button>{joinError ? <div className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{joinError}</div> : null}</div>{joinedAsPlayer ? <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4"><div className="aq-kicker">Escolher ficha</div><select value={fichaEscolhidaId} onChange={(event) => setFichaEscolhidaId(event.target.value)} className="aq-input mt-3"><option value="">Selecione uma ficha</option>{fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}</select><div className="mt-3 flex flex-wrap gap-3"><button onClick={vincularFichaComoJogador} disabled={!fichaEscolhidaId} className="aq-button-primary">Entrar com ficha</button>{fichaEscolhidaId ? <button onClick={() => router.push(fichaHref(fichaEscolhidaId))} className="aq-button-secondary">Abrir ficha</button> : null}</div></div> : null}</div>
+            <div className="mt-6 space-y-4">
+              <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
+                <div className="aq-kicker">Entrar na sessao</div>
+                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Digite o codigo curto que o mestre compartilhou.</p>
+                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
+                  <KeyRound size={16} className="text-[var(--aq-accent)]" />
+                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Codigo" className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none" />
+                </div>
+                <button onClick={entrarComoJogador} className="aq-button-primary mt-4 w-full justify-center"><Users size={14} /> Entrar</button>
+                {joinError ? <div className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{joinError}</div> : null}
+              </div>
+              {joinedAsPlayer ? (
+                <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
+                  <div className="aq-kicker">Sua ficha</div>
+                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Jogador escolhe apenas a propria ficha. Se ainda nao tiver uma, crie aqui e edite depois.</p>
+                  <select value={fichaEscolhidaId} onChange={(event) => setFichaEscolhidaId(event.target.value)} className="aq-input mt-3">
+                    <option value="">{fichas.length ? "Selecione uma ficha" : "Nenhuma ficha encontrada"}</option>
+                    {fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}
+                  </select>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <button onClick={vincularFichaComoJogador} disabled={!fichaEscolhidaId} className="aq-button-primary">Entrar com ficha</button>
+                    <button onClick={criarFichaJogadorRapida} className="aq-button-secondary"><Plus size={14} /> Criar ficha</button>
+                    {fichaEscolhidaId ? <button onClick={() => router.push(fichaHref(fichaEscolhidaId))} className="aq-button-secondary">Abrir ficha</button> : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
 
       {!activeMesa ? <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1500px] items-center justify-center px-4 pb-20 pt-10"><div className="aq-panel w-full max-w-3xl p-8 text-center"><div className="aq-kicker">No Signal</div><h2 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-5xl`}>{role === "mestre" ? (salaAtiva ? "Crie a primeira cena" : "Nenhuma sessao ativa") : "Escolha como entrar"}</h2><p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[var(--aq-text-muted)]">Mestre cria uma sessao e jogador entra com codigo. O mapa fica online e sincronizado pela cena.</p>{role === "mestre" ? <button onClick={salaAtiva ? criarCena : criarSala} className="aq-button-primary mt-8 justify-center"><Plus size={14} />{salaAtiva ? "Criar primeira cena" : "Criar primeira sessao"}</button> : null}</div></div> : null}
 
-      {activeMesa && roster.length > 0 ? <div className="fixed bottom-3 left-3 right-3 z-40 rounded-[24px] border border-[rgba(74,217,217,0.16)] bg-[rgba(5,10,16,0.82)] px-2 py-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl md:bottom-4 md:left-4 md:right-auto md:w-[520px]"><div className="aq-scrollbar flex w-full gap-2 overflow-x-auto pb-1">{roster.map(({ token, ficha, vida, pe, sanidade }) => { const initials = (ficha?.nome_personagem ?? token.nome).slice(0, 2).toUpperCase(); const hp = vida?.max ? Math.max(0, Math.min(1, vida.atual / vida.max)) : 0; return <button key={token.id} onClick={() => setSelectedToken(token)} className={`min-w-[142px] rounded-2xl border px-2 py-2 text-left ${selectedToken?.id === token.id ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)]" : "border-[var(--aq-border)] bg-[rgba(8,13,20,0.9)]"}`}><div className="flex items-center gap-2">{ficha?.avatar_url ? <img src={ficha.avatar_url} alt={ficha.nome_personagem} className="h-10 w-10 rounded-xl object-cover" /> : <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xs font-black text-white" style={{ background: token.cor || "#4ad9d9" }}>{initials}</div>}<div className="min-w-0"><div className="truncate text-[11px] font-black uppercase tracking-[0.1em] text-[var(--aq-title)]">{ficha?.nome_personagem ?? token.nome}</div><div className="truncate text-[8px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">{token.nome}</div></div></div><div className="mt-2 h-1.5 rounded-full bg-white/10"><div className="h-1.5 rounded-full bg-gradient-to-r from-emerald-500 via-lime-400 to-red-500" style={{ width: `${hp * 100}%` }} /></div><div className="mt-1 text-[8px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">VIDA {vida ? `${vida.atual}/${vida.max}` : "--"} {pe ? `PE ${pe.atual}/${pe.max}` : ""} {sanidade ? `SAN ${sanidade.atual}/${sanidade.max}` : ""}</div>{role === "mestre" && token.ficha_id ? <span onClick={(event) => { event.stopPropagation(); router.push(fichaHref(token.ficha_id!)); }} className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-full border border-[var(--aq-border)] px-2 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-[var(--aq-text-muted)]"><ScrollText size={11} /> Ficha</span> : null}</button>; })}</div></div> : null}
+      {activeMesa && visibleRoster.length > 0 ? (
+        <div className="fixed bottom-3 left-3 right-3 z-40 rounded-[24px] border border-[rgba(74,217,217,0.16)] bg-[rgba(5,10,16,0.82)] px-2 py-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl md:bottom-4 md:left-4 md:right-auto md:w-[520px]">
+          <div className="aq-scrollbar flex w-full gap-2 overflow-x-auto pb-1">
+            {visibleRoster.map(({ token, ficha, vida, pe, sanidade }) => {
+              const initials = (ficha?.nome_personagem ?? token.nome).slice(0, 2).toUpperCase();
+              const hp = vida?.max ? Math.max(0, Math.min(1, vida.atual / vida.max)) : 0;
+              const isMaster = role === "mestre";
+              return (
+                <button
+                  key={token.id}
+                  onClick={() => setSelectedToken(token)}
+                  className={`min-w-[142px] rounded-2xl border px-2 py-2 text-left ${selectedToken?.id === token.id ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)]" : "border-[var(--aq-border)] bg-[rgba(8,13,20,0.9)]"}`}
+                >
+                  <div className="flex items-center gap-2">
+                    {ficha?.avatar_url ? <img src={ficha.avatar_url} alt={ficha.nome_personagem} className="h-10 w-10 rounded-xl object-cover" /> : <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xs font-black text-white" style={{ background: token.cor || "#4ad9d9" }}>{initials}</div>}
+                    <div className="min-w-0">
+                      <div className="truncate text-[11px] font-black uppercase tracking-[0.1em] text-[var(--aq-title)]">{isMaster ? ficha?.nome_personagem ?? token.nome : "Sua vida"}</div>
+                      <div className="truncate text-[8px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">{isMaster ? token.nome : ficha?.nome_personagem ?? token.nome}</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-white/10"><div className="h-1.5 rounded-full bg-gradient-to-r from-emerald-500 via-lime-400 to-red-500" style={{ width: `${hp * 100}%` }} /></div>
+                  <div className="mt-1 text-[8px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">
+                    VIDA {vida ? `${vida.atual}/${vida.max}` : "--"} {isMaster && pe ? `PE ${pe.atual}/${pe.max}` : ""} {isMaster && sanidade ? `SAN ${sanidade.atual}/${sanidade.max}` : ""}
+                  </div>
+                  {isMaster && token.ficha_id ? <span onClick={(event) => { event.stopPropagation(); router.push(fichaHref(token.ficha_id!)); }} className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-full border border-[var(--aq-border)] px-2 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-[var(--aq-text-muted)]"><ScrollText size={11} /> Ficha</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
