@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
-import { supabase } from "@/src/lib/supabase";
+import { supabase, withFreshSession } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
 
@@ -137,7 +137,7 @@ export default function OnlineVTTCanvas({
   useEffect(() => {
     let active = true;
     const loadTokens = async () => {
-      const { data, error } = await supabase.from("tokens").select("*").eq("cena_id", cenaId);
+      const { data, error } = await withFreshSession<Token[]>(() => supabase.from("tokens").select("*").eq("cena_id", cenaId));
       if (!active) return;
       if (error) {
         console.error("[OnlineVTTCanvas] erro ao carregar tokens:", error);
@@ -168,7 +168,7 @@ export default function OnlineVTTCanvas({
   }, [cenaId, onSelectToken, selectedTokenId]);
 
   const persistToken = useCallback(async (tokenId: string, point: Point) => {
-    const { error } = await supabase.from("tokens").update({ x: point.x, y: point.y }).eq("id", tokenId);
+    const { error } = await withFreshSession(() => supabase.from("tokens").update({ x: point.x, y: point.y }).eq("id", tokenId));
     if (error) console.error("[OnlineVTTCanvas] erro ao mover token:", error);
   }, []);
 
