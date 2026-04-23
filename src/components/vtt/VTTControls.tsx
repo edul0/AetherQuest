@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   ChevronDown,
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { SceneViewPreferences, VTTToolMode } from "@/src/lib/types";
+import { selectVTTGrid, selectVTTToolMode, useVTTStore } from "@/src/store/useVTTStore";
 
 type VTTControlsProps = {
   cenaId: string;
@@ -41,6 +42,26 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
 
 export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange }: VTTControlsProps) {
   const [panelOpen, setPanelOpen] = useState(false);
+  const runtimeGrid = useVTTStore(selectVTTGrid);
+  const runtimeToolMode = useVTTStore(selectVTTToolMode);
+  const setGrid = useVTTStore((state) => state.setGrid);
+  const setToolMode = useVTTStore((state) => state.setToolMode);
+
+  const mergedPreferences: SceneViewPreferences = {
+    ...preferences,
+    ...runtimeGrid,
+    toolMode: runtimeToolMode,
+  };
+
+  useEffect(() => {
+    setGrid({
+      gridSize: preferences.gridSize,
+      gridOpacity: preferences.gridOpacity,
+      showGrid: preferences.showGrid,
+      snapToGrid: preferences.snapToGrid,
+    });
+    setToolMode(preferences.toolMode);
+  }, [preferences.gridOpacity, preferences.gridSize, preferences.showGrid, preferences.snapToGrid, preferences.toolMode, setGrid, setToolMode]);
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,6 +84,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       return;
     }
 
+    setToolMode("map");
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "map" });
     setPanelOpen(false);
   };
@@ -74,6 +96,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       return;
     }
 
+    setToolMode("select");
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "select" });
     setPanelOpen(false);
   };
@@ -106,14 +129,14 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
 
   const nudgeMap = (dx: number, dy: number) => {
     onPreferencesChange({
-      mapOffsetX: preferences.mapOffsetX + dx,
-      mapOffsetY: preferences.mapOffsetY + dy,
+      mapOffsetX: mergedPreferences.mapOffsetX + dx,
+      mapOffsetY: mergedPreferences.mapOffsetY + dy,
     });
   };
 
   const bumpMapScale = (delta: number) => {
     onPreferencesChange({
-      mapScale: Math.max(0.2, Math.min(3, Number((preferences.mapScale + delta).toFixed(2)))),
+      mapScale: Math.max(0.2, Math.min(3, Number((mergedPreferences.mapScale + delta).toFixed(2)))),
     });
   };
 
@@ -154,11 +177,14 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
         <div className="mt-4 grid grid-cols-2 gap-2">
           {TOOL_OPTIONS.map((tool) => {
             const Icon = tool.icon;
-            const active = preferences.toolMode === tool.id;
+            const active = mergedPreferences.toolMode === tool.id;
             return (
               <button
                 key={tool.id}
-                onClick={() => onPreferencesChange({ toolMode: tool.id })}
+                onClick={() => {
+                  setToolMode(tool.id);
+                  onPreferencesChange({ toolMode: tool.id });
+                }}
                 className={`rounded-2xl border px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all md:text-xs md:tracking-[0.18em] ${
                   active
                     ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.14)] text-[var(--aq-accent)]"
@@ -197,14 +223,18 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
               <span className="text-xs font-black uppercase tracking-[0.18em]">Grid</span>
             </div>
             <button
-              onClick={() => onPreferencesChange({ showGrid: !preferences.showGrid })}
+              onClick={() => {
+                const next = !mergedPreferences.showGrid;
+                setGrid({ showGrid: next });
+                onPreferencesChange({ showGrid: next });
+              }}
               className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
-                preferences.showGrid
+                mergedPreferences.showGrid
                   ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)]"
                   : "border-[var(--aq-border)] text-[var(--aq-text-muted)]"
               }`}
             >
-              {preferences.showGrid ? "Visivel" : "Oculto"}
+              {mergedPreferences.showGrid ? "Visivel" : "Oculto"}
             </button>
           </div>
 
@@ -212,28 +242,32 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
               Tamanho da celula
               <div className="mt-2 flex items-center gap-2">
-                <input type="range" min={20} max={120} step={5} value={preferences.gridSize} onChange={(event) => onPreferencesChange({ gridSize: Number(event.target.value) })} className="w-full" />
-                <span className="w-12 text-right text-[var(--aq-title)]">{preferences.gridSize}</span>
+                <input type="range" min={20} max={120} step={5} value={mergedPreferences.gridSize} onChange={(event) => { const next = Number(event.target.value); setGrid({ gridSize: next }); onPreferencesChange({ gridSize: next }); }} className="w-full" />
+                <span className="w-12 text-right text-[var(--aq-title)]">{mergedPreferences.gridSize}</span>
               </div>
             </label>
 
             <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
               Opacidade
               <div className="mt-2 flex items-center gap-2">
-                <input type="range" min={0} max={0.5} step={0.02} value={preferences.gridOpacity} onChange={(event) => onPreferencesChange({ gridOpacity: Number(event.target.value) })} className="w-full" />
-                <span className="w-12 text-right text-[var(--aq-title)]">{Math.round(preferences.gridOpacity * 100)}%</span>
+                <input type="range" min={0} max={0.5} step={0.02} value={mergedPreferences.gridOpacity} onChange={(event) => { const next = Number(event.target.value); setGrid({ gridOpacity: next }); onPreferencesChange({ gridOpacity: next }); }} className="w-full" />
+                <span className="w-12 text-right text-[var(--aq-title)]">{Math.round(mergedPreferences.gridOpacity * 100)}%</span>
               </div>
             </label>
 
             <button
-              onClick={() => onPreferencesChange({ snapToGrid: !preferences.snapToGrid })}
+              onClick={() => {
+                const next = !mergedPreferences.snapToGrid;
+                setGrid({ snapToGrid: next });
+                onPreferencesChange({ snapToGrid: next });
+              }}
               className={`rounded-2xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${
-                preferences.snapToGrid
+                mergedPreferences.snapToGrid
                   ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)]"
                   : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] text-[var(--aq-text-muted)]"
               }`}
             >
-              {preferences.snapToGrid ? "Snap ativo" : "Snap livre"}
+              {mergedPreferences.snapToGrid ? "Snap ativo" : "Snap livre"}
             </button>
           </div>
         </div>
@@ -252,8 +286,8 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           <label className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
             Escala do mapa
             <div className="mt-2 flex items-center gap-2">
-              <input type="range" min={0.2} max={3} step={0.05} value={preferences.mapScale} onChange={(event) => onPreferencesChange({ mapScale: Number(event.target.value) })} className="w-full" />
-              <span className="w-12 text-right text-[var(--aq-title)]">{preferences.mapScale.toFixed(2)}x</span>
+              <input type="range" min={0.2} max={3} step={0.05} value={mergedPreferences.mapScale} onChange={(event) => onPreferencesChange({ mapScale: Number(event.target.value) })} className="w-full" />
+              <span className="w-12 text-right text-[var(--aq-title)]">{mergedPreferences.mapScale.toFixed(2)}x</span>
             </div>
           </label>
 
@@ -270,12 +304,12 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           </div>
 
           <div className="mt-3 rounded-xl border border-[var(--aq-border)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
-            {preferences.toolMode === "map" ? "Modo mover mapa ativo: arraste a imagem no tabuleiro." : "Ative Mover mapa para arrastar a imagem no tabuleiro."}
+            {mergedPreferences.toolMode === "map" ? "Modo mover mapa ativo: arraste a imagem no tabuleiro." : "Ative Mover mapa para arrastar a imagem no tabuleiro."}
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">
-            <div className="rounded-xl border border-[var(--aq-border)] px-3 py-2">Offset X: {preferences.mapOffsetX}</div>
-            <div className="rounded-xl border border-[var(--aq-border)] px-3 py-2">Offset Y: {preferences.mapOffsetY}</div>
+            <div className="rounded-xl border border-[var(--aq-border)] px-3 py-2">Offset X: {mergedPreferences.mapOffsetX}</div>
+            <div className="rounded-xl border border-[var(--aq-border)] px-3 py-2">Offset Y: {mergedPreferences.mapOffsetY}</div>
           </div>
         </div>
       </div>
