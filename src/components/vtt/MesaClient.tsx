@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Cinzel, Inter } from "next/font/google";
-import { ArrowLeft, Crosshair, Eye, KeyRound, Layers3, Link2, Menu, Plus, ScrollText, Sparkles, Trash2, Users, X } from "lucide-react";
+import { Archive, ArrowLeft, Copy, Crosshair, Eye, KeyRound, Layers3, Menu, Pencil, Plus, ScrollText, Sparkles, Users, X } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { DEFAULT_SCENE_VIEW_PREFERENCES, normalizeScenePreferences } from "@/src/lib/vttScenePreferences";
@@ -25,6 +25,7 @@ type Sala = {
   id: string;
   nome: string;
   user_id?: string | null;
+  status?: string | null;
 };
 
 type Cena = {
@@ -52,6 +53,15 @@ type MesaClientProps = {
   inviteCode?: string;
 };
 
+type RecentSession = {
+  id: string;
+  nome_sala: string;
+  codigo: string;
+  ultimo_acesso: string;
+};
+
+const RECENT_SESSIONS_KEY = "aetherquest:recent-sessions";
+
 function roomCode(id: string) {
   return id.replace(/-/g, "").slice(0, 8).toUpperCase();
 }
@@ -63,7 +73,18 @@ function normalizeCode(value: string) {
 function findSalaByCode(salas: Sala[], value: string) {
   const code = normalizeCode(value);
   if (!code) return null;
-  return salas.find((sala) => sala.id.replace(/-/g, "").toUpperCase() === code || roomCode(sala.id) === code) ?? null;
+  return salas.find((sala) => sala.status !== "arquivada" && (sala.id.replace(/-/g, "").toUpperCase() === code || roomCode(sala.id) === code)) ?? null;
+}
+
+function readRecentSessions() {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(RECENT_SESSIONS_KEY);
+    if (!raw) return [];
+    return (JSON.parse(raw) as RecentSession[]).filter((session) => session?.id && session?.codigo).slice(0, 5);
+  } catch {
+    return [];
+  }
 }
 
 function errorMessage(error: unknown) {
@@ -128,12 +149,15 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [copiedInvite, setCopiedInvite] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [mesaError, setMesaError] = useState("");
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPersistedRef = useRef("");
 
   const activeMesa = Boolean(role && salaAtiva && cenaAtiva && (role === "mestre" || joinedAsPlayer));
   const fichaSelecionada = selectedToken?.ficha_id ? fichasMap[selectedToken.ficha_id] ?? null : null;
   const fichaHref = (fichaId: string) => `/fichas/${fichaId}${salaAtiva?.id ? `?mesa=${encodeURIComponent(salaAtiva.id)}` : ""}`;
+  const mesasDisponiveis = useMemo(() => salas.filter((sala) => sala.status !== "arquivada"), [salas]);
+  const mesasNaoAtivas = useMemo(() => mesasDisponiveis.filter((sala) => sala.id !== salaAtiva?.id), [mesasDisponiveis, salaAtiva?.id]);
 
   const roster = useMemo(() => {
     return tokens
@@ -143,6 +167,18 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
         return { token, ficha, vida: ficha?.dados?.status?.vida, pe: ficha?.dados?.status?.pe, sanidade: ficha?.dados?.status?.sanidade };
       });
   }, [fichasMap, tokens]);
+
+  const rememberRecentSession = (sala: Sala) => {
+    const entry: RecentSession = {
+      id: sala.id,
+      nome_sala: sala.nome,
+      codigo: roomCode(sala.id),
+      ultimo_acesso: new Date().toISOString(),
+    };
+    const next = [entry, ...readRecentSessions().filter((session) => session.id !== sala.id)].slice(0, 5);
+    window.localStorage.setItem(RECENT_SESSIONS_KEY, JSON.stringify(next));
+    setRecentSessions(next);
+  };
 
   const visibleRoster = useMemo(() => {
     if (role === "mestre") return roster;
@@ -287,6 +323,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
   useEffect(() => {
     let active = true;
+    setRecentSessions(readRecentSessions());
     void ensureSession()
       .then(() => {
         if (!active) return;
@@ -326,8 +363,8 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   }, [authReady, hasSession]);
 
   useEffect(() => {
-    if (role === "mestre" && !salaAtiva && salas.length) setSalaAtiva(salas[0]);
-  }, [role, salaAtiva, salas]);
+    if (role === "mestre" && !salaAtiva && mesasDisponiveis.length) setSalaAtiva(mesasDisponiveis[0]);
+  }, [role, salaAtiva, mesasDisponiveis]);
 
   useEffect(() => {
     if (!inviteCode || !salas.length || joinedAsPlayer) return;
@@ -336,6 +373,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     setRole("jogador");
     setSalaAtiva(matched);
     setJoinedAsPlayer(true);
+    rememberRecentSession(matched);
     void ensureMembership(matched.id, "jogador");
   }, [inviteCode, joinedAsPlayer, salas]);
 
@@ -440,6 +478,29 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     }
   };
 
+  const finalizarSala = async (sala: Sala) => {
+    const confirmar = window.confirm(`Finalizar a mesa "${sala.nome}"? Jogadores nao poderao mais entrar por convite, mas os dados ficam preservados.`);
+    if (!confirmar) return;
+
+    const { data, error } = await runFresh<Sala>(() => supabase.from("salas").update({ status: "arquivada" }).eq("id", sala.id).select().single());
+    if (error || !data) {
+      alert(`Falha ao finalizar mesa: ${error?.message ?? "confira se a coluna status existe no Supabase"}`);
+      return;
+    }
+
+    const archived = data as Sala;
+    setSalas((current) => current.map((entry) => (entry.id === archived.id ? archived : entry)));
+    if (salaAtiva?.id === archived.id) {
+      setSalaAtiva(null);
+      setCenaAtiva(null);
+      setCenas([]);
+      setTokens([]);
+      setSelectedToken(null);
+      setRoomNameDraft("");
+      setShellOpen(true);
+    }
+  };
+
   const criarCena = async () => {
     if (!salaAtiva?.id) return;
     const activeSala = await claimSalaIfNeeded(salaAtiva);
@@ -485,6 +546,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
     setRole("jogador");
     setSalaAtiva(matched);
     setJoinedAsPlayer(true);
+    rememberRecentSession(matched);
     void ensureMembership(matched.id, "jogador");
   };
 
@@ -620,16 +682,55 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
           {role === "mestre" ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
-                <div className="flex items-center justify-between gap-3"><div><div className="aq-kicker">Sessoes</div><p className="mt-2 text-sm text-[var(--aq-text-muted)]">Crie ou escolha uma sessao. Cada uma gera um codigo curto.</p></div><button onClick={criarSala} className="aq-button-primary"><Plus size={14} /> Nova sessao</button></div>
-                <div className="mt-4 grid gap-2">{salas.map((sala) => <div key={sala.id} className={`flex items-center gap-2 rounded-2xl border px-2 py-2 ${salaAtiva?.id === sala.id ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.1)]" : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.54)]"}`}><button onClick={() => setSalaAtiva(sala)} className="min-w-0 flex-1 text-left"><div className="truncate text-[11px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)]">{sala.nome}</div><div className="mt-1 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-accent)]">{roomCode(sala.id)}</div></button><button onClick={() => setSalaAtiva(sala)} className="rounded-full border border-[var(--aq-border)] px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em] text-[var(--aq-text-muted)]">Editar</button><button onClick={() => void excluirSala(sala)} className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-200 transition hover:bg-red-500/20" aria-label={`Excluir ${sala.nome}`}><Trash2 size={13} /></button></div>)}</div>
+              {salaAtiva ? (
+                <div className="border border-cyan-300/25 bg-slate-950/80 p-4 shadow-[0_0_32px_rgba(34,211,238,0.12)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="aq-kicker">Mesa ativa</div>
+                      <input value={roomNameDraft} onChange={(event) => setRoomNameDraft(event.target.value)} className="mt-3 w-full border-b border-cyan-300/20 bg-transparent pb-2 text-lg font-black uppercase tracking-[0.12em] text-[var(--aq-title)] outline-none" placeholder="Nome da campanha" />
+                    </div>
+                    <button onClick={() => void finalizarSala(salaAtiva)} className="flex shrink-0 items-center gap-2 border border-red-500/35 bg-red-950/50 px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-red-200 transition hover:bg-red-900/70">
+                      <Archive size={13} />
+                      Finalizar
+                    </button>
+                  </div>
+                  <button onClick={copyInvite} className="mt-4 flex w-full items-center justify-between border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-left">
+                    <span>
+                      <span className="block text-[9px] font-black uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">Runas de convite</span>
+                      <span className="mt-1 block font-mono text-2xl font-black uppercase tracking-[0.22em] text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{roomCode(salaAtiva.id)}</span>
+                    </span>
+                    <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100"><Copy size={14} /> {copiedInvite ? "Copiado" : "Copiar"}</span>
+                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={renomearSala} className="aq-button-secondary flex-1 justify-center"><Pencil size={14} /> Salvar nome</button>
+                    <button onClick={criarCena} disabled={!salaAtiva} className="aq-button-primary flex-1 justify-center"><Plus size={14} /> Nova cena</button>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="border border-white/10 bg-stone-950/75 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="aq-kicker">Campanhas</div>
+                    <p className="mt-1 text-xs text-[var(--aq-text-muted)]">Mesas arquivadas ficam fora dos convites ativos.</p>
+                  </div>
+                  <button onClick={criarSala} className="aq-button-primary"><Plus size={14} /> Nova</button>
+                </div>
+                <div className="mt-4 grid gap-1.5">
+                  {mesasNaoAtivas.length ? mesasNaoAtivas.map((sala) => (
+                    <div key={sala.id} className="group flex items-center gap-2 border border-white/10 bg-slate-950/65 px-3 py-2 transition hover:border-cyan-300/30 hover:bg-cyan-400/10">
+                      <button onClick={() => setSalaAtiva(sala)} className="min-w-0 flex-1 text-left">
+                        <div className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">{sala.nome}</div>
+                        <div className="mt-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">{roomCode(sala.id)}</div>
+                      </button>
+                      <button onClick={() => setSalaAtiva(sala)} className="opacity-40 transition group-hover:opacity-100" aria-label={`Editar ${sala.nome}`}><Pencil size={14} /></button>
+                      <button onClick={() => void finalizarSala(sala)} className="text-red-200 opacity-30 transition group-hover:opacity-100" aria-label={`Arquivar ${sala.nome}`}><Archive size={14} /></button>
+                    </div>
+                  )) : <div className="border border-dashed border-white/10 px-3 py-4 text-xs text-[var(--aq-text-muted)]">Nenhuma outra mesa ativa.</div>}
+                </div>
               </div>
 
-              {salaAtiva ? <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4"><div className="flex items-center justify-between gap-3"><div className="aq-kicker">Sessao ativa</div><button onClick={() => void excluirSala(salaAtiva)} className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-red-200 transition hover:bg-red-500/20"><Trash2 size={13} /> Excluir</button></div><input value={roomNameDraft} onChange={(event) => setRoomNameDraft(event.target.value)} className="aq-input mt-3" placeholder="Nome da sessao" /><div className="mt-3 rounded-2xl border border-[var(--aq-border)] px-4 py-3"><div className="text-[10px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Codigo da sala</div><div className="mt-2 text-2xl font-black text-[var(--aq-title)]">{roomCode(salaAtiva.id)}</div></div><div className="mt-3 flex flex-wrap gap-3"><button onClick={renomearSala} className="aq-button-secondary"><ScrollText size={14} /> Salvar nome</button><button onClick={copyInvite} className="aq-button-secondary"><Link2 size={14} /> {copiedInvite ? "Copiado" : "Copiar link"}</button></div></div> : null}
-
               <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Layers3 className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{cenas.length}</div><div className="aq-kicker mt-1">Cenas</div></div><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Crosshair className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{tokens.length}</div><div className="aq-kicker mt-1">Tokens</div></div><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Sparkles className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-sm font-black">{cenaAtiva?.mapa_url ? "Online" : "Sem mapa"}</div><div className="aq-kicker mt-1">Mapa</div></div></div>
-
-              <button onClick={criarCena} disabled={!salaAtiva} className="aq-button-primary"><Plus size={14} /> Nova cena</button>
 
               <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4"><div className="aq-kicker">Controle do Mestre</div><p className="mt-2 text-sm text-[var(--aq-text-muted)]">Vincule ficha a token. O mestre pode abrir a ficha pelo roster quando o SQL de permissao estiver aplicado.</p><select value={fichaParaTokenId} onChange={(event) => setFichaParaTokenId(event.target.value)} className="aq-input mt-4"><option value="">Escolha uma ficha</option>{fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}</select><input value={tokenLabel} onChange={(event) => setTokenLabel(event.target.value)} className="aq-input mt-3" placeholder="Nome no mapa" /><button onClick={criarTokenDaFicha} disabled={!fichaParaTokenId || !cenaAtiva} className="aq-button-primary mt-3 w-full justify-center disabled:opacity-50"><Plus size={14} /> Colocar ficha na cena</button></div>
             </div>
@@ -637,16 +738,32 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
           {role === "jogador" ? (
             <div className="mt-6 space-y-4">
-              <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
-                <div className="aq-kicker">Entrar na sessao</div>
-                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Digite o codigo curto que o mestre compartilhou.</p>
-                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
+              <div className="border border-cyan-300/20 bg-stone-950/80 p-4">
+                <div className="aq-kicker">Entrada rapida</div>
+                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Insira as runas de convite da mesa do mestre.</p>
+                <div className="mt-4 flex items-center gap-2 border border-cyan-300/20 bg-slate-950/80 px-4 py-3">
                   <KeyRound size={16} className="text-[var(--aq-accent)]" />
-                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Codigo" className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none" />
+                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Inserir runas de convite" className="w-full bg-transparent font-mono text-sm uppercase tracking-[0.18em] text-cyan-200 outline-none" />
                 </div>
                 <button onClick={entrarComoJogador} className="aq-button-primary mt-4 w-full justify-center"><Users size={14} /> Entrar</button>
                 {joinError ? <div className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{joinError}</div> : null}
               </div>
+              {recentSessions.length ? (
+                <div className="border border-white/10 bg-slate-950/70 p-4">
+                  <div className="aq-kicker">Sessoes recentes</div>
+                  <div className="mt-3 grid gap-1.5">
+                    {recentSessions.map((session) => (
+                      <button key={session.id} onClick={() => { setJoinCode(session.codigo); const matched = findSalaByCode(salas, session.codigo); if (matched) { setJoinError(""); setRole("jogador"); setSalaAtiva(matched); setJoinedAsPlayer(true); rememberRecentSession(matched); void ensureMembership(matched.id, "jogador"); } }} className="flex items-center justify-between border border-white/10 bg-stone-950/70 px-3 py-2 text-left transition hover:border-cyan-300/30 hover:bg-cyan-400/10">
+                        <span className="min-w-0">
+                          <span className="block truncate text-[11px] font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">{session.nome_sala}</span>
+                          <span className="mt-1 block font-mono text-[10px] font-black tracking-[0.2em] text-cyan-300">{session.codigo}</span>
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">Entrar</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {joinedAsPlayer ? (
                 <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
                   <div className="aq-kicker">Sua ficha</div>
