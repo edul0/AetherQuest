@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
-import PhaserVTTCanvas from "./PhaserVTTCanvas";
+import OnlineVTTCanvas from "./OnlineVTTCanvas";
 
 interface VTTCanvasProps {
   cenaId: string;
@@ -74,5 +74,5 @@ export default function VTTCanvas(props: VTTCanvasProps) {
     };
   }, [props.cenaId]);
 
-  return <PhaserVTTCanvas {...props} mapaUrl={liveMapUrl} />;
+  return <OnlineVTTCanvas {...props} mapaUrl={liveMapUrl} />;
 }
