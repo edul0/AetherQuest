@@ -34,8 +34,8 @@ const TOKEN_IMAGE_SLOTS: Array<{ key: TokenImageKey; label: string; title: strin
   {
     key: "side",
     label: "2D",
-    title: "Visao 2D lateral",
-    description: "Arte para cards, cenas narrativas e futuros modos visuais.",
+    title: "Corpo vertical",
+    description: "Arte de corpo inteiro para usar como miniatura cinematica no mapa.",
   },
 ];
 
@@ -61,7 +61,7 @@ export default function TokenImagesPage() {
   const [error, setError] = useState("");
 
   const tokenImages = useMemo(() => normalizeTokenImages(ficha), [ficha]);
-  const activeMapImage = ficha?.avatar_url || ficha?.dados?.avatar_url || "";
+  const activeMapImage = ficha?.dados?.avatar_url || ficha?.avatar_url || "";
 
   useEffect(() => {
     if (!id || id === "undefined") {
@@ -92,11 +92,13 @@ export default function TokenImagesPage() {
       } else {
         const normalized = data as FichaRecord;
         const images = normalizeTokenImages(normalized);
+        const activeImage = normalized.dados?.avatar_url ?? normalized.avatar_url ?? images.portrait;
         setFicha({
           ...normalized,
+          avatar_url: activeImage,
           dados: {
             ...(normalized.dados ?? {}),
-            avatar_url: normalized.dados?.avatar_url ?? normalized.avatar_url ?? images.portrait,
+            avatar_url: activeImage,
             token_images: images,
           },
         });
@@ -115,14 +117,15 @@ export default function TokenImagesPage() {
   const updateFichaImages = async (nextImages: Record<TokenImageKey, string>, nextActiveImage?: string) => {
     if (!ficha || !id) return;
 
+    const activeImage = nextActiveImage ?? ficha.dados?.avatar_url ?? ficha.avatar_url ?? nextImages.portrait;
     const nextDados = {
       ...(ficha.dados ?? {}),
       token_images: nextImages,
-      avatar_url: nextActiveImage ?? ficha.dados?.avatar_url ?? ficha.avatar_url ?? nextImages.portrait,
+      avatar_url: activeImage,
     };
 
     const payload = {
-      avatar_url: nextActiveImage ?? ficha.avatar_url ?? nextDados.avatar_url ?? null,
+      avatar_url: activeImage || null,
       dados: nextDados,
     };
 
@@ -130,6 +133,9 @@ export default function TokenImagesPage() {
     if (updateError) {
       throw updateError;
     }
+
+    // Best-effort: keep already placed tokens from using an old avatar snapshot.
+    await supabase.from("tokens").update({ avatar_url: activeImage || null }).eq("ficha_id", id);
 
     setFicha((current) =>
       current
@@ -158,8 +164,7 @@ export default function TokenImagesPage() {
 
       const { data } = supabase.storage.from("avatares").getPublicUrl(path);
       const nextImages = { ...tokenImages, [slot]: data.publicUrl };
-      const shouldBecomeActive = slot === "top" || (!activeMapImage && slot === "portrait");
-      await updateFichaImages(nextImages, shouldBecomeActive ? data.publicUrl : undefined);
+      await updateFichaImages(nextImages, data.publicUrl);
     } catch (uploadError: any) {
       setError(uploadError.message ?? "Falha ao enviar imagem.");
     } finally {
@@ -230,7 +235,7 @@ export default function TokenImagesPage() {
                 <article key={slot.key} className="rounded-[2rem] border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-4">
                   <div className="relative aspect-square overflow-hidden rounded-[1.5rem] border border-dashed border-[var(--aq-border)] bg-[rgba(2,6,11,0.72)]">
                     {imageUrl ? (
-                      <img src={imageUrl} alt={slot.title} className="h-full w-full object-cover" />
+                      <img src={imageUrl} alt={slot.title} className={slot.key === "side" ? "h-full w-full object-contain" : "h-full w-full object-cover"} />
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center gap-3 text-[var(--aq-text-subtle)]">
                         <Camera size={32} />
