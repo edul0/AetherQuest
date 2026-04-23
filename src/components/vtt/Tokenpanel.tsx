@@ -109,8 +109,9 @@ export default function TokenPanel({ token, fichaData, salaId, onClose, onTokenU
   const [fichaLoadError, setFichaLoadError] = useState("");
   const [actionError, setActionError] = useState("");
   const fichaEfetiva = fichaData ?? fallbackFicha;
-  const fichaHref = (fichaId: string) => `/fichas/${fichaId}${salaId ? `?mesa=${encodeURIComponent(salaId)}` : ""}`;
-  const tokenImagesHref = (fichaId: string) => `/fichas/${fichaId}/tokens${salaId ? `?mesa=${encodeURIComponent(salaId)}` : ""}`;
+  const mesaQuery = salaId ? `?mesa=${encodeURIComponent(salaId)}&from=mesa` : "";
+  const fichaHref = (fichaId: string) => `/fichas/${fichaId}${mesaQuery}`;
+  const tokenImagesHref = (fichaId: string) => `/fichas/${fichaId}/tokens${mesaQuery}`;
 
   useEffect(() => {
     setShowVincular(false);
@@ -360,6 +361,14 @@ export default function TokenPanel({ token, fichaData, salaId, onClose, onTokenU
                   >
                     <ImageIcon size={12} />
                     Imagens do token
+                  </button>
+                  <button
+                    onClick={desvincularFicha}
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/28 bg-amber-400/8 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100 transition-all hover:bg-amber-400/14 disabled:opacity-40"
+                  >
+                    <Link2 size={12} />
+                    Remover ficha do token
                   </button>
                 </div>
               ) : null}
