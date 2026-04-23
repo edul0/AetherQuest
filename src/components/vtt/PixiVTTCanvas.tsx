@@ -142,11 +142,12 @@ export default function PixiVTTCanvas({
         const ficha = token.ficha_id ? fichasMap[token.ficha_id] : null;
         const url = tokenVisual(token, ficha);
         if (!url) return null;
-        const mode = tokenVisualMode(token, ficha);
-        const cutout = shouldCutoutWhite(token, ficha);
         const tokenPx = resolveTokenSize(token, size.width);
         const natural = imageSizes[url];
         const aspect = natural?.height ? natural.width / natural.height : 0.72;
+        const requestedMode = tokenVisualMode(token, ficha);
+        const mode = requestedMode === "portrait" && natural && aspect < 0.82 ? "standee" : requestedMode;
+        const cutout = shouldCutoutWhite(token, ficha) || mode === "standee";
         const base = tokenPx * camera.zoom;
         const width =
           mode === "standee"
@@ -212,7 +213,7 @@ export default function PixiVTTCanvas({
       .map((token) => {
         const ficha = token.ficha_id ? fichasMap[token.ficha_id] : null;
         const url = tokenVisual(token, ficha);
-        return shouldCutoutWhite(token, ficha) && url && !cutoutImages[url] ? url : "";
+        return url && !cutoutImages[url] ? url : "";
       })
       .filter(Boolean);
 
@@ -229,6 +230,20 @@ export default function PixiVTTCanvas({
           ctx.drawImage(img, 0, 0);
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const data = imageData.data;
+          const sample = (x: number, y: number) => {
+            const index = (Math.max(0, Math.min(canvas.height - 1, y)) * canvas.width + Math.max(0, Math.min(canvas.width - 1, x))) * 4;
+            return [data[index], data[index + 1], data[index + 2]] as const;
+          };
+          const corners = [
+            sample(0, 0),
+            sample(canvas.width - 1, 0),
+            sample(0, canvas.height - 1),
+            sample(canvas.width - 1, canvas.height - 1),
+          ];
+          const bg = corners.reduce(
+            (acc, color) => [acc[0] + color[0] / corners.length, acc[1] + color[1] / corners.length, acc[2] + color[2] / corners.length],
+            [0, 0, 0],
+          );
           for (let index = 0; index < data.length; index += 4) {
             const r = data[index];
             const g = data[index + 1];
@@ -237,8 +252,10 @@ export default function PixiVTTCanvas({
             const min = Math.min(r, g, b);
             const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
             const lowSaturation = max - min < 42;
-            if (lowSaturation && luminance > 230) data[index + 3] = 0;
-            else if (lowSaturation && luminance > 205) data[index + 3] = Math.min(data[index + 3], 70);
+            const distanceFromBg = Math.hypot(r - bg[0], g - bg[1], b - bg[2]);
+            const sameFlatBackground = lowSaturation && distanceFromBg < 46 && luminance > 178;
+            if ((lowSaturation && luminance > 224) || sameFlatBackground) data[index + 3] = 0;
+            else if (lowSaturation && luminance > 195) data[index + 3] = Math.min(data[index + 3], 52);
           }
           ctx.putImageData(imageData, 0, 0);
           setCutoutImages((current) => ({ ...current, [url]: canvas.toDataURL("image/png") }));
