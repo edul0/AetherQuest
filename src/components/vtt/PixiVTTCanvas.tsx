@@ -32,13 +32,13 @@ const center = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 
 function resolveTokenSize(token: Token, viewportWidth: number) {
-  const base = viewportWidth < 768 ? 78 : 70;
+  const base = viewportWidth < 768 ? 96 : 82;
   const multiplier = Number(token.size ?? 1);
-  return clamp(base * (Number.isFinite(multiplier) ? multiplier : 1), 44, viewportWidth < 768 ? 136 : 130);
+  return clamp(base * (Number.isFinite(multiplier) ? multiplier : 1), 64, viewportWidth < 768 ? 164 : 150);
 }
 
 function tokenVisual(token: Token, ficha?: FichaVTTSnapshot | null) {
-  return token.avatar_url || ficha?.dados?.token_images?.portrait || ficha?.dados?.token_images?.top || ficha?.avatar_url || ficha?.dados?.avatar_url || "";
+  return token.avatar_url || ficha?.dados?.token_images?.top || ficha?.dados?.token_images?.portrait || ficha?.avatar_url || ficha?.dados?.avatar_url || "";
 }
 
 function tokenName(token: Token, ficha?: FichaVTTSnapshot | null) {
@@ -55,12 +55,19 @@ function snapPoint(point: Point, prefs: SceneViewPreferences) {
   return { x: Math.round(point.x / grid) * grid, y: Math.round(point.y / grid) * grid };
 }
 
-export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSelectToken, onFichasMapChange, onTokensChange, scenePreferences }: VTTCanvasProps) {
+export default function PixiVTTCanvas({
+  cenaId,
+  mapaUrl,
+  selectedTokenId,
+  onSelectToken,
+  onFichasMapChange,
+  onTokensChange,
+  scenePreferences,
+}: VTTCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const pixiRef = useRef<PixiModule | null>(null);
   const appRef = useRef<any>(null);
   const worldRef = useRef<any>(null);
-  const mapLayerRef = useRef<any>(null);
   const gridRef = useRef<any>(null);
   const tokenLayerRef = useRef<any>(null);
   const textureCacheRef = useRef(new Map<string, any>());
@@ -80,12 +87,31 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
 
   const mapFrame = useMemo(() => {
     if (!mapaUrl || !mapSize) return null;
-    const baseScale = Math.max(size.width / mapSize.width, size.height / mapSize.height);
-    const scale = baseScale * scenePreferences.mapScale;
+    const fitScale = Math.max(size.width / mapSize.width, size.height / mapSize.height);
+    const scale = fitScale * scenePreferences.mapScale;
     const width = mapSize.width * scale;
     const height = mapSize.height * scale;
-    return { x: (size.width - width) / 2 + scenePreferences.mapOffsetX, y: (size.height - height) / 2 + scenePreferences.mapOffsetY, width, height };
-  }, [mapaUrl, mapSize, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY, scenePreferences.mapScale, size.height, size.width]);
+    return {
+      x: (size.width - width) / 2 + scenePreferences.mapOffsetX,
+      y: (size.height - height) / 2 + scenePreferences.mapOffsetY,
+      width,
+      height,
+    };
+  }, [mapSize, mapaUrl, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY, scenePreferences.mapScale, size.height, size.width]);
+
+  const domMapStyle = useMemo<React.CSSProperties | undefined>(() => {
+    if (!mapFrame) return undefined;
+    return {
+      position: "absolute",
+      left: 0,
+      top: 0,
+      width: mapFrame.width * camera.zoom,
+      height: mapFrame.height * camera.zoom,
+      transform: `translate3d(${(mapFrame.x - camera.x) * camera.zoom}px, ${(mapFrame.y - camera.y) * camera.zoom}px, 0)`,
+      transformOrigin: "0 0",
+      zIndex: 1,
+    };
+  }, [camera.x, camera.y, camera.zoom, mapFrame]);
 
   useEffect(() => {
     latestTokensRef.current = tokens;
@@ -109,20 +135,34 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
       if (destroyed || !hostRef.current) return;
       pixiRef.current = PIXI;
       const app = new PIXI.Application();
-      await app.init({ resizeTo: hostRef.current, background: "#050a10", antialias: true, autoDensity: true, resolution: Math.min(window.devicePixelRatio || 1, 2), powerPreference: "high-performance" });
+      await app.init({
+        resizeTo: hostRef.current,
+        backgroundAlpha: 0,
+        antialias: true,
+        autoDensity: true,
+        resolution: Math.min(window.devicePixelRatio || 1, 2),
+        powerPreference: "high-performance",
+      });
       app.stage.eventMode = "static";
       app.stage.hitArea = app.screen;
+      Object.assign(app.canvas.style, {
+        position: "absolute",
+        inset: "0",
+        zIndex: "5",
+        width: "100%",
+        height: "100%",
+        touchAction: "none",
+      });
       hostRef.current.appendChild(app.canvas);
+
       const world = new PIXI.Container();
-      const mapLayer = new PIXI.Container();
       const grid = new PIXI.Graphics();
       const tokenLayer = new PIXI.Container();
       tokenLayer.sortableChildren = true;
-      world.addChild(mapLayer, grid, tokenLayer);
+      world.addChild(grid, tokenLayer);
       app.stage.addChild(world);
       appRef.current = app;
       worldRef.current = world;
-      mapLayerRef.current = mapLayer;
       gridRef.current = grid;
       tokenLayerRef.current = tokenLayer;
     };
@@ -132,18 +172,28 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
       textureCacheRef.current.clear();
       appRef.current?.destroy(true, { children: true, texture: false });
       appRef.current = null;
+      pixiRef.current = null;
     };
   }, []);
 
   useEffect(() => {
     if (!mapaUrl) {
       setMapSize(null);
+      setCanvasError("");
       return;
     }
     let cancelled = false;
     const img = new Image();
-    img.onload = () => !cancelled && setMapSize({ width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
-    img.onerror = () => !cancelled && setMapSize(null);
+    img.onload = () => {
+      if (cancelled) return;
+      setMapSize({ width: img.naturalWidth || 1, height: img.naturalHeight || 1 });
+      setCanvasError("");
+    };
+    img.onerror = () => {
+      if (cancelled) return;
+      setMapSize(null);
+      setCanvasError("Mapa encontrado, mas a imagem nao abriu. Reenvie o arquivo no bucket publico de mapas.");
+    };
     img.src = mapaUrl;
     return () => {
       cancelled = true;
@@ -183,11 +233,14 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
     if (error) console.error("[PixiVTTCanvas] erro ao mover token:", error);
   }, []);
 
-  const zoomAt = useCallback((screenPoint: Point, targetZoom: number, baseCamera = camera, baseScreenPoint = screenPoint) => {
-    const nextZoom = clamp(targetZoom, 0.35, 3.6);
-    const world = screenToWorld(baseScreenPoint, baseCamera);
-    setCamera({ x: world.x - screenPoint.x / nextZoom, y: world.y - screenPoint.y / nextZoom, zoom: nextZoom });
-  }, [camera, screenToWorld]);
+  const zoomAt = useCallback(
+    (screenPoint: Point, targetZoom: number, baseCamera = camera, baseScreenPoint = screenPoint) => {
+      const nextZoom = clamp(targetZoom, 0.35, 3.6);
+      const world = screenToWorld(baseScreenPoint, baseCamera);
+      setCamera({ x: world.x - screenPoint.x / nextZoom, y: world.y - screenPoint.y / nextZoom, zoom: nextZoom });
+    },
+    [camera, screenToWorld],
+  );
 
   const pointerFromEvent = (event: PointerEvent): Point => {
     const rect = hostRef.current?.getBoundingClientRect();
@@ -242,17 +295,34 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
     const drag = dragRef.current;
     if (!drag) return;
     if (drag.type === "token") {
-      const next = snapPoint({ x: drag.startToken.x + (point.x - drag.startPointer.x) / camera.zoom, y: drag.startToken.y + (point.y - drag.startPointer.y) / camera.zoom }, scenePreferences);
+      const next = snapPoint(
+        {
+          x: drag.startToken.x + (point.x - drag.startPointer.x) / camera.zoom,
+          y: drag.startToken.y + (point.y - drag.startPointer.y) / camera.zoom,
+        },
+        scenePreferences,
+      );
       dragRef.current = { ...drag, moved: true };
       setTokens((current) => current.map((token) => (token.id === drag.tokenId ? { ...token, ...next } : token)));
       return;
     }
     if (drag.type === "camera") {
-      setCamera({ ...drag.startCamera, x: drag.startCamera.x - (point.x - drag.startPointer.x) / drag.startCamera.zoom, y: drag.startCamera.y - (point.y - drag.startPointer.y) / drag.startCamera.zoom });
+      setCamera({
+        ...drag.startCamera,
+        x: drag.startCamera.x - (point.x - drag.startPointer.x) / drag.startCamera.zoom,
+        y: drag.startCamera.y - (point.y - drag.startPointer.y) / drag.startCamera.zoom,
+      });
       return;
     }
     if (drag.type === "map") {
-      window.dispatchEvent(new CustomEvent("aq-map-offset", { detail: { x: Math.round(drag.startOffset.x + (point.x - drag.startPointer.x) / camera.zoom), y: Math.round(drag.startOffset.y + (point.y - drag.startPointer.y) / camera.zoom) } }));
+      window.dispatchEvent(
+        new CustomEvent("aq-map-offset", {
+          detail: {
+            x: Math.round(drag.startOffset.x + (point.x - drag.startPointer.x) / camera.zoom),
+            y: Math.round(drag.startOffset.y + (point.y - drag.startPointer.y) / camera.zoom),
+          },
+        }),
+      );
     }
   };
 
@@ -270,28 +340,12 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
   useEffect(() => {
     const PIXI = pixiRef.current;
     const world = worldRef.current;
-    const mapLayer = mapLayerRef.current;
     const grid = gridRef.current;
     const tokenLayer = tokenLayerRef.current;
-    if (!PIXI || !world || !mapLayer || !grid || !tokenLayer) return;
+    if (!PIXI || !world || !grid || !tokenLayer) return;
 
     world.position.set(-camera.x * camera.zoom, -camera.y * camera.zoom);
     world.scale.set(camera.zoom);
-    mapLayer.removeChildren();
-    if (mapaUrl && mapFrame) {
-      let texture = textureCacheRef.current.get(mapaUrl);
-      if (!texture) {
-        texture = PIXI.Texture.from(mapaUrl);
-        textureCacheRef.current.set(mapaUrl, texture);
-      }
-      const sprite = new PIXI.Sprite(texture);
-      sprite.x = mapFrame.x;
-      sprite.y = mapFrame.y;
-      sprite.width = mapFrame.width;
-      sprite.height = mapFrame.height;
-      sprite.alpha = 0.96;
-      mapLayer.addChild(sprite);
-    }
 
     grid.clear();
     if (scenePreferences.showGrid) {
@@ -352,12 +406,12 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
         const body = new PIXI.Graphics();
         body.circle(0, 0, tokenPx * 0.38).fill({ color: Number.parseInt((token.cor || "#4ad9d9").replace("#", ""), 16) || 0x4ad9d9, alpha: 0.94 });
         wrapper.addChild(body);
-        const label = new PIXI.Text({ text: initials(token, ficha), style: { fill: 0xffffff, fontSize: Math.max(15, tokenPx * 0.22), fontWeight: "900", align: "center" } });
+        const label = new PIXI.Text({ text: initials(token, ficha), style: { fill: 0xffffff, fontSize: Math.max(18, tokenPx * 0.24), fontWeight: "900", align: "center" } });
         label.anchor.set(0.5);
         wrapper.addChild(label);
       }
 
-      const name = new PIXI.Text({ text: tokenName(token, ficha), style: { fill: 0xf0ebd8, fontSize: Math.max(9, tokenPx * 0.13), fontWeight: "900", align: "center" } });
+      const name = new PIXI.Text({ text: tokenName(token, ficha), style: { fill: 0xf0ebd8, fontSize: Math.max(10, tokenPx * 0.13), fontWeight: "900", align: "center" } });
       name.anchor.set(0.5, 0);
       name.y = tokenPx * 0.46;
       wrapper.addChild(name);
@@ -367,14 +421,14 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
       if (hpSource?.max) {
         const hp = clamp(hpSource.atual / hpSource.max, 0, 1);
         const bar = new PIXI.Graphics();
-        bar.roundRect(-tokenPx * 0.38, tokenPx * 0.64, tokenPx * 0.76, 4, 3).fill({ color: 0xffffff, alpha: 0.14 });
-        bar.roundRect(-tokenPx * 0.38, tokenPx * 0.64, tokenPx * 0.76 * hp, 4, 3).fill({ color: hp > 0.45 ? 0x22c55e : hp > 0.2 ? 0xf59e0b : 0xef4444, alpha: 1 });
+        bar.roundRect(-tokenPx * 0.38, tokenPx * 0.64, tokenPx * 0.76, 5, 3).fill({ color: 0xffffff, alpha: 0.14 });
+        bar.roundRect(-tokenPx * 0.38, tokenPx * 0.64, tokenPx * 0.76 * hp, 5, 3).fill({ color: hp > 0.45 ? 0x22c55e : hp > 0.2 ? 0xf59e0b : 0xef4444, alpha: 1 });
         wrapper.addChild(bar);
       }
       tokenLayer.addChild(wrapper);
     });
     tokenLayer.sortChildren();
-  }, [camera, fichasMap, mapFrame, mapaUrl, scenePreferences.gridOpacity, scenePreferences.gridSize, scenePreferences.showGrid, scenePreferences.toolMode, selectedTokenId, size.height, size.width, tokens]);
+  }, [camera, fichasMap, scenePreferences.gridOpacity, scenePreferences.gridSize, scenePreferences.showGrid, scenePreferences.toolMode, selectedTokenId, size.height, size.width, tokens]);
 
   return (
     <div
@@ -389,18 +443,30 @@ export default function PixiVTTCanvas({ cenaId, mapaUrl, selectedTokenId, onSele
         zoomAt({ x: event.clientX, y: event.clientY }, camera.zoom * (event.deltaY > 0 ? 0.9 : 1.1));
       }}
     >
-      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_20%,rgba(74,217,217,0.08),transparent_38%),linear-gradient(to_bottom,rgba(0,0,0,0.04),rgba(0,0,0,0.45))]" />
-      <div className="fixed left-1/2 top-[86px] z-40 flex w-[calc(100vw-1rem)] max-w-[560px] -translate-x-1/2 items-center justify-between gap-2 rounded-[26px] border border-[#4ad9d9]/20 bg-[#050a10]/88 px-3 py-2 shadow-2xl backdrop-blur-xl md:top-4">
+      {mapaUrl && domMapStyle ? <img src={mapaUrl} alt="" aria-hidden="true" className="pointer-events-none max-w-none object-fill opacity-95" style={domMapStyle} /> : null}
+      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_20%,rgba(74,217,217,0.08),transparent_38%),linear-gradient(to_bottom,rgba(0,0,0,0.02),rgba(0,0,0,0.22))]" />
+      <div className="fixed left-1/2 top-[92px] z-40 flex w-[min(calc(100vw-1rem),560px)] -translate-x-1/2 items-center justify-between gap-2 rounded-[26px] border border-[#4ad9d9]/20 bg-[#050a10]/88 px-3 py-2 shadow-2xl backdrop-blur-xl md:top-4">
         <div className="flex gap-2">
-          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.12)}><Plus size={18} /></button>
-          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 0.88)}><Minus size={18} /></button>
-          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => setCamera(DEFAULT_CAMERA)}><RotateCcw size={18} /></button>
+          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.12)}>
+            <Plus size={18} />
+          </button>
+          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 0.88)}>
+            <Minus size={18} />
+          </button>
+          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => setCamera(DEFAULT_CAMERA)}>
+            <RotateCcw size={18} />
+          </button>
         </div>
         <div className="text-right">
           <div className="text-xs font-black uppercase tracking-[0.2em] text-white">Zoom {Math.round(camera.zoom * 100)}%</div>
           <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-slate-400">{scenePreferences.toolMode === "map" ? "Reposicionando cena" : scenePreferences.toolMode === "pan" ? "Camera livre" : "Tokens cinematicos"}</div>
         </div>
       </div>
+      {mapaUrl && !domMapStyle && !canvasError ? (
+        <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-cyan-400/20 bg-[#050a10]/80 px-5 py-4 text-center text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
+          Carregando mapa...
+        </div>
+      ) : null}
       {canvasError ? <div className="fixed left-1/2 top-1/2 z-50 max-w-[84vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-red-500/30 bg-red-950/80 px-5 py-4 text-center text-sm text-red-100">{canvasError}</div> : null}
     </div>
   );
