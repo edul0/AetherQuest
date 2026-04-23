@@ -35,7 +35,15 @@ export default function VTTCanvas(props: VTTCanvasProps) {
       setLiveMapUrl(data?.mapa_url ?? undefined);
     };
 
+    const handleLocalMapUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<{ cenaId: string; url: string | null }>).detail;
+      if (!detail || detail.cenaId !== props.cenaId) return;
+      setLiveMapUrl(detail.url ?? undefined);
+    };
+
     void loadSceneMap();
+    const syncTimer = window.setInterval(() => void loadSceneMap(), 1800);
+    window.addEventListener("aq-scene-map-url", handleLocalMapUpdate as EventListener);
 
     const channel = supabase
       .channel(`vtt_scene_map_${props.cenaId}`)
@@ -60,6 +68,8 @@ export default function VTTCanvas(props: VTTCanvasProps) {
 
     return () => {
       active = false;
+      window.clearInterval(syncTimer);
+      window.removeEventListener("aq-scene-map-url", handleLocalMapUpdate as EventListener);
       supabase.removeChannel(channel);
     };
   }, [props.cenaId]);
