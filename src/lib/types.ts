@@ -120,6 +120,7 @@ export interface Token {
 
 export interface FichaVTTSnapshot {
   id: string;
+  user_id?: string | null;
   nome_personagem: string;
   sistema_preset: string;
   avatar_url?: string;
