@@ -50,8 +50,8 @@ function tokenVisualMode(token: Token, ficha?: FichaVTTSnapshot | null): TokenVi
   return "portrait";
 }
 
-function shouldCutoutWhite(token: Token) {
-  return tokenConditions(token).includes("cutout:white") || tokenVisualMode(token) === "standee";
+function shouldCutoutWhite(token: Token, ficha?: FichaVTTSnapshot | null) {
+  return tokenConditions(token).includes("cutout:white") || tokenVisualMode(token, ficha) === "standee";
 }
 
 function tokenVisual(token: Token, ficha?: FichaVTTSnapshot | null) {
@@ -102,6 +102,7 @@ export default function PixiVTTCanvas({
   const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(null);
   const [canvasError, setCanvasError] = useState("");
   const [cutoutImages, setCutoutImages] = useState<Record<string, string>>({});
+  const [imageSizes, setImageSizes] = useState<Record<string, { width: number; height: number }>>({});
 
   const fichaIds = useMemo(() => tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id)), [tokens]);
   const fichasMap = useTokenFichaSync(fichaIds);
@@ -142,16 +143,26 @@ export default function PixiVTTCanvas({
         const url = tokenVisual(token, ficha);
         if (!url) return null;
         const mode = tokenVisualMode(token, ficha);
-        const cutout = shouldCutoutWhite(token);
+        const cutout = shouldCutoutWhite(token, ficha);
         const tokenPx = resolveTokenSize(token, size.width);
-        const width = tokenPx * (mode === "standee" ? 0.98 : mode === "top" ? 0.9 : 0.78) * camera.zoom;
-        const height = tokenPx * (mode === "standee" ? 1.55 : mode === "top" ? 0.9 : 0.78) * camera.zoom;
-        const yAnchor = mode === "standee" ? 0.88 : 0.5;
+        const natural = imageSizes[url];
+        const aspect = natural?.height ? natural.width / natural.height : 0.72;
+        const base = tokenPx * camera.zoom;
+        const width =
+          mode === "standee"
+            ? clamp(base * 1.45 * aspect, base * 0.46, base * 1.25)
+            : mode === "top"
+              ? base * 0.92
+              : base * 0.82;
+        const height = mode === "standee" ? base * 1.45 : mode === "top" ? base * 0.92 : base * 0.82;
+        const yAnchor = mode === "standee" ? 0.94 : 0.5;
         return {
           id: token.id,
           url: cutout ? cutoutImages[url] ?? url : url,
+          rawUrl: url,
           label: tokenName(token, ficha),
           mode,
+          cutout,
           style: {
             position: "absolute",
             left: 0,
@@ -160,21 +171,44 @@ export default function PixiVTTCanvas({
             height,
             transform: `translate3d(${(token.x - camera.x) * camera.zoom - width / 2}px, ${(token.y - camera.y) * camera.zoom - height * yAnchor}px, 0)`,
             zIndex: 4 + (token.z_index ?? 0),
-            borderRadius: mode === "portrait" ? "9999px" : mode === "top" ? "30%" : "16px",
-            objectFit: mode === "standee" ? "contain" : "cover",
+            border: mode === "standee" ? "none" : "1px solid rgba(165, 243, 252, 0.35)",
+            borderRadius: mode === "portrait" ? "9999px" : mode === "top" ? "30%" : "0px",
+            objectFit: mode === "portrait" ? "cover" : "contain",
+            objectPosition: mode === "standee" ? "center bottom" : "center center",
             mixBlendMode: cutout && !cutoutImages[url] ? "multiply" : "normal",
           } satisfies React.CSSProperties,
         };
       })
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
-  }, [camera.x, camera.y, camera.zoom, cutoutImages, fichasMap, size.width, tokens]);
+  }, [camera.x, camera.y, camera.zoom, cutoutImages, fichasMap, imageSizes, size.width, tokens]);
+
+  useEffect(() => {
+    const urls = tokens
+      .map((token) => {
+        const ficha = token.ficha_id ? fichasMap[token.ficha_id] : null;
+        return tokenVisual(token, ficha);
+      })
+      .filter(Boolean);
+
+    Array.from(new Set(urls)).forEach((url) => {
+      if (imageSizes[url]) return;
+      const img = new Image();
+      img.onload = () => {
+        setImageSizes((current) => ({
+          ...current,
+          [url]: { width: img.naturalWidth || img.width || 1, height: img.naturalHeight || img.height || 1 },
+        }));
+      };
+      img.src = url;
+    });
+  }, [fichasMap, imageSizes, tokens]);
 
   useEffect(() => {
     const targets = tokens
       .map((token) => {
         const ficha = token.ficha_id ? fichasMap[token.ficha_id] : null;
         const url = tokenVisual(token, ficha);
-        return shouldCutoutWhite(token) && url && !cutoutImages[url] ? url : "";
+        return shouldCutoutWhite(token, ficha) && url && !cutoutImages[url] ? url : "";
       })
       .filter(Boolean);
 
@@ -535,7 +569,7 @@ export default function PixiVTTCanvas({
           alt=""
           aria-hidden="true"
           title={tokenImage.label}
-          className={`pointer-events-none border border-cyan-200/35 shadow-[0_12px_34px_rgba(0,0,0,0.55)] ${tokenImage.mode === "standee" ? "drop-shadow-[0_18px_18px_rgba(0,0,0,0.62)]" : ""}`}
+          className={`pointer-events-none shadow-[0_12px_34px_rgba(0,0,0,0.55)] ${tokenImage.mode === "standee" ? "drop-shadow-[0_18px_18px_rgba(0,0,0,0.62)]" : ""}`}
           style={tokenImage.style}
         />
       ))}
