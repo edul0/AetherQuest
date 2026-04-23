@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
-import OnlineVTTCanvas from "./OnlineVTTCanvas";
+import PixiVTTCanvas from "./PixiVTTCanvas";
 
 interface VTTCanvasProps {
   cenaId: string;
@@ -74,5 +74,5 @@ export default function VTTCanvas(props: VTTCanvasProps) {
     };
   }, [props.cenaId]);
 
-  return <OnlineVTTCanvas {...props} mapaUrl={liveMapUrl} />;
+  return <PixiVTTCanvas {...props} mapaUrl={liveMapUrl} />;
 }
