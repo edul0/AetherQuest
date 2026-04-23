@@ -29,6 +29,7 @@ type VTTState = {
   setCamera: (camera: Partial<VTTCamera> | ((camera: VTTCamera) => VTTCamera)) => void;
   setGrid: (grid: Partial<VTTGridState>) => void;
   setToolMode: (toolMode: VTTToolMode) => void;
+  hydrateSceneRuntime: (preferences: Partial<SceneViewPreferences>) => void;
   selectToken: (id: string | null) => void;
   resetRuntime: () => void;
 };
@@ -65,8 +66,26 @@ export const useVTTStore = create<VTTState>((set) => ({
     })),
   setGrid: (grid) => set((state) => ({ grid: { ...state.grid, ...grid } })),
   setToolMode: (toolMode) => set({ toolMode }),
+  hydrateSceneRuntime: (preferences) =>
+    set((state) => ({
+      grid: {
+        ...state.grid,
+        ...(typeof preferences.gridSize === "number" ? { gridSize: preferences.gridSize } : {}),
+        ...(typeof preferences.gridOpacity === "number" ? { gridOpacity: preferences.gridOpacity } : {}),
+        ...(typeof preferences.showGrid === "boolean" ? { showGrid: preferences.showGrid } : {}),
+        ...(typeof preferences.snapToGrid === "boolean" ? { snapToGrid: preferences.snapToGrid } : {}),
+      },
+      toolMode: preferences.toolMode ?? state.toolMode,
+    })),
   selectToken: (id) => set({ selectedTokenId: id }),
-  resetRuntime: () => set({ tokens: [], camera: DEFAULT_VTT_CAMERA, selectedTokenId: null }),
+  resetRuntime: () =>
+    set({
+      tokens: [],
+      camera: DEFAULT_VTT_CAMERA,
+      grid: DEFAULT_VTT_GRID,
+      toolMode: "select",
+      selectedTokenId: null,
+    }),
 }));
 
 export const selectVTTTokens = (state: VTTState) => state.tokens;
@@ -75,6 +94,10 @@ export const selectVTTGrid = (state: VTTState) => state.grid;
 export const selectVTTToolMode = (state: VTTState) => state.toolMode;
 export const selectVTTSelectedTokenId = (state: VTTState) => state.selectedTokenId;
 export const selectVTTTokenCount = (state: VTTState) => state.tokens.length;
+export const selectVTTGridSize = (state: VTTState) => state.grid.gridSize;
+export const selectVTTGridOpacity = (state: VTTState) => state.grid.gridOpacity;
+export const selectVTTShowGrid = (state: VTTState) => state.grid.showGrid;
+export const selectVTTSnapToGrid = (state: VTTState) => state.grid.snapToGrid;
 
 export const vttActions = {
   setTokens: () => useVTTStore.getState().setTokens,
@@ -85,5 +108,7 @@ export const vttActions = {
   setCamera: () => useVTTStore.getState().setCamera,
   setGrid: () => useVTTStore.getState().setGrid,
   setToolMode: () => useVTTStore.getState().setToolMode,
+  hydrateSceneRuntime: () => useVTTStore.getState().hydrateSceneRuntime,
   selectToken: () => useVTTStore.getState().selectToken,
+  resetRuntime: () => useVTTStore.getState().resetRuntime,
 };
