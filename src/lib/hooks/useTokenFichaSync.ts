@@ -22,7 +22,7 @@ export function useTokenFichaSync(fichaIds: string[]): Record<string, FichaVTTSn
     const fetchFichas = async () => {
       const { data, error } = await supabase
         .from("fichas")
-        .select("id, nome_personagem, sistema_preset, avatar_url, dados")
+        .select("id, user_id, nome_personagem, sistema_preset, avatar_url, dados")
         .in("id", validIds);
 
       if (!active) return;
