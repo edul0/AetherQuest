@@ -116,6 +116,16 @@ export interface Token {
   y: number;
   cor: string;
   sala?: string | null;
+  hp?: number | null;
+  max_hp?: number | null;
+  size?: number | null;
+  rotation?: number | null;
+  conditions?: string[] | null;
+  z_index?: number | null;
+  layer?: "map" | "object" | "token" | "gm" | string | null;
+  visible_to_players?: boolean | null;
+  avatar_url?: string | null;
+  initiative?: number | null;
 }
 
 export interface FichaVTTSnapshot {
@@ -125,6 +135,12 @@ export interface FichaVTTSnapshot {
   sistema_preset: string;
   avatar_url?: string;
   dados: {
+    avatar_url?: string;
+    token_images?: {
+      portrait?: string;
+      top?: string;
+      side?: string;
+    };
     status?: {
       vida?: { atual: number; max: number };
       sanidade?: { atual: number; max: number };
