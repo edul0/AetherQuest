@@ -120,7 +120,6 @@ function createPhaserScene(
       },
     };
 
-    private mapImage?: Phaser.GameObjects.Image;
     private grid?: Phaser.GameObjects.Graphics;
     private tokenLayer?: Phaser.GameObjects.Container;
     private measurementLayer?: Phaser.GameObjects.Container;
@@ -129,12 +128,9 @@ function createPhaserScene(
     private gesture: GestureState = null;
     private measurementStart: Point | null = null;
     private measurementEnd: Point | null = null;
-    private activeMapUrl = "";
-    private mapNaturalSize = { width: 0, height: 0 };
-    private pendingMapImage?: HTMLImageElement;
 
     create() {
-      this.cameras.main.setBackgroundColor(COLORS.bg);
+      this.cameras.main.setBackgroundColor("rgba(0,0,0,0)");
       this.grid = this.add.graphics();
       this.tokenLayer = this.add.container(0, 0);
       this.measurementLayer = this.add.container(0, 0);
@@ -150,7 +146,6 @@ function createPhaserScene(
 
     public setState(next: RenderState) {
       this.state = next;
-      this.renderMap();
       this.renderGrid();
       this.renderTokens();
       this.renderMeasurement();
@@ -178,7 +173,6 @@ function createPhaserScene(
     }
 
     private handleResize() {
-      this.renderMap();
       this.renderGrid();
       this.renderTokens();
     }
@@ -322,6 +316,7 @@ function createPhaserScene(
         camera.scrollX = this.gesture.camera.x - (pointer.x - this.gesture.pointer.x) / camera.zoom;
         camera.scrollY = this.gesture.camera.y - (pointer.y - this.gesture.pointer.y) / camera.zoom;
         callbacks.onCamera(this.getCameraState());
+        this.renderGrid();
       }
     }
 
@@ -382,65 +377,6 @@ function createPhaserScene(
         y: camera.scrollY,
         zoom: camera.zoom,
       };
-    }
-
-    private renderMap() {
-      if (!this.state.mapaUrl) {
-        this.mapImage?.destroy();
-        this.mapImage = undefined;
-        this.activeMapUrl = "";
-        return;
-      }
-
-      if (this.activeMapUrl !== this.state.mapaUrl) {
-        this.activeMapUrl = this.state.mapaUrl;
-        const key = `map-${btoa(this.state.mapaUrl).replace(/[^a-zA-Z0-9]/g, "").slice(0, 32)}`;
-        if (this.textures.exists(key)) {
-          this.attachMapTexture(key);
-          return;
-        }
-        this.pendingMapImage = new Image();
-        this.pendingMapImage.crossOrigin = "anonymous";
-        this.pendingMapImage.referrerPolicy = "no-referrer";
-        this.pendingMapImage.onload = () => {
-          if (this.activeMapUrl !== this.state.mapaUrl || !this.pendingMapImage) return;
-          if (!this.textures.exists(key)) this.textures.addImage(key, this.pendingMapImage);
-          this.attachMapTexture(key);
-        };
-        this.pendingMapImage.onerror = () => {
-          if (this.activeMapUrl !== this.state.mapaUrl) return;
-          console.error("[PhaserVTTCanvas] Falha ao carregar mapa:", this.state.mapaUrl);
-        };
-        this.pendingMapImage.src = this.state.mapaUrl;
-        return;
-      }
-
-      this.positionMap();
-    }
-
-    private attachMapTexture(key: string) {
-      const texture = this.textures.get(key).getSourceImage() as HTMLImageElement;
-      this.mapNaturalSize = { width: texture.width || 1, height: texture.height || 1 };
-      if (!this.mapImage) {
-        this.mapImage = this.add.image(0, 0, key).setOrigin(0, 0).setDepth(-10).setAlpha(0.96);
-      } else {
-        this.mapImage.setTexture(key);
-      }
-      this.positionMap();
-    }
-
-    private positionMap() {
-      if (!this.mapImage || !this.mapNaturalSize.width || !this.mapNaturalSize.height) return;
-      const width = this.scale.width;
-      const height = this.scale.height;
-      const baseScale = Math.max(width / this.mapNaturalSize.width, height / this.mapNaturalSize.height);
-      const mapScale = baseScale * this.state.preferences.mapScale;
-      const displayWidth = this.mapNaturalSize.width * mapScale;
-      const displayHeight = this.mapNaturalSize.height * mapScale;
-      const x = (width - displayWidth) / 2 + this.state.preferences.mapOffsetX;
-      const y = (height - displayHeight) / 2 + this.state.preferences.mapOffsetY;
-      this.mapImage.setPosition(x, y);
-      this.mapImage.setDisplaySize(displayWidth, displayHeight);
     }
 
     private renderGrid() {
@@ -578,6 +514,8 @@ export default function PhaserVTTCanvas({
   const [tokens, setTokens] = useState<Token[]>([]);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const [camera, setCamera] = useState(DEFAULT_CAMERA);
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(null);
 
   const fichaIds = tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id));
   const fichasMap = useTokenFichaSync(fichaIds);
@@ -586,6 +524,55 @@ export default function PhaserVTTCanvas({
     stateRef.current = { ...stateRef.current, ...patch };
     sceneApiRef.current?.setState(stateRef.current);
   }, []);
+
+  useEffect(() => {
+    const updateSize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  useEffect(() => {
+    if (!mapaUrl) {
+      setMapSize(null);
+      return;
+    }
+
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      setMapSize({ width: image.naturalWidth || image.width || 1, height: image.naturalHeight || image.height || 1 });
+    };
+    image.onerror = () => {
+      if (cancelled) return;
+      console.error("[PhaserVTTCanvas] Falha ao carregar mapa DOM:", mapaUrl);
+      setMapSize(null);
+    };
+    image.src = mapaUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mapaUrl]);
+
+  const mapFrame = useMemo(() => {
+    if (!mapaUrl || !mapSize || !windowSize.width || !windowSize.height) return null;
+
+    const baseScale = Math.max(windowSize.width / mapSize.width, windowSize.height / mapSize.height);
+    const mapScale = baseScale * scenePreferences.mapScale;
+    const displayWidth = mapSize.width * mapScale;
+    const displayHeight = mapSize.height * mapScale;
+    const worldX = (windowSize.width - displayWidth) / 2 + scenePreferences.mapOffsetX;
+    const worldY = (windowSize.height - displayHeight) / 2 + scenePreferences.mapOffsetY;
+
+    return {
+      x: (worldX - camera.x) * camera.zoom,
+      y: (worldY - camera.y) * camera.zoom,
+      width: displayWidth * camera.zoom,
+      height: displayHeight * camera.zoom,
+    };
+  }, [camera.x, camera.y, camera.zoom, mapaUrl, mapSize, scenePreferences.mapOffsetX, scenePreferences.mapOffsetY, scenePreferences.mapScale, windowSize.height, windowSize.width]);
 
   useEffect(() => {
     onFichasMapChange?.(fichasMap);
@@ -626,7 +613,7 @@ export default function PhaserVTTCanvas({
       const game = new Phaser.Game({
         type: Phaser.WEBGL,
         parent: parentRef.current,
-        backgroundColor: COLORS.bg,
+        backgroundColor: "rgba(0,0,0,0)",
         width: window.innerWidth,
         height: window.innerHeight,
         scene: SceneClass,
@@ -640,7 +627,7 @@ export default function PhaserVTTCanvas({
         render: {
           antialias: true,
           pixelArt: false,
-          transparent: false,
+          transparent: true,
         },
       });
 
@@ -717,7 +704,24 @@ export default function PhaserVTTCanvas({
 
   return (
     <div className="fixed inset-0 overflow-hidden" style={{ background: COLORS.bg }}>
-      <div ref={parentRef} className="h-full w-full touch-none" />
+      {mapaUrl && mapFrame ? (
+        <img
+          src={mapaUrl}
+          alt="Mapa da cena"
+          draggable={false}
+          className="pointer-events-none absolute left-0 top-0 max-w-none select-none"
+          style={{
+            zIndex: 1,
+            width: `${mapFrame.width}px`,
+            height: `${mapFrame.height}px`,
+            transform: `translate3d(${mapFrame.x}px, ${mapFrame.y}px, 0)`,
+            transformOrigin: "top left",
+            opacity: 0.96,
+          }}
+        />
+      ) : null}
+
+      <div ref={parentRef} className="absolute inset-0 z-10 h-full w-full touch-none" />
 
       {canvasError ? (
         <div className="pointer-events-none fixed left-1/2 top-1/2 z-40 max-w-[80vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-center text-sm text-red-100 backdrop-blur-xl">
