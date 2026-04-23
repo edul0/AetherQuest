@@ -156,9 +156,11 @@ export default function PixiVTTCanvas({
               : base * 0.82;
         const height = mode === "standee" ? base * 1.45 : mode === "top" ? base * 0.92 : base * 0.82;
         const yAnchor = mode === "standee" ? 0.94 : 0.5;
+        const processedCutout = cutoutImages[url];
+        const useBlendFallback = cutout && (!processedCutout || processedCutout === url);
         return {
           id: token.id,
-          url: cutout ? cutoutImages[url] ?? url : url,
+          url: cutout ? processedCutout ?? url : url,
           rawUrl: url,
           label: tokenName(token, ficha),
           mode,
@@ -175,7 +177,9 @@ export default function PixiVTTCanvas({
             borderRadius: mode === "portrait" ? "9999px" : mode === "top" ? "30%" : "0px",
             objectFit: mode === "portrait" ? "cover" : "contain",
             objectPosition: mode === "standee" ? "center bottom" : "center center",
-            mixBlendMode: cutout && !cutoutImages[url] ? "multiply" : "normal",
+            backgroundColor: "transparent",
+            filter: useBlendFallback ? "contrast(1.08) saturate(1.12)" : "none",
+            mixBlendMode: useBlendFallback ? "multiply" : "normal",
           } satisfies React.CSSProperties,
         };
       })
@@ -229,10 +233,12 @@ export default function PixiVTTCanvas({
             const r = data[index];
             const g = data[index + 1];
             const b = data[index + 2];
-            const nearWhite = r > 238 && g > 238 && b > 238;
-            const softWhite = r > 220 && g > 220 && b > 220;
-            if (nearWhite) data[index + 3] = 0;
-            else if (softWhite) data[index + 3] = Math.min(data[index + 3], 110);
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            const lowSaturation = max - min < 42;
+            if (lowSaturation && luminance > 230) data[index + 3] = 0;
+            else if (lowSaturation && luminance > 205) data[index + 3] = Math.min(data[index + 3], 70);
           }
           ctx.putImageData(imageData, 0, 0);
           setCutoutImages((current) => ({ ...current, [url]: canvas.toDataURL("image/png") }));
