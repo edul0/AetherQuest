@@ -35,8 +35,18 @@ function tokenSize(width: number) {
   return width < 768 ? 76 : 68;
 }
 
+function resolveTokenSize(token: Token, viewportWidth: number) {
+  const base = tokenSize(viewportWidth);
+  const multiplier = Number(token.size ?? 1);
+  return clamp(base * (Number.isFinite(multiplier) ? multiplier : 1), 42, viewportWidth < 768 ? 132 : 124);
+}
+
 function getTokenImage(ficha?: FichaVTTSnapshot | null) {
   return ficha?.dados?.token_images?.portrait || ficha?.dados?.token_images?.top || ficha?.avatar_url || ficha?.dados?.avatar_url || "";
+}
+
+function getTokenVisual(token: Token, ficha?: FichaVTTSnapshot | null) {
+  return token.avatar_url || getTokenImage(ficha);
 }
 
 function initials(token: Token, ficha?: FichaVTTSnapshot | null) {
@@ -78,7 +88,6 @@ export default function OnlineVTTCanvas({
 
   const fichaIds = useMemo(() => tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id)), [tokens]);
   const fichasMap = useTokenFichaSync(fichaIds);
-  const currentTokenSize = tokenSize(size.width);
 
   const worldToScreen = useCallback((point: Point) => ({ x: (point.x - camera.x) * camera.zoom, y: (point.y - camera.y) * camera.zoom }), [camera.x, camera.y, camera.zoom]);
   const screenToWorld = useCallback((point: Point, cam = camera) => ({ x: cam.x + point.x / cam.zoom, y: cam.y + point.y / cam.zoom }), [camera]);
@@ -299,24 +308,34 @@ export default function OnlineVTTCanvas({
 
       {tokens.map((token) => {
         const ficha = token.ficha_id ? fichasMap[token.ficha_id] : null;
-        const image = getTokenImage(ficha);
+        const image = getTokenVisual(token, ficha);
         const screen = worldToScreen({ x: token.x, y: token.y });
         const selected = selectedTokenId === token.id;
         const vida = ficha?.dados?.status?.vida;
-        const hp = vida?.max ? clamp(vida.atual / vida.max, 0, 1) : 0;
+        const tokenHp = typeof token.hp === "number" && typeof token.max_hp === "number" ? { atual: token.hp, max: token.max_hp } : null;
+        const hpSource = tokenHp ?? vida;
+        const hp = hpSource?.max ? clamp(hpSource.atual / hpSource.max, 0, 1) : 0;
+        const currentTokenSize = resolveTokenSize(token, size.width);
         return (
           <button
             key={token.id}
             type="button"
             onPointerDown={(event) => handleTokenPointerDown(event, token)}
             className={`absolute z-30 flex flex-col items-center justify-start rounded-2xl border bg-[#050a10]/55 p-1 text-white shadow-[0_10px_28px_rgba(0,0,0,0.5)] backdrop-blur-sm ${selected ? "border-[#4ad9d9] ring-4 ring-[#4ad9d9]/20" : "border-[#4ad9d9]/35"}`}
-            style={{ width: currentTokenSize, minHeight: currentTokenSize + 24, transform: `translate3d(${screen.x}px, ${screen.y}px, 0)` }}
+            style={{
+              width: currentTokenSize,
+              minHeight: currentTokenSize + 24,
+              transform: `translate3d(${screen.x}px, ${screen.y}px, 0) rotate(${token.rotation ?? 0}deg)`,
+              zIndex: 30 + (token.z_index ?? 0),
+              opacity: token.visible_to_players === false ? 0.58 : 1,
+            }}
           >
             <span className="flex items-center justify-center overflow-hidden rounded-full border-2 border-[#050a10]" style={{ width: currentTokenSize - 14, height: currentTokenSize - 14, background: token.cor || "#4ad9d9" }}>
               {image ? <img src={image} alt={token.nome} className="h-full w-full object-cover" draggable={false} /> : <span className="text-lg font-black">{initials(token, ficha)}</span>}
             </span>
             <span className="mt-1 max-w-full truncate px-1 font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[#f0ebd8]">{ficha?.nome_personagem || token.nome}</span>
-            {vida?.max ? <span className="mt-1 h-1 w-full rounded bg-white/10"><span className="block h-1 rounded bg-gradient-to-r from-emerald-400 to-red-500" style={{ width: `${hp * 100}%` }} /></span> : null}
+            {hpSource?.max ? <span className="mt-1 h-1 w-full rounded bg-white/10"><span className="block h-1 rounded bg-gradient-to-r from-emerald-400 to-red-500" style={{ width: `${hp * 100}%` }} /></span> : null}
+            {token.conditions?.length ? <span className="mt-1 flex max-w-full gap-1 overflow-hidden">{token.conditions.slice(0, 3).map((condition) => <span key={condition} className="rounded-full bg-amber-300/20 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.08em] text-amber-100">{condition.slice(0, 3)}</span>)}</span> : null}
           </button>
         );
       })}
