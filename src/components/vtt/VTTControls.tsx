@@ -43,6 +43,10 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
   { id: "map", label: "Mover mapa", icon: Move },
 ];
 
+const SHEIKAH_PANEL_STYLE = {
+  clipPath: "polygon(14px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px)",
+} as const;
+
 function previewUrl(file: File | null) {
   return file ? URL.createObjectURL(file) : null;
 }
@@ -96,8 +100,8 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     }
 
     const extension = file.name.split(".").pop() || "png";
-    const path = `mapas/${cenaId}-${Date.now()}.${extension}`;
-    const { error } = await supabase.storage.from("mapas").upload(path, file, { upsert: true });
+      const path = `mapas/${cenaId}-${Date.now()}.${extension}`;
+    const { error } = await supabase.storage.from("mapas").upload(path, file);
     if (error) {
       alert(`Falha no upload do mapa: ${error.message}`);
       return;
@@ -158,7 +162,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
   const uploadAsset = async (file: File, prefix: string) => {
     const extension = file.name.split(".").pop() || "png";
     const path = `${prefix}/${cenaId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${extension}`;
-    const { error } = await supabase.storage.from("mapas").upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from("mapas").upload(path, file);
     if (error) throw error;
     const { data } = supabase.storage.from("mapas").getPublicUrl(path);
     return data.publicUrl;
@@ -282,7 +286,8 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     <>
       <button
         onClick={() => setPanelOpen(true)}
-        className="fixed bottom-[104px] right-3 z-50 flex items-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:bottom-5 md:right-4"
+        className="fixed bottom-[104px] right-3 z-50 flex items-center gap-2 border border-cyan-300/18 bg-[linear-gradient(180deg,rgba(24,29,36,0.94),rgba(7,10,16,0.92))] px-4 py-3 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:bottom-5 md:right-4"
+        style={SHEIKAH_PANEL_STYLE}
       >
         <SlidersHorizontal size={15} />
         Ferramentas
@@ -292,11 +297,11 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
         <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.35)]" onClick={() => setPanelOpen(false)} aria-label="Fechar ferramentas" />
       ) : null}
 
-      <div className={`${panelOpen ? "block" : "hidden"} aq-scrollbar fixed inset-x-3 bottom-[96px] z-50 max-h-[64vh] overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:inset-x-auto md:bottom-20 md:right-4 md:max-h-[72vh] md:w-[340px]`}>
+      <div className={`${panelOpen ? "block" : "hidden"} aq-scrollbar fixed inset-x-2 bottom-3 z-50 max-h-[74svh] overflow-y-auto border border-cyan-300/18 bg-[linear-gradient(180deg,rgba(14,19,27,0.98),rgba(5,8,14,0.97))] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:inset-x-auto md:bottom-20 md:right-4 md:max-h-[72vh] md:w-[360px]`} style={SHEIKAH_PANEL_STYLE}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="aq-kicker">Tactical Deck</div>
-            <div className="mt-1 text-sm font-black uppercase tracking-[0.16em] text-[var(--aq-title)]">Ferramentas da Cena</div>
+            <div className="aq-kicker text-cyan-300/80">Slate Directives</div>
+            <div className="mt-1 text-sm font-black uppercase tracking-[0.22em] text-[var(--aq-title)]">Ferramentas da Cena</div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -354,12 +359,12 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           </label>
         </div>
 
-        <button onClick={removeMap} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-300 transition-all hover:bg-[rgba(239,68,68,0.14)] md:text-xs">
+        <button onClick={removeMap} className="mt-3 flex w-full items-center justify-center gap-2 border border-[rgba(239,68,68,0.25)] bg-[linear-gradient(180deg,rgba(83,17,17,0.72),rgba(44,9,9,0.82))] px-3 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-200 transition-all hover:bg-[rgba(239,68,68,0.18)] md:text-xs" style={SHEIKAH_PANEL_STYLE}>
           <ImageMinus size={15} />
           Remover mapa da cena
         </button>
 
-        <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
+        <div className="mt-4 border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3" style={SHEIKAH_PANEL_STYLE}>
           <div className="mb-3 flex items-center gap-2 text-[var(--aq-title)]">
             <Text size={15} className="text-[var(--aq-accent)]" />
             <span className="text-xs font-black uppercase tracking-[0.18em]">Reliquia de inspecao</span>
@@ -424,7 +429,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
+        <div className="mt-4 border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3" style={SHEIKAH_PANEL_STYLE}>
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[var(--aq-title)]">
               <Grid2x2 size={15} className="text-[var(--aq-accent)]" />
@@ -480,7 +485,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           </div>
         </div>
 
-        <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
+        <div className="mt-4 border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3" style={SHEIKAH_PANEL_STYLE}>
           <div className="mb-3 flex items-center gap-2 text-[var(--aq-title)]">
             <Crosshair size={15} className="text-[var(--aq-accent)]" />
             <span className="text-xs font-black uppercase tracking-[0.18em]">Alinhamento do mapa</span>
