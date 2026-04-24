@@ -12,6 +12,7 @@ import {
   Grid2x2,
   Hand,
   ImageMinus,
+  Layers3,
   Map as MapIcon,
   MousePointer2,
   Move,
@@ -19,6 +20,7 @@ import {
   RefreshCcw,
   Ruler,
   SlidersHorizontal,
+  Text,
   Users,
   X,
 } from "lucide-react";
@@ -43,6 +45,11 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
 
 export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange, onMapUrlChange }: VTTControlsProps) {
   const [panelOpen, setPanelOpen] = useState(false);
+  const [handoutTitle, setHandoutTitle] = useState("");
+  const [handoutText, setHandoutText] = useState("");
+  const [handoutFront, setHandoutFront] = useState<File | null>(null);
+  const [handoutBack, setHandoutBack] = useState<File | null>(null);
+  const [savingHandout, setSavingHandout] = useState(false);
   const runtimeGrid = useVTTStore(selectVTTGrid);
   const runtimeToolMode = useVTTStore(selectVTTToolMode);
   const setGrid = useVTTStore((state) => state.setGrid);
@@ -130,6 +137,81 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     setPanelOpen(false);
   };
 
+  const uploadAsset = async (file: File, prefix: string) => {
+    const extension = file.name.split(".").pop() || "png";
+    const path = `${prefix}/${cenaId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${extension}`;
+    const { error } = await supabase.storage.from("mapas").upload(path, file, { upsert: true });
+    if (error) throw error;
+    const { data } = supabase.storage.from("mapas").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const addMapItem = async () => {
+    if (!cenaId || !salaId) {
+      return;
+    }
+
+    const { error } = await supabase.from("map_items").insert([
+      {
+        cena_id: cenaId,
+        sala_id: salaId,
+        nome: "Prop",
+        tipo: "prop",
+        x: 0,
+        y: 0,
+        width: 88,
+        height: 88,
+        z_index: -10,
+        visible_to_players: true,
+      },
+    ]);
+
+    if (error) {
+      alert(`Falha ao criar item da cena: ${error.message}`);
+      return;
+    }
+
+    setPanelOpen(false);
+  };
+
+  const createHandout = async () => {
+    if (!salaId || !handoutTitle.trim()) {
+      alert("Defina pelo menos um titulo para o item.");
+      return;
+    }
+
+    try {
+      setSavingHandout(true);
+      const imageUrl = handoutFront ? await uploadAsset(handoutFront, "handouts/front") : null;
+      const imageBackUrl = handoutBack ? await uploadAsset(handoutBack, "handouts/back") : null;
+      const { error } = await supabase.from("handouts").insert([
+        {
+          sala_id: salaId,
+          cena_id: cenaId,
+          titulo: handoutTitle.trim(),
+          tipo: "item_inspecao",
+          content: handoutText.trim() || null,
+          image_url: imageUrl,
+          image_back_url: imageBackUrl,
+          visible_to_players: true,
+        },
+      ]);
+
+      if (error) {
+        alert(`Falha ao criar item de inspecao: ${error.message}`);
+        return;
+      }
+
+      setHandoutTitle("");
+      setHandoutText("");
+      setHandoutFront(null);
+      setHandoutBack(null);
+      setPanelOpen(false);
+    } finally {
+      setSavingHandout(false);
+    }
+  };
+
   const nudgeMap = (dx: number, dy: number) => {
     onPreferencesChange({
       mapOffsetX: mergedPreferences.mapOffsetX + dx,
@@ -207,6 +289,11 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             Token
           </button>
 
+          <button onClick={addMapItem} disabled={!salaId} className="flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] disabled:opacity-40 md:text-xs md:tracking-[0.18em]">
+            <Layers3 size={15} />
+            Item da cena
+          </button>
+
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]">
             <MapIcon size={15} />
             Enviar mapa
@@ -218,6 +305,40 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           <ImageMinus size={15} />
           Remover mapa da cena
         </button>
+
+        <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
+          <div className="mb-3 flex items-center gap-2 text-[var(--aq-title)]">
+            <Text size={15} className="text-[var(--aq-accent)]" />
+            <span className="text-xs font-black uppercase tracking-[0.18em]">Item de inspecao</span>
+          </div>
+
+          <div className="grid gap-3">
+            <input
+              value={handoutTitle}
+              onChange={(event) => setHandoutTitle(event.target.value)}
+              placeholder="Titulo do item"
+              className="aq-input"
+            />
+            <textarea
+              value={handoutText}
+              onChange={(event) => setHandoutText(event.target.value)}
+              placeholder="Texto do item, puzzle, anotacao ou lore"
+              className="min-h-[120px] rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-sm text-[var(--aq-text)] outline-none"
+            />
+            <label className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text)]">
+              Frente {handoutFront ? `- ${handoutFront.name}` : ""}
+              <input type="file" className="mt-2 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutFront(event.target.files?.[0] ?? null)} />
+            </label>
+            <label className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text)]">
+              Verso {handoutBack ? `- ${handoutBack.name}` : ""}
+              <input type="file" className="mt-2 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutBack(event.target.files?.[0] ?? null)} />
+            </label>
+            <button onClick={createHandout} disabled={savingHandout || !salaId} className="aq-button-primary w-full justify-center disabled:opacity-40">
+              <Plus size={14} />
+              {savingHandout ? "Salvando item" : "Criar item estilo RE"}
+            </button>
+          </div>
+        </div>
 
         <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
           <div className="mb-3 flex items-center justify-between gap-3">
