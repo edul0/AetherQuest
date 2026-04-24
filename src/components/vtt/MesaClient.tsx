@@ -6,15 +6,17 @@ import dynamic from "next/dynamic";
 import { Cinzel, Inter } from "next/font/google";
 import { Archive, ArrowLeft, Copy, Crosshair, Eye, KeyRound, Layers3, Menu, Pencil, Plus, ScrollText, Sparkles, Users, X } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
-import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
+import { FichaVTTSnapshot, Handout, SceneViewPreferences, Token } from "@/src/lib/types";
 import { DEFAULT_SCENE_VIEW_PREFERENCES, normalizeScenePreferences } from "@/src/lib/vttScenePreferences";
 import { PRESETS } from "@/src/lib/constants";
+import { useHandoutsSync } from "@/src/hooks/useHandoutsSync";
 
 const VTTCanvas = dynamic(() => import("@/src/components/vtt/VTTCanvas"), { ssr: false });
 const SceneNav = dynamic(() => import("@/src/components/vtt/SceneNav"), { ssr: false });
 const VTTControls = dynamic(() => import("@/src/components/vtt/VTTControls"), { ssr: false });
 const TokenPanel = dynamic(() => import("@/src/components/vtt/Tokenpanel"), { ssr: false });
 const Chat = dynamic(() => import("@/src/components/vtt/Chat"), { ssr: false });
+const HandoutViewer = dynamic(() => import("@/src/components/vtt/HandoutViewer"), { ssr: false });
 
 const cinzel = Cinzel({ subsets: ["latin"], weight: ["400", "700", "900"] });
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
@@ -150,8 +152,10 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [signingOut, setSigningOut] = useState(false);
   const [mesaError, setMesaError] = useState("");
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
+  const [selectedHandout, setSelectedHandout] = useState<Handout | null>(null);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPersistedRef = useRef("");
+  const handouts = useHandoutsSync(salaAtiva?.id, cenaAtiva?.id);
 
   const activeMesa = Boolean(role && salaAtiva && cenaAtiva && (role === "mestre" || joinedAsPlayer));
   const fichaSelecionada = selectedToken?.ficha_id ? fichasMap[selectedToken.ficha_id] ?? null : null;
@@ -504,83 +508,91 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const criarCena = async () => {
     if (!salaAtiva?.id) return;
     const activeSala = await claimSalaIfNeeded(salaAtiva);
-    const nome = `Setor ${cenas.length + 1}`;
-    const patch = scenePatch(DEFAULT_SCENE_VIEW_PREFERENCES);
-    const { data, error } = await runFresh<Cena>(() => supabase.from("cenas").insert([{ sala_id: activeSala?.id ?? salaAtiva.id, nome, ...patch }]).select().single());
+    const { data, error } = await runFresh<Cena>(() =>
+      supabase.from("cenas").insert([{ sala_id: activeSala?.id ?? salaAtiva.id, nome: `Setor ${cenas.length + 1}`, ...scenePatch(DEFAULT_SCENE_VIEW_PREFERENCES) }]).select().single(),
+    );
     if (error || !data) {
       alert(`Falha ao criar cena: ${error?.message ?? "erro desconhecido"}`);
       return;
     }
-    const novaCena = data as Cena;
-    setCenas((current) => [...current, novaCena]);
-    setCenaAtiva(novaCena);
+    setCenaAtiva(data as Cena);
+    setCenas((current) => [...current, data as Cena]);
   };
 
   const criarTokenDaFicha = async () => {
-    if (!cenaAtiva?.id || !fichaParaTokenId) return;
+    if (!salaAtiva?.id || !cenaAtiva?.id || !fichaParaTokenId) return;
     const ficha = fichas.find((entry) => entry.id === fichaParaTokenId);
-    const payload = {
-      cena_id: cenaAtiva.id,
-      sala: salaAtiva?.id ?? null,
-      ficha_id: fichaParaTokenId,
-      nome: tokenLabel.trim() || ficha?.nome_personagem || "Entidade",
-      x: 0,
-      y: 0,
-      cor: "#4ad9d9",
-    };
-
-    const { error } = await runFresh(() => supabase.from("tokens").insert([payload]));
+    if (!ficha) return;
+    const nome = tokenLabel.trim() || ficha.nome_personagem || "Entidade";
+    const { error } = await runFresh(() =>
+      supabase.from("tokens").insert([{ cena_id: cenaAtiva.id, sala: salaAtiva.id, ficha_id: ficha.id, nome, x: 100 + tokens.length * 70, y: 100 + tokens.length * 70, cor: "#4ad9d9" }]),
+    );
     if (error) {
-      alert(`Falha ao vincular ficha na cena: ${error.message}`);
+      alert(`Falha ao criar token: ${error.message}`);
       return;
     }
-
+    await runFresh(() => supabase.from("fichas").update({ sala_id: salaAtiva.id }).eq("id", ficha.id));
     setFichaParaTokenId("");
     setTokenLabel("");
   };
 
   const entrarComoJogador = async () => {
-    const matched = findSalaByCode(salas, joinCode);
-    if (!matched) {
-      setJoinError("Nao encontramos uma sala com essa senha ou convite.");
+    if (!hasSession) {
+      router.push(`/login?next=${encodeURIComponent(`/mesa?convite=${normalizeCode(joinCode)}`)}`);
       return;
     }
-
+    const matched = findSalaByCode(salas, joinCode);
+    if (!matched) {
+      setJoinError("Nao encontramos uma sala com esse codigo.");
+      return;
+    }
     setJoinError("");
     setRole("jogador");
     setSalaAtiva(matched);
     setJoinedAsPlayer(true);
     rememberRecentSession(matched);
-    await ensureMembership(matched.id, "jogador");
+    void ensureMembership(matched.id, "jogador");
   };
 
   const vincularFichaComoJogador = async () => {
-    if (!cenaAtiva?.id || !fichaEscolhidaId) return;
-    const ficha = fichas.find((entry) => entry.id === fichaEscolhidaId);
-    const payload = {
-      cena_id: cenaAtiva.id,
-      sala: salaAtiva?.id ?? null,
-      ficha_id: fichaEscolhidaId,
-      nome: ficha?.nome_personagem || "Aventureiro",
-      x: 0,
-      y: 0,
-      cor: "#4ad9d9",
-    };
-    const { error } = await runFresh(() => supabase.from("tokens").insert([payload]));
-    if (error) {
-      alert(`Falha ao entrar com ficha: ${error.message}`);
-      return;
+    if (!salaAtiva?.id || !fichaEscolhidaId) return;
+    void ensureMembership(salaAtiva.id, "jogador");
+    const { error } = await runFresh(() => supabase.from("fichas").update({ sala_id: salaAtiva.id }).eq("id", fichaEscolhidaId));
+    if (error) console.warn("Nao foi possivel vincular ficha a sala:", error.message);
+    const token = tokens.find((entry) => entry.ficha_id === fichaEscolhidaId);
+    if (token) {
+      setSelectedToken(token);
+      setShellOpen(false);
     }
   };
 
   const criarFichaJogadorRapida = async () => {
     try {
-      const preset = PRESETS["ordem_paranormal"];
+      const session = await ensureSession();
+      const preset = PRESETS.ordem_paranormal;
+      const firstClass = preset.classes?.[0];
+      const firstRace = preset.racas?.[0];
+      const firstOrigin = preset.origens?.[0];
+      const firstPath = firstClass?.caminhos?.[0];
+      const progressValue = preset.progressMin ?? 1;
       const payload = {
+        user_id: session.user.id,
         nome_personagem: "Novo Personagem",
         sistema_preset: "ordem_paranormal",
-        sala_id: null,
+        sala_id: salaAtiva?.id ?? null,
+        avatar_url: null,
         dados: {
+          nex: progressValue,
+          progressao: progressValue,
+          classe: firstClass?.nome ?? "",
+          classe_custom: "",
+          trilha: firstPath?.nome ?? "",
+          trilha_custom: "",
+          origem: firstOrigin?.nome ?? "",
+          origem_custom: "",
+          raca: firstRace?.nome ?? "",
+          raca_custom: "",
+          deslocamento: firstRace?.deslocamento ?? "9m",
           idade: "",
           altura: "",
           gostos: "",
@@ -639,6 +651,7 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
           <SceneNav salaId={salaAtiva.id} onSelectCena={setCenaAtiva} cenaAtivaId={cenaAtiva.id} />
           {role === "mestre" ? <VTTControls cenaId={cenaAtiva.id} salaId={salaAtiva.id} preferences={scenePreferences} onPreferencesChange={updateScenePreferences} onMapUrlChange={updateCenaMapaLocal} /> : null}
           <TokenPanel token={selectedToken} fichaData={fichaSelecionada} salaId={salaAtiva.id} onClose={() => setSelectedToken(null)} onTokenUpdate={setSelectedToken} />
+          <HandoutViewer handout={selectedHandout} onClose={() => setSelectedHandout(null)} />
           <Chat salaId={salaAtiva.id} />
         </>
       ) : null}
@@ -806,6 +819,27 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 </button>
               );
             })}
+          </div>
+        </div>
+      ) : null}
+
+      {activeMesa && handouts.length > 0 ? (
+        <div className="fixed bottom-28 right-3 z-40 w-[min(92vw,320px)] rounded-[24px] border border-[rgba(74,217,217,0.16)] bg-[rgba(5,10,16,0.84)] p-2 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl md:bottom-24 md:right-4">
+          <div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-accent)]">Itens da mesa</div>
+          <div className="aq-scrollbar flex gap-2 overflow-x-auto pb-1">
+            {handouts.map((handout) => (
+              <button
+                key={handout.id}
+                onClick={() => setSelectedHandout(handout)}
+                className="min-w-[132px] rounded-2xl border border-[var(--aq-border)] bg-[rgba(8,13,20,0.92)] p-2 text-left transition hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.08)]"
+              >
+                <div className="mb-2 h-20 overflow-hidden rounded-xl border border-white/10 bg-[rgba(255,255,255,0.03)]">
+                  {handout.image_url ? <img src={handout.image_url} alt={handout.titulo} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Sem imagem</div>}
+                </div>
+                <div className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">{handout.titulo}</div>
+                <div className="mt-1 text-[8px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">{handout.tipo || "item"}</div>
+              </button>
+            ))}
           </div>
         </div>
       ) : null}
