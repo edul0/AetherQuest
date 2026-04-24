@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, FileText, RotateCcw, X } from "lucide-react";
+import { BookOpen, ChevronRight, FileText, RotateCcw, X } from "lucide-react";
 import { Handout } from "@/src/lib/types";
 
 type HandoutViewerProps = {
@@ -10,70 +10,149 @@ type HandoutViewerProps = {
 };
 
 export default function HandoutViewer({ handout, onClose }: HandoutViewerProps) {
-  const [face, setFace] = useState<"front" | "back">("front");
+  const [panel, setPanel] = useState<"front" | "back" | "text">("front");
 
   useEffect(() => {
-    setFace("front");
-  }, [handout?.id]);
+    if (!handout) return;
+    if (handout.image_url) {
+      setPanel("front");
+      return;
+    }
+    if (handout.image_back_url) {
+      setPanel("back");
+      return;
+    }
+    setPanel("text");
+  }, [handout]);
 
   if (!handout) return null;
 
-  const activeImage = face === "back" ? handout.image_back_url || handout.image_url : handout.image_url || handout.image_back_url;
+  const activeImage =
+    panel === "back" ? handout.image_back_url || handout.image_url : panel === "front" ? handout.image_url || handout.image_back_url : null;
+  const hasFront = Boolean(handout.image_url);
+  const hasBack = Boolean(handout.image_back_url);
+  const hasText = Boolean(handout.content?.trim());
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(0,0,0,0.78)] px-3 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(2,6,12,0.88)] px-2 py-2 backdrop-blur-md md:px-4 md:py-4">
       <button className="absolute inset-0" onClick={onClose} aria-label="Fechar item" />
-      <div className="relative z-10 flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-cyan-300/20 bg-[rgba(7,10,16,0.96)] shadow-[0_24px_80px_rgba(0,0,0,0.6)] md:flex-row">
-        <div className="flex min-h-[320px] flex-1 items-center justify-center border-b border-cyan-300/10 bg-[radial-gradient(circle_at_top,rgba(74,217,217,0.14),transparent_38%),rgba(5,10,16,0.92)] p-4 md:min-h-[680px] md:border-b-0 md:border-r">
-          {activeImage ? (
-            <img
-              src={activeImage}
-              alt={handout.titulo}
-              className="max-h-[72vh] w-auto max-w-full rounded-[22px] border border-white/10 object-contain shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
-            />
+      <div className="relative z-10 grid h-[96svh] w-full max-w-6xl grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-[30px] border border-cyan-300/16 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(4,8,14,0.98))] shadow-[0_24px_90px_rgba(0,0,0,0.62)] md:h-[92vh] md:grid-cols-[minmax(0,1.2fr)_380px] md:grid-rows-1">
+        <div className="relative flex min-h-0 items-center justify-center overflow-hidden border-b border-cyan-300/10 bg-[radial-gradient(circle_at_top,rgba(74,217,217,0.16),transparent_34%),linear-gradient(180deg,rgba(9,14,21,0.96),rgba(4,8,14,0.98))] px-4 pb-20 pt-14 md:border-b-0 md:border-r md:px-8 md:py-8">
+          <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-cyan-300/20 bg-[rgba(74,217,217,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200 md:left-6 md:top-6">
+            Documento Encontrado
+          </div>
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 rounded-full border border-white/10 bg-[rgba(255,255,255,0.04)] p-2 text-[var(--aq-text-muted)] transition hover:border-cyan-300/24 hover:text-[var(--aq-title)] md:right-6 md:top-6"
+          >
+            <X size={16} />
+          </button>
+
+          {panel === "text" ? (
+            <div className="relative flex h-full w-full items-center justify-center">
+              <div className="w-full max-w-2xl rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(245,238,224,0.98),rgba(224,215,198,0.96))] p-6 text-[#16120f] shadow-[0_24px_40px_rgba(0,0,0,0.42)] md:p-10">
+                <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#5b5248]">Arquivo Lido</div>
+                <div className="mt-3 text-2xl font-black uppercase tracking-[0.06em] md:text-3xl">{handout.titulo}</div>
+                <div className="mt-6 whitespace-pre-wrap text-sm leading-7 md:text-[15px]">
+                  {handout.content?.trim() || "Sem texto ainda. Adicione descricao, puzzle, pistas ou lore do item."}
+                </div>
+              </div>
+            </div>
+          ) : activeImage ? (
+            <div className="relative flex h-full w-full items-center justify-center">
+              <div className="absolute inset-x-[8%] bottom-8 h-20 rounded-full bg-cyan-300/10 blur-3xl md:inset-x-[20%]" />
+              <img
+                src={activeImage}
+                alt={handout.titulo}
+                className="relative z-10 max-h-[calc(100%-12px)] w-auto max-w-full object-contain drop-shadow-[0_24px_40px_rgba(0,0,0,0.55)]"
+              />
+            </div>
           ) : (
-            <div className="flex h-[320px] w-full max-w-[420px] flex-col items-center justify-center rounded-[22px] border border-dashed border-cyan-300/18 bg-[rgba(74,217,217,0.04)] text-center text-[var(--aq-text-muted)]">
+            <div className="flex h-[320px] w-full max-w-[420px] flex-col items-center justify-center rounded-[24px] border border-dashed border-cyan-300/18 bg-[rgba(74,217,217,0.04)] text-center text-[var(--aq-text-muted)]">
               <FileText size={28} className="mb-3 text-[var(--aq-accent)]" />
               <p className="text-sm font-black uppercase tracking-[0.18em]">Item sem imagem</p>
               <p className="mt-2 max-w-[280px] text-xs leading-relaxed">Envie a frente e o verso para o item ficar no estilo documento encontrado.</p>
             </div>
           )}
+
+          <div className="pointer-events-none absolute inset-x-4 bottom-4 flex items-center justify-center md:bottom-6">
+            <div className="rounded-full border border-white/10 bg-[rgba(8,12,18,0.82)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-title)] shadow-[0_12px_36px_rgba(0,0,0,0.4)] backdrop-blur-md">
+              {panel === "front" ? "Foto Frente" : panel === "back" ? "Foto Verso" : "Texto"}
+            </div>
+          </div>
         </div>
 
-        <aside className="aq-scrollbar flex w-full max-w-[420px] flex-col overflow-y-auto p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--aq-accent)]">Inspecao</div>
-              <h3 className="mt-2 text-2xl font-black uppercase tracking-[0.08em] text-[var(--aq-title)]">{handout.titulo}</h3>
-              <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">{handout.tipo || "documento"}</p>
+        <aside className="aq-scrollbar flex min-h-0 flex-col overflow-y-auto border-t border-white/8 px-4 py-4 md:border-l md:border-t-0 md:px-6 md:py-6">
+          <div className="border-b border-white/8 pb-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[var(--aq-accent)]">Inspecao</div>
+            <h3 className="mt-2 text-2xl font-black uppercase tracking-[0.08em] text-[var(--aq-title)] md:text-[2rem]">{handout.titulo}</h3>
+            <div className="mt-3 inline-flex rounded-full border border-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">
+              {handout.tipo || "documento"}
             </div>
-            <button onClick={onClose} className="rounded-full border border-white/10 bg-white/5 p-2 text-[var(--aq-text-muted)] hover:text-[var(--aq-title)]">
-              <X size={16} />
-            </button>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setFace("front")}
-              className={`rounded-2xl border px-3 py-3 text-[11px] font-black uppercase tracking-[0.18em] ${face === "front" ? "border-cyan-300/30 bg-cyan-400/10 text-cyan-200" : "border-white/10 bg-white/5 text-[var(--aq-text-muted)]"}`}
-            >
-              <BookOpen size={14} className="mx-auto mb-2" />
-              Frente
-            </button>
-            <button
-              onClick={() => setFace("back")}
-              className={`rounded-2xl border px-3 py-3 text-[11px] font-black uppercase tracking-[0.18em] ${face === "back" ? "border-cyan-300/30 bg-cyan-400/10 text-cyan-200" : "border-white/10 bg-white/5 text-[var(--aq-text-muted)]"}`}
-            >
-              <RotateCcw size={14} className="mx-auto mb-2" />
-              Verso
-            </button>
+          <div className="py-4">
+            <div className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">Explorar item</div>
+            <div className="space-y-2">
+              {hasFront ? (
+                <button
+                  onClick={() => setPanel("front")}
+                  className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left transition ${
+                    panel === "front"
+                      ? "border-cyan-300/24 bg-cyan-400/10 text-cyan-100"
+                      : "border-white/10 bg-white/[0.03] text-[var(--aq-title)] hover:border-white/20"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <BookOpen size={15} />
+                    <span className="text-[11px] font-black uppercase tracking-[0.18em]">Foto frente</span>
+                  </span>
+                  <ChevronRight size={15} />
+                </button>
+              ) : null}
+
+              {hasBack ? (
+                <button
+                  onClick={() => setPanel("back")}
+                  className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left transition ${
+                    panel === "back"
+                      ? "border-cyan-300/24 bg-cyan-400/10 text-cyan-100"
+                      : "border-white/10 bg-white/[0.03] text-[var(--aq-title)] hover:border-white/20"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <RotateCcw size={15} />
+                    <span className="text-[11px] font-black uppercase tracking-[0.18em]">Foto verso</span>
+                  </span>
+                  <ChevronRight size={15} />
+                </button>
+              ) : null}
+
+              {hasText ? (
+                <button
+                  onClick={() => setPanel("text")}
+                  className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left transition ${
+                    panel === "text"
+                      ? "border-cyan-300/24 bg-cyan-400/10 text-cyan-100"
+                      : "border-white/10 bg-white/[0.03] text-[var(--aq-title)] hover:border-white/20"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <FileText size={15} />
+                    <span className="text-[11px] font-black uppercase tracking-[0.18em]">Texto</span>
+                  </span>
+                  <ChevronRight size={15} />
+                </button>
+              ) : null}
+            </div>
           </div>
 
-          <div className="mt-5 rounded-[22px] border border-white/10 bg-[rgba(255,255,255,0.03)] p-4">
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">Anotacoes</div>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aq-text)]">
-              {handout.content?.trim() || "Sem texto ainda. Adicione descricao, puzzle, pistas ou lore do item."}
-            </p>
+          <div className="mt-auto border-t border-white/8 pt-4">
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">Estado da peca</div>
+            <div className="mt-3 flex items-center justify-between text-[11px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">
+              <span>Face ativa</span>
+              <span className="font-black text-[var(--aq-title)]">{panel === "front" ? "Frente" : panel === "back" ? "Verso" : "Texto"}</span>
+            </div>
           </div>
         </aside>
       </div>
