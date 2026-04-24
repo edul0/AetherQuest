@@ -504,91 +504,83 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const criarCena = async () => {
     if (!salaAtiva?.id) return;
     const activeSala = await claimSalaIfNeeded(salaAtiva);
-    const { data, error } = await runFresh<Cena>(() =>
-      supabase.from("cenas").insert([{ sala_id: activeSala?.id ?? salaAtiva.id, nome: `Setor ${cenas.length + 1}`, ...scenePatch(DEFAULT_SCENE_VIEW_PREFERENCES) }]).select().single(),
-    );
+    const nome = `Setor ${cenas.length + 1}`;
+    const patch = scenePatch(DEFAULT_SCENE_VIEW_PREFERENCES);
+    const { data, error } = await runFresh<Cena>(() => supabase.from("cenas").insert([{ sala_id: activeSala?.id ?? salaAtiva.id, nome, ...patch }]).select().single());
     if (error || !data) {
       alert(`Falha ao criar cena: ${error?.message ?? "erro desconhecido"}`);
       return;
     }
-    setCenaAtiva(data as Cena);
-    setCenas((current) => [...current, data as Cena]);
+    const novaCena = data as Cena;
+    setCenas((current) => [...current, novaCena]);
+    setCenaAtiva(novaCena);
   };
 
   const criarTokenDaFicha = async () => {
-    if (!salaAtiva?.id || !cenaAtiva?.id || !fichaParaTokenId) return;
+    if (!cenaAtiva?.id || !fichaParaTokenId) return;
     const ficha = fichas.find((entry) => entry.id === fichaParaTokenId);
-    if (!ficha) return;
-    const nome = tokenLabel.trim() || ficha.nome_personagem || "Entidade";
-    const { error } = await runFresh(() =>
-      supabase.from("tokens").insert([{ cena_id: cenaAtiva.id, sala: salaAtiva.id, ficha_id: ficha.id, nome, x: 100 + tokens.length * 70, y: 100 + tokens.length * 70, cor: "#4ad9d9" }]),
-    );
+    const payload = {
+      cena_id: cenaAtiva.id,
+      sala: salaAtiva?.id ?? null,
+      ficha_id: fichaParaTokenId,
+      nome: tokenLabel.trim() || ficha?.nome_personagem || "Entidade",
+      x: 0,
+      y: 0,
+      cor: "#4ad9d9",
+    };
+
+    const { error } = await runFresh(() => supabase.from("tokens").insert([payload]));
     if (error) {
-      alert(`Falha ao criar token: ${error.message}`);
+      alert(`Falha ao vincular ficha na cena: ${error.message}`);
       return;
     }
-    await runFresh(() => supabase.from("fichas").update({ sala_id: salaAtiva.id }).eq("id", ficha.id));
+
     setFichaParaTokenId("");
     setTokenLabel("");
   };
 
   const entrarComoJogador = async () => {
-    if (!hasSession) {
-      router.push(`/login?next=${encodeURIComponent(`/mesa?convite=${normalizeCode(joinCode)}`)}`);
-      return;
-    }
     const matched = findSalaByCode(salas, joinCode);
     if (!matched) {
-      setJoinError("Nao encontramos uma sala com esse codigo.");
+      setJoinError("Nao encontramos uma sala com essa senha ou convite.");
       return;
     }
+
     setJoinError("");
     setRole("jogador");
     setSalaAtiva(matched);
     setJoinedAsPlayer(true);
     rememberRecentSession(matched);
-    void ensureMembership(matched.id, "jogador");
+    await ensureMembership(matched.id, "jogador");
   };
 
   const vincularFichaComoJogador = async () => {
-    if (!salaAtiva?.id || !fichaEscolhidaId) return;
-    void ensureMembership(salaAtiva.id, "jogador");
-    const { error } = await runFresh(() => supabase.from("fichas").update({ sala_id: salaAtiva.id }).eq("id", fichaEscolhidaId));
-    if (error) console.warn("Nao foi possivel vincular ficha a sala:", error.message);
-    const token = tokens.find((entry) => entry.ficha_id === fichaEscolhidaId);
-    if (token) {
-      setSelectedToken(token);
-      setShellOpen(false);
+    if (!cenaAtiva?.id || !fichaEscolhidaId) return;
+    const ficha = fichas.find((entry) => entry.id === fichaEscolhidaId);
+    const payload = {
+      cena_id: cenaAtiva.id,
+      sala: salaAtiva?.id ?? null,
+      ficha_id: fichaEscolhidaId,
+      nome: ficha?.nome_personagem || "Aventureiro",
+      x: 0,
+      y: 0,
+      cor: "#4ad9d9",
+    };
+    const { error } = await runFresh(() => supabase.from("tokens").insert([payload]));
+    if (error) {
+      alert(`Falha ao entrar com ficha: ${error.message}`);
+      return;
     }
   };
 
   const criarFichaJogadorRapida = async () => {
     try {
-      const session = await ensureSession();
-      const preset = PRESETS.ordem_paranormal;
-      const firstClass = preset.classes?.[0];
-      const firstRace = preset.racas?.[0];
-      const firstOrigin = preset.origens?.[0];
-      const firstPath = firstClass?.caminhos?.[0];
-      const progressValue = preset.progressMin ?? 1;
+      const preset = PRESETS["ordem_paranormal"];
       const payload = {
-        user_id: session.user.id,
         nome_personagem: "Novo Personagem",
         sistema_preset: "ordem_paranormal",
-        sala_id: salaAtiva?.id ?? null,
-        avatar_url: null,
+        sala_id: null,
         dados: {
-          nex: progressValue,
-          progressao: progressValue,
-          classe: firstClass?.nome ?? "",
-          classe_custom: "",
-          trilha: firstPath?.nome ?? "",
-          trilha_custom: "",
-          origem: firstOrigin?.nome ?? "",
-          origem_custom: "",
-          raca: firstRace?.nome ?? "",
-          raca_custom: "",
-          deslocamento: firstRace?.deslocamento ?? "9m",
           idade: "",
           altura: "",
           gostos: "",
