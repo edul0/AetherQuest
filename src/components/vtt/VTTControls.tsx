@@ -31,6 +31,7 @@ type VTTControlsProps = {
   salaId?: string | null;
   preferences: SceneViewPreferences;
   onPreferencesChange: (patch: Partial<SceneViewPreferences>) => void;
+  onMapUrlChange?: (url: string | null) => void;
 };
 
 const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePointer2 }> = [
@@ -40,7 +41,7 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
   { id: "map", label: "Mover mapa", icon: Move },
 ];
 
-export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange }: VTTControlsProps) {
+export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange, onMapUrlChange }: VTTControlsProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const runtimeGrid = useVTTStore(selectVTTGrid);
   const runtimeToolMode = useVTTStore(selectVTTToolMode);
@@ -84,6 +85,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       return;
     }
 
+    onMapUrlChange?.(data.publicUrl);
     setToolMode("map");
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "map" });
     setPanelOpen(false);
@@ -96,6 +98,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       return;
     }
 
+    onMapUrlChange?.(null);
     setToolMode("select");
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "select" });
     setPanelOpen(false);
