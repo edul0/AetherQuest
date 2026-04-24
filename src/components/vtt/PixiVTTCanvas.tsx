@@ -184,7 +184,7 @@ export default function PixiVTTCanvas({
             height,
             transform: `translate3d(${(token.x - camera.x) * camera.zoom - width / 2}px, ${(token.y - camera.y) * camera.zoom - height * yAnchor}px, 0)`,
             zIndex: 4 + (token.z_index ?? 0),
-            border: mode === "standee" ? "none" : "1px solid rgba(165, 243, 252, 0.35)",
+            border: mode === "standee" ? "none" : "1px solid var(--aq-border-strong)",
             borderRadius: mode === "portrait" ? "9999px" : mode === "top" ? "30%" : "0px",
             objectFit: mode === "portrait" ? "cover" : "contain",
             objectPosition: mode === "standee" ? "center bottom" : "center center",
@@ -365,7 +365,7 @@ export default function PixiVTTCanvas({
     img.onerror = () => {
       if (cancelled) return;
       setMapSize(null);
-      setCanvasError("Mapa encontrado, mas a imagem nao abriu. Reenvie o arquivo no bucket publico de mapas.");
+      setCanvasError("Mapa ancestral inacessível. Reenvie o artefato no repositório de mapas.");
     };
     img.src = mapaUrl;
     return () => {
@@ -379,7 +379,7 @@ export default function PixiVTTCanvas({
       const world = screenToWorld(baseScreenPoint, baseCamera);
       setCamera({ x: world.x - screenPoint.x / nextZoom, y: world.y - screenPoint.y / nextZoom, zoom: nextZoom });
     },
-    [camera, screenToWorld],
+    [camera, screenToWorld, setCamera],
   );
 
   const pointerFromEvent = (event: PointerEvent): Point => {
@@ -504,6 +504,7 @@ export default function PixiVTTCanvas({
         pixiGrid.moveTo(startX, y);
         pixiGrid.lineTo(endX, y);
       }
+      // Cor de grade atualizada para a estética cyan Sheikah
       pixiGrid.stroke({ width: 1 / camera.zoom, color: 0x4ad9d9, alpha: runtimeGrid.gridOpacity });
     }
 
@@ -526,7 +527,8 @@ export default function PixiVTTCanvas({
 
       const imageUrl = tokenVisual(token, ficha);
       const ring = new PIXI.Graphics();
-      ring.circle(0, 0, tokenPx * 0.45).fill({ color: selectedTokenId === token.id ? 0x4ad9d9 : 0x050a10, alpha: imageUrl ? (selectedTokenId === token.id ? 0.2 : 0.08) : selectedTokenId === token.id ? 0.42 : 0.78 });
+      // Anel base no tom da pedra escurecida
+      ring.circle(0, 0, tokenPx * 0.45).fill({ color: selectedTokenId === token.id ? 0x4ad9d9 : 0x030a14, alpha: imageUrl ? (selectedTokenId === token.id ? 0.2 : 0.08) : selectedTokenId === token.id ? 0.42 : 0.78 });
       ring.circle(0, 0, tokenPx * 0.41).stroke({ color: token.visible_to_players === false ? 0xf59e0b : 0x4ad9d9, alpha: selectedTokenId === token.id ? 1 : 0.55, width: 3 });
       wrapper.addChild(ring);
 
@@ -539,7 +541,8 @@ export default function PixiVTTCanvas({
         wrapper.addChild(label);
       }
 
-      const name = new PIXI.Text({ text: tokenName(token, ficha), style: { fill: 0xf0ebd8, fontSize: Math.max(10, tokenPx * 0.13), fontWeight: "900", align: "center" } });
+      // Nome do token alinhado com var(--aq-title)
+      const name = new PIXI.Text({ text: tokenName(token, ficha), style: { fill: 0xe2e8f0, fontSize: Math.max(10, tokenPx * 0.13), fontWeight: "900", align: "center" } });
       name.anchor.set(0.5, 0);
       name.y = tokenPx * 0.46;
       wrapper.addChild(name);
@@ -561,7 +564,7 @@ export default function PixiVTTCanvas({
   return (
     <div
       ref={hostRef}
-      className="fixed inset-0 overflow-hidden touch-none select-none bg-[#050a10]"
+      className="fixed inset-0 overflow-hidden touch-none select-none bg-[var(--aq-bg)]"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -583,30 +586,41 @@ export default function PixiVTTCanvas({
           style={tokenImage.style}
         />
       ))}
-      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_20%,rgba(74,217,217,0.08),transparent_38%),linear-gradient(to_bottom,rgba(0,0,0,0.02),rgba(0,0,0,0.22))]" />
-      <div className="fixed left-1/2 top-[92px] z-40 flex w-[min(calc(100vw-1rem),560px)] -translate-x-1/2 items-center justify-between gap-2 rounded-[26px] border border-[#4ad9d9]/20 bg-[#050a10]/88 px-3 py-2 shadow-2xl backdrop-blur-xl md:top-4">
+      
+      {/* Glow de fundo - Energia Sheikah sutil */}
+      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_20%,var(--aq-accent-soft),transparent_38%),linear-gradient(to_bottom,rgba(0,0,0,0.02),rgba(0,0,0,0.22))]" />
+      
+      {/* HUD da Câmera (Refatorado para as Tabuletas do globals.css) */}
+      <div className="fixed left-1/2 top-[92px] z-40 flex w-[min(calc(100vw-1rem),560px)] -translate-x-1/2 items-center justify-between gap-4 aq-panel px-4 py-2 backdrop-blur-xl md:top-4">
         <div className="flex gap-2">
-          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.12)}>
-            <Plus size={18} />
+          <button className="aq-button-secondary aq-button-compact" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.12)}>
+            <Plus size={16} />
           </button>
-          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 0.88)}>
-            <Minus size={18} />
+          <button className="aq-button-secondary aq-button-compact" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 0.88)}>
+            <Minus size={16} />
           </button>
-          <button className="rounded-full border border-white/10 bg-white/5 p-3 text-white" onClick={() => setCamera(DEFAULT_CAMERA)}>
-            <RotateCcw size={18} />
+          <button className="aq-button-secondary aq-button-compact" onClick={() => setCamera(DEFAULT_CAMERA)}>
+            <RotateCcw size={16} />
           </button>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-black uppercase tracking-[0.2em] text-white">Zoom {Math.round(camera.zoom * 100)}%</div>
-          <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-slate-400">{toolMode === "map" ? "Reposicionando cena" : toolMode === "pan" ? "Camera livre" : "Tokens cinematicos"}</div>
+        <div className="text-right flex flex-col items-end">
+          <div className="aq-kicker !mb-0">Zoom {Math.round(camera.zoom * 100)}%</div>
+          <div className="mt-1 text-[10px] uppercase tracking-widest text-[var(--aq-text-muted)]">
+            {toolMode === "map" ? "Reposicionando cena" : toolMode === "pan" ? "Câmera livre" : "Tokens cinemáticos"}
+          </div>
         </div>
       </div>
+
       {mapaUrl && !domMapStyle && !canvasError ? (
-        <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-cyan-400/20 bg-[#050a10]/80 px-5 py-4 text-center text-xs font-black uppercase tracking-[0.24em] text-cyan-200">
-          Carregando mapa...
+        <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 aq-panel px-6 py-4 text-center text-[var(--aq-accent)] border border-[var(--aq-accent)] shadow-[0_0_15px_var(--aq-accent-soft)]">
+          <span className="aq-kicker !mb-0">Acessando memória ancestral...</span>
         </div>
       ) : null}
-      {canvasError ? <div className="fixed left-1/2 top-1/2 z-50 max-w-[84vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-red-500/30 bg-red-950/80 px-5 py-4 text-center text-sm text-red-100">{canvasError}</div> : null}
+      {canvasError ? (
+        <div className="fixed left-1/2 top-1/2 z-50 max-w-[84vw] -translate-x-1/2 -translate-y-1/2 aq-panel px-6 py-4 text-center text-sm text-[var(--aq-danger)] border border-[var(--aq-danger)]">
+          {canvasError}
+        </div>
+      ) : null}
     </div>
   );
 }
