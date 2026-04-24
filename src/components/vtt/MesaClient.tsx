@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Cinzel, Inter } from "next/font/google";
@@ -124,6 +124,14 @@ function scenePatch(preferences: SceneViewPreferences) {
   };
 }
 
+const SHEIKAH_PANEL_STYLE = {
+  clipPath: "polygon(16px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px)",
+} as const;
+
+const SHEIKAH_CHIP_STYLE = {
+  clipPath: "polygon(14px 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0 50%)",
+} as const;
+
 export default function MesaClient({ inviteCode }: MesaClientProps) {
   const router = useRouter();
   const [salas, setSalas] = useState<Sala[]>([]);
@@ -153,9 +161,17 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   const [mesaError, setMesaError] = useState("");
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
   const [selectedHandout, setSelectedHandout] = useState<Handout | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPersistedRef = useRef("");
   const handouts = useHandoutsSync(salaAtiva?.id, cenaAtiva?.id);
+  const openHandoutById = useCallback(
+    (handoutId: string) => {
+      const found = handouts.find((entry) => entry.id === handoutId);
+      if (found) setSelectedHandout(found);
+    },
+    [handouts],
+  );
 
   const activeMesa = Boolean(role && salaAtiva && cenaAtiva && (role === "mestre" || joinedAsPlayer));
   const fichaSelecionada = selectedToken?.ficha_id ? fichasMap[selectedToken.ficha_id] ?? null : null;
@@ -353,6 +369,14 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       data.subscription.unsubscribe();
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
     };
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobile(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
   }, []);
 
   useEffect(() => {
@@ -555,35 +579,52 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   };
 
   const vincularFichaComoJogador = async () => {
-    if (!salaAtiva?.id || !fichaEscolhidaId) return;
-    void ensureMembership(salaAtiva.id, "jogador");
-    const { error } = await runFresh(() => supabase.from("fichas").update({ sala_id: salaAtiva.id }).eq("id", fichaEscolhidaId));
-    if (error) console.warn("Nao foi possivel vincular ficha a sala:", error.message);
-    const token = tokens.find((entry) => entry.ficha_id === fichaEscolhidaId);
-    if (token) {
-      setSelectedToken(token);
-      setShellOpen(false);
+    if (!salaAtiva?.id || !cenaAtiva?.id || !fichaEscolhidaId) return;
+    const ficha = fichas.find((entry) => entry.id === fichaEscolhidaId);
+    if (!ficha) return;
+    const { error } = await runFresh(() => supabase.from("fichas").update({ sala_id: salaAtiva.id }).eq("id", ficha.id));
+    if (error) {
+      alert(`Falha ao vincular ficha: ${error.message}`);
+      return;
+    }
+
+    const existing = tokens.find((token) => token.ficha_id === ficha.id);
+    if (!existing) {
+      const { error: tokenError } = await runFresh(() =>
+        supabase.from("tokens").insert([
+          {
+            cena_id: cenaAtiva.id,
+            sala: salaAtiva.id,
+            ficha_id: ficha.id,
+            nome: ficha.nome_personagem,
+            x: 100 + tokens.length * 70,
+            y: 100 + tokens.length * 70,
+            cor: "#4ad9d9",
+          },
+        ]),
+      );
+      if (tokenError) {
+        alert(`Ficha vinculada, mas falhou ao criar token: ${tokenError.message}`);
+      }
     }
   };
 
   const criarFichaJogadorRapida = async () => {
     try {
       const session = await ensureSession();
-      const preset = PRESETS.ordem_paranormal;
-      const firstClass = preset.classes?.[0];
-      const firstRace = preset.racas?.[0];
-      const firstOrigin = preset.origens?.[0];
-      const firstPath = firstClass?.caminhos?.[0];
-      const progressValue = preset.progressMin ?? 1;
+      const preset = PRESETS[0];
+      const firstClass = preset.classes?.[0] ?? null;
+      const firstPath = firstClass?.paths?.[0] ?? null;
+      const firstOrigin = preset.origins?.[0] ?? null;
+      const firstRace = preset.races?.[0] ?? null;
+      const progressValue = preset.level?.min ?? preset.nex?.min ?? 0;
       const payload = {
         user_id: session.user.id,
         nome_personagem: "Novo Personagem",
-        sistema_preset: "ordem_paranormal",
-        sala_id: salaAtiva?.id ?? null,
-        avatar_url: null,
+        sistema_preset: preset.id,
         dados: {
+          presetId: preset.id,
           nex: progressValue,
-          progressao: progressValue,
           classe: firstClass?.nome ?? "",
           classe_custom: "",
           trilha: firstPath?.nome ?? "",
@@ -658,50 +699,60 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
 
       {activeMesa ? (
         <div className="fixed inset-x-3 top-3 z-50 flex items-center justify-between gap-2">
-          <button onClick={() => router.push("/")} className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.88)] text-[var(--aq-title)] backdrop-blur-md" aria-label="Voltar"><ArrowLeft size={17} /></button>
-          <div className="rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-accent)] backdrop-blur-md">{role === "mestre" ? "Mesa do Mestre" : "Mesa do Jogador"}</div>
-          <button onClick={() => setShellOpen((current) => !current)} className="flex h-11 min-w-[88px] items-center justify-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] backdrop-blur-md">{shellOpen ? <X size={16} /> : <Menu size={16} />}{shellOpen ? "Fechar" : "Mesa"}</button>
+          <button onClick={() => router.push("/")} className="flex h-11 w-11 items-center justify-center border border-cyan-300/18 bg-[linear-gradient(180deg,rgba(24,29,36,0.96),rgba(7,10,16,0.94))] text-[var(--aq-title)] backdrop-blur-md" style={SHEIKAH_CHIP_STYLE} aria-label="Voltar"><ArrowLeft size={17} /></button>
+          <div className="border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(18,24,32,0.94),rgba(7,10,16,0.92))] px-4 py-2 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--aq-accent)] shadow-[0_0_24px_rgba(34,211,238,0.14)] backdrop-blur-md" style={SHEIKAH_CHIP_STYLE}>{role === "mestre" ? "Mesa do Mestre" : "Mesa do Jogador"}</div>
+          <button onClick={() => setShellOpen((current) => !current)} className="flex min-w-[92px] items-center justify-center gap-2 border border-cyan-300/18 bg-[linear-gradient(180deg,rgba(24,29,36,0.96),rgba(7,10,16,0.94))] px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] backdrop-blur-md" style={SHEIKAH_CHIP_STYLE}>{shellOpen ? <X size={16} /> : <Menu size={16} />}{shellOpen ? "Fechar" : "Mesa"}</button>
         </div>
       ) : null}
 
       {activeMesa && shellOpen ? <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.28)]" onClick={() => setShellOpen(false)} aria-label="Fechar painel" /> : null}
 
-      <div className={activeMesa ? `${shellOpen ? "block" : "hidden"} fixed inset-x-3 top-20 bottom-6 z-50 md:inset-x-auto md:left-6 md:top-20 md:w-[390px]` : "relative z-20 mx-auto mt-24 w-full max-w-[680px] px-3 pb-10 md:px-0"}>
-        <div className={activeMesa ? "aq-scrollbar pointer-events-auto h-full overflow-y-auto aq-panel p-5" : "aq-panel pointer-events-auto p-5 md:p-6"}>
+      <div className={activeMesa ? `${shellOpen ? "block" : "hidden"} fixed inset-x-2 bottom-3 top-auto z-50 ${isMobile ? "max-h-[74svh]" : "max-h-[80svh]"} md:inset-x-auto md:bottom-6 md:left-6 md:top-20 md:max-h-none md:w-[390px]` : "relative z-20 mx-auto mt-20 w-full max-w-[760px] px-3 pb-10 md:px-0"}>
+        <div
+          className={activeMesa ? "aq-scrollbar pointer-events-auto h-full overflow-y-auto border border-cyan-300/16 bg-[linear-gradient(180deg,rgba(13,17,24,0.98),rgba(5,8,14,0.96))] p-5 shadow-[0_28px_70px_rgba(0,0,0,0.5)] backdrop-blur-xl" : "pointer-events-auto border border-cyan-300/16 bg-[linear-gradient(180deg,rgba(13,17,24,0.98),rgba(5,8,14,0.96))] p-5 shadow-[0_28px_70px_rgba(0,0,0,0.42)] md:p-6"}
+          style={SHEIKAH_PANEL_STYLE}
+        >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="aq-kicker">Bridge Deck</div>
-              <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-4xl`}>Mesa Tatica</h1>
-              <p className="mt-3 text-sm leading-relaxed text-[var(--aq-text-muted)]">Mapa, tokens e alinhamento ficam online na cena. A camera continua individual para cada tela.</p>
+              <div className="aq-kicker text-cyan-300/80">Sheikah Slate</div>
+              <h1 className={`${cinzel.className} mt-2 text-3xl font-black tracking-[0.1em] text-[var(--aq-title)] md:text-4xl`}>Mesa Tatica</h1>
+              <p className="mt-3 max-w-[32rem] text-sm leading-relaxed text-[var(--aq-text-muted)]">Uma mesa viva de campanha. O estado da cena permanece online, enquanto cada aventureiro navega com a propria camera.</p>
             </div>
           </div>
 
           {mesaError ? <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">{mesaError}</div> : null}
           {!hasSession && authReady ? <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(74,217,217,0.08)] px-4 py-3 text-sm text-[var(--aq-text)]">Entre com login para carregar sessoes da mesa.</div> : null}
 
-          <div className="mt-6 flex flex-wrap gap-2">
-            <button onClick={() => { setRole("mestre"); setJoinedAsPlayer(false); }} className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}><Eye size={14} /> Mestre</button>
-            <button onClick={() => setRole("jogador")} className={role === "jogador" ? "aq-button-primary" : "aq-button-secondary"}><Users size={14} /> Jogador</button>
-            {activeMesa ? <button onClick={sair} disabled={signingOut} className="aq-button-secondary ml-auto"><X size={14} />{signingOut ? "Saindo" : "Sair"}</button> : null}
+          <div className="mt-6 grid grid-cols-2 gap-2 md:flex md:flex-wrap">
+            <button
+              onClick={() => { setRole("mestre"); setJoinedAsPlayer(false); }}
+              className={role === "mestre" ? "aq-button-primary justify-center" : "aq-button-secondary justify-center"}
+            >
+              <Eye size={14} /> Mestre
+            </button>
+            <button onClick={() => setRole("jogador")} className={role === "jogador" ? "aq-button-primary justify-center" : "aq-button-secondary justify-center"}>
+              <Users size={14} /> Jogador
+            </button>
+            {activeMesa ? <button onClick={sair} disabled={signingOut} className="aq-button-secondary col-span-2 justify-center md:ml-auto md:col-span-1"><X size={14} />{signingOut ? "Saindo" : "Sair"}</button> : null}
           </div>
 
           {role === "mestre" ? (
             <div className="mt-6 space-y-4">
               {salaAtiva ? (
-                <div className="border border-cyan-300/25 bg-slate-950/80 p-4 shadow-[0_0_32px_rgba(34,211,238,0.12)]">
+                <div className="border border-cyan-300/24 bg-[linear-gradient(180deg,rgba(25,29,36,0.95),rgba(11,15,22,0.92))] p-4 shadow-[0_0_34px_rgba(34,211,238,0.14)]" style={SHEIKAH_PANEL_STYLE}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="aq-kicker">Mesa ativa</div>
-                      <input value={roomNameDraft} onChange={(event) => setRoomNameDraft(event.target.value)} className="mt-3 w-full border-b border-cyan-300/20 bg-transparent pb-2 text-lg font-black uppercase tracking-[0.12em] text-[var(--aq-title)] outline-none" placeholder="Nome da campanha" />
+                      <div className="aq-kicker text-cyan-300/80">Mesa ativa</div>
+                      <input value={roomNameDraft} onChange={(event) => setRoomNameDraft(event.target.value)} className="mt-3 w-full border-b border-cyan-300/20 bg-transparent pb-2 text-lg font-black uppercase tracking-[0.18em] text-[var(--aq-title)] outline-none" placeholder="Nome da campanha" />
                     </div>
-                    <button onClick={() => void finalizarSala(salaAtiva)} className="flex shrink-0 items-center gap-2 border border-red-500/35 bg-red-950/50 px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-red-200 transition hover:bg-red-900/70">
+                    <button onClick={() => void finalizarSala(salaAtiva)} className="flex shrink-0 items-center gap-2 border border-red-500/35 bg-[linear-gradient(180deg,rgba(83,17,17,0.78),rgba(44,9,9,0.82))] px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-red-100 transition hover:bg-red-900/80" style={SHEIKAH_CHIP_STYLE}>
                       <Archive size={13} />
                       Finalizar
                     </button>
                   </div>
-                  <button onClick={copyInvite} className="mt-4 flex w-full items-center justify-between border border-cyan-300/20 bg-cyan-400/10 px-4 py-3 text-left">
+                  <button onClick={copyInvite} className="mt-4 flex w-full items-center justify-between border border-cyan-300/20 bg-[linear-gradient(90deg,rgba(20,31,38,0.95),rgba(10,16,24,0.95))] px-4 py-3 text-left shadow-[inset_0_0_0_1px_rgba(34,211,238,0.06)]" style={SHEIKAH_PANEL_STYLE}>
                     <span>
-                      <span className="block text-[9px] font-black uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">Runas de convite</span>
+                      <span className="block text-[9px] font-black uppercase tracking-[0.28em] text-[var(--aq-text-muted)]">Runas de convite</span>
                       <span className="mt-1 block font-mono text-2xl font-black uppercase tracking-[0.22em] text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{roomCode(salaAtiva.id)}</span>
                     </span>
                     <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100"><Copy size={14} /> {copiedInvite ? "Copiado" : "Copiar"}</span>
@@ -713,17 +764,17 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 </div>
               ) : null}
 
-              <div className="border border-white/10 bg-stone-950/75 p-4">
+              <div className="border border-white/10 bg-[linear-gradient(180deg,rgba(21,20,18,0.92),rgba(10,10,9,0.9))] p-4" style={SHEIKAH_PANEL_STYLE}>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="aq-kicker">Campanhas</div>
-                    <p className="mt-1 text-xs text-[var(--aq-text-muted)]">Mesas arquivadas ficam fora dos convites ativos.</p>
+                    <div className="aq-kicker text-cyan-300/75">Cronicas do reino</div>
+                    <p className="mt-1 text-xs text-[var(--aq-text-muted)]">Sessoes em repouso desaparecem das runas de convite, mas continuam guardadas.</p>
                   </div>
                   <button onClick={criarSala} className="aq-button-primary"><Plus size={14} /> Nova</button>
                 </div>
                 <div className="mt-4 grid gap-1.5">
                   {mesasNaoAtivas.length ? mesasNaoAtivas.map((sala) => (
-                    <div key={sala.id} className="group flex items-center gap-2 border border-white/10 bg-slate-950/65 px-3 py-2 transition hover:border-cyan-300/30 hover:bg-cyan-400/10">
+                    <div key={sala.id} className="group flex items-center gap-2 border border-white/10 bg-[rgba(12,16,22,0.82)] px-3 py-2 transition hover:border-cyan-300/30 hover:bg-[rgba(34,211,238,0.08)]" style={SHEIKAH_PANEL_STYLE}>
                       <button onClick={() => setSalaAtiva(sala)} className="min-w-0 flex-1 text-left">
                         <div className="truncate text-[11px] font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">{sala.nome}</div>
                         <div className="mt-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">{roomCode(sala.id)}</div>
@@ -735,30 +786,30 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3"><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Layers3 className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{cenas.length}</div><div className="aq-kicker mt-1">Cenas</div></div><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Crosshair className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{tokens.length}</div><div className="aq-kicker mt-1">Tokens</div></div><div className="rounded-2xl border border-[var(--aq-border)] p-4"><Sparkles className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-sm font-black">{cenaAtiva?.mapa_url ? "Online" : "Sem mapa"}</div><div className="aq-kicker mt-1">Mapa</div></div></div>
+              <div className="grid gap-3 sm:grid-cols-3"><div className="border border-[var(--aq-border)] bg-[rgba(13,18,25,0.86)] p-4" style={SHEIKAH_PANEL_STYLE}><Layers3 className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{cenas.length}</div><div className="aq-kicker mt-1">Cenas</div></div><div className="border border-[var(--aq-border)] bg-[rgba(13,18,25,0.86)] p-4" style={SHEIKAH_PANEL_STYLE}><Crosshair className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-2xl font-black">{tokens.length}</div><div className="aq-kicker mt-1">Tokens</div></div><div className="border border-[var(--aq-border)] bg-[rgba(13,18,25,0.86)] p-4" style={SHEIKAH_PANEL_STYLE}><Sparkles className="text-[var(--aq-accent)]" size={16} /><div className="mt-2 text-sm font-black">{cenaAtiva?.mapa_url ? "Online" : "Sem mapa"}</div><div className="aq-kicker mt-1">Mapa</div></div></div>
 
-              <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4"><div className="aq-kicker">Controle do Mestre</div><p className="mt-2 text-sm text-[var(--aq-text-muted)]">Vincule ficha a token. O mestre pode abrir a ficha pelo roster quando o SQL de permissao estiver aplicado.</p><select value={fichaParaTokenId} onChange={(event) => setFichaParaTokenId(event.target.value)} className="aq-input mt-4"><option value="">Escolha uma ficha</option>{fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}</select><input value={tokenLabel} onChange={(event) => setTokenLabel(event.target.value)} className="aq-input mt-3" placeholder="Nome no mapa" /><button onClick={criarTokenDaFicha} disabled={!fichaParaTokenId || !cenaAtiva} className="aq-button-primary mt-3 w-full justify-center disabled:opacity-50"><Plus size={14} /> Colocar ficha na cena</button></div>
+              <div className="border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4" style={SHEIKAH_PANEL_STYLE}><div className="aq-kicker text-cyan-300/75">Ferraria do mestre</div><p className="mt-2 text-sm text-[var(--aq-text-muted)]">Prenda uma ficha ao tabuleiro e evoque um avatar jogavel na cena atual.</p><select value={fichaParaTokenId} onChange={(event) => setFichaParaTokenId(event.target.value)} className="aq-input mt-4"><option value="">Escolha uma ficha</option>{fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}</select><input value={tokenLabel} onChange={(event) => setTokenLabel(event.target.value)} className="aq-input mt-3" placeholder="Nome no mapa" /><button onClick={criarTokenDaFicha} disabled={!fichaParaTokenId || !cenaAtiva} className="aq-button-primary mt-3 w-full justify-center disabled:opacity-50"><Plus size={14} /> Colocar ficha na cena</button></div>
             </div>
           ) : null}
 
           {role === "jogador" ? (
             <div className="mt-6 space-y-4">
-              <div className="border border-cyan-300/20 bg-stone-950/80 p-4">
-                <div className="aq-kicker">Entrada rapida</div>
-                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Insira as runas de convite da mesa do mestre.</p>
-                <div className="mt-4 flex items-center gap-2 border border-cyan-300/20 bg-slate-950/80 px-4 py-3">
+              <div className="border border-cyan-300/20 bg-[linear-gradient(180deg,rgba(22,24,29,0.96),rgba(9,12,18,0.94))] p-4" style={SHEIKAH_PANEL_STYLE}>
+                <div className="aq-kicker text-cyan-300/80">Entrada rapida</div>
+                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Insira as runas de convite do mestre para reabrir a mesa em poucos segundos.</p>
+                <div className="mt-4 flex items-center gap-2 border border-cyan-300/20 bg-[rgba(7,10,16,0.88)] px-4 py-3" style={SHEIKAH_PANEL_STYLE}>
                   <KeyRound size={16} className="text-[var(--aq-accent)]" />
-                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Inserir runas de convite" className="w-full bg-transparent font-mono text-sm uppercase tracking-[0.18em] text-cyan-200 outline-none" />
+                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Inserir runas de convite" className="w-full bg-transparent font-mono text-sm uppercase tracking-[0.24em] text-cyan-200 outline-none" />
                 </div>
                 <button onClick={entrarComoJogador} className="aq-button-primary mt-4 w-full justify-center"><Users size={14} /> Entrar</button>
                 {joinError ? <div className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{joinError}</div> : null}
               </div>
               {recentSessions.length ? (
-                <div className="border border-white/10 bg-slate-950/70 p-4">
-                  <div className="aq-kicker">Sessoes recentes</div>
-                  <div className="mt-3 grid gap-1.5">
+                <div className="border border-white/10 bg-[rgba(10,14,20,0.82)] p-4" style={SHEIKAH_PANEL_STYLE}>
+                  <div className="aq-kicker text-cyan-300/80">Ecos recentes</div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {recentSessions.map((session) => (
-                      <button key={session.id} onClick={() => { setJoinCode(session.codigo); const matched = findSalaByCode(salas, session.codigo); if (matched) { setJoinError(""); setRole("jogador"); setSalaAtiva(matched); setJoinedAsPlayer(true); rememberRecentSession(matched); void ensureMembership(matched.id, "jogador"); } }} className="flex items-center justify-between border border-white/10 bg-stone-950/70 px-3 py-2 text-left transition hover:border-cyan-300/30 hover:bg-cyan-400/10">
+                      <button key={session.id} onClick={() => { setJoinCode(session.codigo); const matched = findSalaByCode(salas, session.codigo); if (matched) { setJoinError(""); setRole("jogador"); setSalaAtiva(matched); setJoinedAsPlayer(true); rememberRecentSession(matched); void ensureMembership(matched.id, "jogador"); } }} className="flex items-center justify-between border border-white/10 bg-[rgba(17,20,26,0.92)] px-3 py-3 text-left transition hover:border-cyan-300/30 hover:bg-[rgba(34,211,238,0.08)]" style={SHEIKAH_PANEL_STYLE}>
                         <span className="min-w-0">
                           <span className="block truncate text-[11px] font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">{session.nome_sala}</span>
                           <span className="mt-1 block font-mono text-[10px] font-black tracking-[0.2em] text-cyan-300">{session.codigo}</span>
@@ -770,9 +821,9 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 </div>
               ) : null}
               {joinedAsPlayer ? (
-                <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
-                  <div className="aq-kicker">Sua ficha</div>
-                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Jogador escolhe apenas a propria ficha. Se ainda nao tiver uma, crie aqui e edite depois.</p>
+                <div className="border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4" style={SHEIKAH_PANEL_STYLE}>
+                  <div className="aq-kicker text-cyan-300/80">Juramento do aventureiro</div>
+                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">O jogador escolhe somente a propria ficha. Se ela ainda nao existir, forje uma agora e entre no mapa em seguida.</p>
                   <select value={fichaEscolhidaId} onChange={(event) => setFichaEscolhidaId(event.target.value)} className="aq-input mt-3">
                     <option value="">{fichas.length ? "Selecione uma ficha" : "Nenhuma ficha encontrada"}</option>
                     {fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}
@@ -789,10 +840,10 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
         </div>
       </div>
 
-      {!activeMesa ? <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1500px] items-center justify-center px-4 pb-20 pt-10"><div className="aq-panel w-full max-w-3xl p-8 text-center"><div className="aq-kicker">No Signal</div><h2 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-5xl`}>{role === "mestre" ? (salaAtiva ? "Crie a primeira cena" : "Nenhuma sessao ativa") : "Escolha como entrar"}</h2><p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[var(--aq-text-muted)]">Mestre cria uma sessao e jogador entra com codigo. O mapa fica online e sincronizado pela cena.</p>{role === "mestre" ? <button onClick={salaAtiva ? criarCena : criarSala} className="aq-button-primary mt-8 justify-center"><Plus size={14} />{salaAtiva ? "Criar primeira cena" : "Criar primeira sessao"}</button> : null}</div></div> : null}
+      {!activeMesa ? <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1500px] items-center justify-center px-4 pb-20 pt-10"><div className="w-full max-w-3xl border border-cyan-300/16 bg-[linear-gradient(180deg,rgba(13,18,24,0.98),rgba(5,8,14,0.96))] p-8 text-center shadow-[0_28px_70px_rgba(0,0,0,0.44)]" style={SHEIKAH_PANEL_STYLE}><div className="aq-kicker text-cyan-300/80">No Signal</div><h2 className={`${cinzel.className} mt-3 text-4xl font-black tracking-[0.08em] text-[var(--aq-title)] md:text-5xl`}>{role === "mestre" ? (salaAtiva ? "Crie a primeira cena" : "Nenhuma sessao ativa") : "Escolha como entrar"}</h2><p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[var(--aq-text-muted)]">Escolha seu papel e desperte a mesa. O mapa e o palco; o shell ao lado e sua ardesia ancestral de comando.</p>{role === "mestre" ? <button onClick={salaAtiva ? criarCena : criarSala} className="aq-button-primary mt-8 justify-center"><Plus size={14} />{salaAtiva ? "Criar primeira cena" : "Criar primeira sessao"}</button> : null}</div></div> : null}
 
       {activeMesa && visibleRoster.length > 0 ? (
-        <div className="fixed bottom-3 left-3 right-3 z-40 rounded-[24px] border border-[rgba(74,217,217,0.16)] bg-[rgba(5,10,16,0.82)] px-2 py-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl md:bottom-4 md:left-4 md:right-auto md:w-[520px]">
+        <div className="fixed bottom-3 left-3 right-3 z-40 border border-[rgba(74,217,217,0.16)] bg-[linear-gradient(180deg,rgba(12,18,27,0.94),rgba(4,8,14,0.9))] px-2 py-1.5 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl md:bottom-4 md:left-4 md:right-auto md:w-[520px]" style={SHEIKAH_PANEL_STYLE}>
           <div className="aq-scrollbar flex w-full gap-2 overflow-x-auto pb-1">
             {visibleRoster.map(({ token, ficha, vida, pe, sanidade }) => {
               const initials = (ficha?.nome_personagem ?? token.nome).slice(0, 2).toUpperCase();
@@ -802,7 +853,8 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 <button
                   key={token.id}
                   onClick={() => setSelectedToken(token)}
-                  className={`min-w-[142px] rounded-2xl border px-2 py-2 text-left ${selectedToken?.id === token.id ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)]" : "border-[var(--aq-border)] bg-[rgba(8,13,20,0.9)]"}`}
+                  className={`min-w-[142px] border px-2 py-2 text-left ${selectedToken?.id === token.id ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)]" : "border-[var(--aq-border)] bg-[rgba(8,13,20,0.9)]"}`}
+                  style={SHEIKAH_PANEL_STYLE}
                 >
                   <div className="flex items-center gap-2">
                     {ficha?.avatar_url ? <img src={ficha.avatar_url} alt={ficha.nome_personagem} className="h-10 w-10 rounded-xl object-cover" /> : <div className="flex h-10 w-10 items-center justify-center rounded-xl text-xs font-black text-white" style={{ background: token.cor || "#4ad9d9" }}>{initials}</div>}
@@ -824,20 +876,26 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
       ) : null}
 
       {activeMesa && handouts.length > 0 ? (
-        <div className="fixed bottom-28 right-3 z-40 w-[min(92vw,320px)] rounded-[24px] border border-[rgba(74,217,217,0.16)] bg-[rgba(5,10,16,0.84)] p-2 shadow-[0_18px_46px_rgba(0,0,0,0.38)] backdrop-blur-xl md:bottom-24 md:right-4">
-          <div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-accent)]">Itens da mesa</div>
-          <div className="aq-scrollbar flex gap-2 overflow-x-auto pb-1">
+        <div className="fixed bottom-28 right-3 z-40 w-[min(92vw,360px)] overflow-hidden border border-[rgba(74,217,217,0.16)] bg-[linear-gradient(180deg,rgba(12,18,27,0.96),rgba(4,8,14,0.94))] shadow-[0_20px_56px_rgba(0,0,0,0.44)] backdrop-blur-xl md:bottom-24 md:right-4" style={SHEIKAH_PANEL_STYLE}>
+          <div className="border-b border-white/8 px-4 py-3">
+            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-[var(--aq-accent)]">Achados da mesa</div>
+            <div className="mt-1 text-[11px] uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">Ecos, reliquias e escritos despertados na sessao</div>
+          </div>
+          <div className="aq-scrollbar flex gap-3 overflow-x-auto p-3">
             {handouts.map((handout) => (
               <button
                 key={handout.id}
                 onClick={() => setSelectedHandout(handout)}
-                className="min-w-[132px] rounded-2xl border border-[var(--aq-border)] bg-[rgba(8,13,20,0.92)] p-2 text-left transition hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.08)]"
+                className="min-w-[148px] overflow-hidden border border-white/10 bg-[rgba(8,13,20,0.92)] text-left transition hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.08)]"
+                style={SHEIKAH_PANEL_STYLE}
               >
-                <div className="mb-2 h-20 overflow-hidden rounded-xl border border-white/10 bg-[rgba(255,255,255,0.03)]">
-                  {handout.image_url ? <img src={handout.image_url} alt={handout.titulo} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Sem imagem</div>}
+                <div className="h-24 overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_top,rgba(74,217,217,0.16),transparent_48%),rgba(255,255,255,0.03)]">
+                  {handout.image_url ? <img src={handout.image_url} alt={handout.titulo} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-3 text-center text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Sem imagem</div>}
                 </div>
-                <div className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">{handout.titulo}</div>
-                <div className="mt-1 text-[8px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">{handout.tipo || "item"}</div>
+                <div className="p-3">
+                  <div className="truncate text-[10px] font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">{handout.titulo}</div>
+                  <div className="mt-1 text-[8px] uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">{handout.tipo || "item"}</div>
+                </div>
               </button>
             ))}
           </div>
