@@ -2,7 +2,7 @@
 
 import type { ChangeEvent } from "react";
 import { Image as ImageIcon } from "lucide-react";
-import { supabase } from "@/src/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 export default function MapUpload({ salaId }: { salaId: string }) {
   const uploadMap = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -28,7 +28,7 @@ export default function MapUpload({ salaId }: { salaId: string }) {
       // 2. Dispara o Upload
       const { error: uploadError } = await supabase.storage
         .from("mapas")
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file);
 
       if (uploadError) {
         console.error("Storage Error:", uploadError);
