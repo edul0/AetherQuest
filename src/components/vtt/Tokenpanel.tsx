@@ -21,16 +21,16 @@ import {
 
 function HPBar({ current, max, label, color }: { current: number; max: number; label: string; color: string }) {
   const ratio = max > 0 ? Math.max(0, Math.min(1, current / max)) : 0;
-  const hpColor = ratio > 0.5 ? "#22c55e" : ratio > 0.25 ? "#f59e0b" : "#ef4444";
+  const hpColor = ratio > 0.5 ? "var(--aq-success)" : ratio > 0.25 ? "#f59e0b" : "var(--aq-danger)";
 
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
         <span className="text-[9px] font-black uppercase tracking-widest" style={{ color }}>{label}</span>
-        <span className="font-mono text-[10px] font-black tabular-nums text-white">{current} / {max}</span>
+        <span className="font-mono text-[10px] font-black tabular-nums text-[var(--aq-title)]">{current} / {max}</span>
       </div>
-      <div className="h-2 overflow-hidden rounded-full" style={{ background: "#0a0f18", border: "1px solid #1a2b4c" }}>
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${ratio * 100}%`, backgroundColor: hpColor }} />
+      <div className="h-2 overflow-hidden rounded-[0.25rem] border border-[var(--aq-border)] bg-[var(--aq-surface)]">
+        <div className="h-full rounded-[0.25rem] transition-all duration-500" style={{ width: `${ratio * 100}%`, backgroundColor: hpColor, boxShadow: `0 0 8px ${hpColor}` }} />
       </div>
     </div>
   );
@@ -51,40 +51,40 @@ function DamageControl({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="flex flex-1 items-center overflow-hidden rounded-lg" style={{ background: "#0a0f18", border: "1px solid #1a2b4c" }}>
-        <button onClick={() => onChange(Math.max(1, value - 1))} className="px-2 py-2 text-[#6b7b94] transition-colors hover:text-[#4ad9d9]">
-          <ChevronLeft size={12} />
+      <div className="flex flex-1 items-center overflow-hidden rounded-[0.35rem] border border-[var(--aq-border)] bg-[var(--aq-surface)]">
+        <button onClick={() => onChange(Math.max(1, value - 1))} className="px-2 py-2 text-[var(--aq-text-muted)] transition-colors hover:text-[var(--aq-accent)]">
+          <ChevronLeft size={14} />
         </button>
         <input
           type="number"
           value={value}
           min={1}
           onChange={(e) => onChange(Math.max(1, parseInt(e.target.value) || 1))}
-          className="w-0 flex-1 bg-transparent text-center text-sm font-black text-white outline-none"
+          className="w-0 flex-1 bg-transparent text-center text-sm font-black text-[var(--aq-title)] outline-none"
           style={{ fontFamily: "monospace" }}
         />
-        <button onClick={() => onChange(value + 1)} className="px-2 py-2 text-[#6b7b94] transition-colors hover:text-[#4ad9d9]">
-          <ChevronRight size={12} />
+        <button onClick={() => onChange(value + 1)} className="px-2 py-2 text-[var(--aq-text-muted)] transition-colors hover:text-[var(--aq-accent)]">
+          <ChevronRight size={14} />
         </button>
       </div>
 
       <button
         onClick={onDamage}
         disabled={disabled}
-        className="flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[10px] font-black uppercase text-red-300 transition-all hover:bg-red-500/20 disabled:opacity-40"
+        className="flex items-center gap-1 rounded-[0.35rem] border border-[var(--aq-danger)]/50 bg-[var(--aq-danger)]/10 px-3 py-2 text-[10px] font-black uppercase text-[var(--aq-danger)] transition-all hover:bg-[var(--aq-danger)]/20 disabled:opacity-40"
         title="Aplicar dano"
       >
-        <Skull size={11} />
+        <Skull size={12} />
         <span>DMG</span>
       </button>
 
       <button
         onClick={onHeal}
         disabled={disabled}
-        className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase text-emerald-300 transition-all hover:bg-emerald-500/20 disabled:opacity-40"
+        className="flex items-center gap-1 rounded-[0.35rem] border border-[var(--aq-success)]/50 bg-[var(--aq-success)]/10 px-3 py-2 text-[10px] font-black uppercase text-[var(--aq-success)] transition-all hover:bg-[var(--aq-success)]/20 disabled:opacity-40"
         title="Curar"
       >
-        <Heart size={11} />
+        <Heart size={12} />
         <span>CUR</span>
       </button>
     </div>
@@ -298,154 +298,148 @@ export default function TokenPanel({ token, fichaData, salaId, onClose, onTokenU
   const sanidade = fichaEfetiva?.dados?.status?.sanidade;
 
   return (
-    <div
-      className="fixed bottom-24 right-3 z-50 max-h-[70vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl md:bottom-auto md:right-4 md:top-1/2 md:w-72 md:-translate-y-1/2"
-      style={{
-        background: "rgba(10, 15, 24, 0.97)",
-        backdropFilter: "blur(16px)",
-        border: "1px solid #1a2b4c",
-        boxShadow: "0 0 40px rgba(74, 217, 217, 0.06), 0 24px 64px rgba(0,0,0,0.6)",
-      }}
-    >
-      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid #1a2b4c", background: "rgba(5,10,16,0.72)" }}>
-        <div className="flex items-center gap-2">
-          <div className="h-3 w-3 rounded-full ring-1 ring-white/20" style={{ backgroundColor: token.cor || "#ef4444" }} />
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "#4ad9d9" }}>Token</span>
+    <div className="fixed bottom-20 right-3 z-50 max-h-[70vh] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden aq-panel md:bottom-auto md:right-4 md:top-1/2 md:w-72 md:-translate-y-1/2">
+      
+      {/* Cabeçalho do Painel */}
+      <div className="flex items-center justify-between border-b border-[var(--aq-border)] bg-[var(--aq-surface)] px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <div className="h-3 w-3 rounded-[0.2rem] ring-1 ring-white/20" style={{ backgroundColor: token.cor || "#ef4444", boxShadow: `0 0 8px ${token.cor || "#ef4444"}` }} />
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)] drop-shadow-[0_0_8px_var(--aq-accent-soft)]">Token</span>
         </div>
-        <button onClick={onClose} className="text-[#6b7b94] transition-colors hover:text-[#4ad9d9]">
-          <X size={14} />
+        <button onClick={onClose} className="text-[var(--aq-text-muted)] transition-colors hover:text-[var(--aq-accent)]">
+          <X size={16} />
         </button>
       </div>
 
-      <div className="aq-scrollbar max-h-[calc(70vh-80px)] space-y-4 overflow-y-auto p-4">
+      <div className="aq-scrollbar max-h-[calc(70vh-80px)] space-y-5 overflow-y-auto p-5">
         <div>
-          <p className="mb-1 text-[9px] font-black uppercase tracking-widest" style={{ color: "#6b7b94" }}>Nome</p>
-          <p className="text-base font-bold text-white" style={{ fontFamily: "monospace" }}>{token.nome}</p>
+          <p className="aq-kicker">Nome</p>
+          <p className="text-base font-bold text-[var(--aq-title)]" style={{ fontFamily: "monospace" }}>{token.nome}</p>
         </div>
 
         {actionError ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] leading-relaxed text-red-100">{actionError}</div>
+          <div className="rounded-[0.4rem] border border-[var(--aq-danger)]/50 bg-[var(--aq-danger)]/10 px-3 py-2 text-[11px] leading-relaxed text-[var(--aq-title)]">{actionError}</div>
         ) : null}
 
         {fichaEfetiva ? (
-          <div className="space-y-3">
-            <div className="rounded-xl border border-[rgba(74,217,217,0.15)] bg-[rgba(74,217,217,0.04)] px-3 py-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-[rgba(74,217,217,0.2)] bg-[rgba(74,217,217,0.1)]">
-                    <User size={13} style={{ color: "#4ad9d9" }} />
+          <div className="space-y-4">
+            {/* Bloco de Ficha Vinculada */}
+            <div className="rounded-[0.5rem] border border-[var(--aq-border-strong)] bg-[var(--aq-accent-soft)] px-4 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[0.35rem] border border-[var(--aq-accent)] bg-[var(--aq-accent-soft)] shadow-[0_0_12px_var(--aq-accent-soft)]">
+                    <User size={16} className="text-[var(--aq-accent)]" />
                   </div>
                   <div>
-                    <p className="text-[9px] uppercase tracking-wider" style={{ color: "#8b9bb4" }}>Ficha vinculada</p>
-                    <p className="text-[12px] font-bold leading-tight text-white">{fichaEfetiva.nome_personagem}</p>
-                    <p className="text-[9px] uppercase tracking-wider" style={{ color: "#6b7b94" }}>{fichaEfetiva.sistema_preset?.replace("_", " ")}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-[var(--aq-text)]">Ficha vinculada</p>
+                    <p className="text-sm font-bold leading-tight text-[var(--aq-title)]">{fichaEfetiva.nome_personagem}</p>
+                    <p className="text-[9px] uppercase tracking-wider text-[var(--aq-text-muted)] mt-0.5">{fichaEfetiva.sistema_preset?.replace("_", " ")}</p>
                   </div>
                 </div>
-                <button onClick={desvincularFicha} disabled={loading} title="Desvincular ficha" className="text-[#6b7b94] transition-colors hover:text-red-300 disabled:opacity-40">
-                  <X size={14} />
+                <button onClick={desvincularFicha} disabled={loading} title="Desvincular ficha" className="text-[var(--aq-text-muted)] transition-colors hover:text-[var(--aq-danger)] disabled:opacity-40">
+                  <X size={16} />
                 </button>
               </div>
 
               {token.ficha_id ? (
-                <div className="mt-3 grid gap-2">
+                <div className="mt-4 grid gap-2.5">
                   <button
                     onClick={() => router.push(fichaHref(token.ficha_id!))}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(74,217,217,0.24)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] transition-all hover:bg-[rgba(74,217,217,0.14)]"
+                    className="aq-button-primary w-full"
                   >
-                    <ScrollText size={12} />
-                    Abrir ficha vinculada
+                    <ScrollText size={14} />
+                    Abrir grimório
                   </button>
                   <button
                     onClick={() => router.push(tokenImagesHref(token.ficha_id!))}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-[rgba(74,217,217,0.24)] bg-[rgba(74,217,217,0.05)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text)] transition-all hover:bg-[rgba(74,217,217,0.12)] hover:text-[var(--aq-accent)]"
+                    className="aq-button-secondary w-full"
                   >
-                    <ImageIcon size={12} />
+                    <ImageIcon size={14} />
                     Imagens do token
                   </button>
                   <button
                     onClick={desvincularFicha}
                     disabled={loading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-400/28 bg-amber-400/8 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-100 transition-all hover:bg-amber-400/14 disabled:opacity-40"
+                    className="flex w-full items-center justify-center gap-2 rounded-[0.35rem] border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.1em] text-amber-200 transition-all hover:bg-amber-500/20 disabled:opacity-40"
                   >
                     <Link2 size={12} />
-                    Remover ficha do token
+                    Romper elo
                   </button>
                 </div>
               ) : null}
             </div>
 
-            <div className="space-y-2.5">
-              {vida && <HPBar current={vida.atual} max={vida.max} label="Vida" color="#f87171" />}
-              {pe && pe.max > 0 && <HPBar current={pe.atual} max={pe.max} label="PE" color="#4ad9d9" />}
+            {/* Status (HP, PE, SAN) */}
+            <div className="space-y-3">
+              {vida && <HPBar current={vida.atual} max={vida.max} label="Vida" color="var(--aq-danger)" />}
+              {pe && pe.max > 0 && <HPBar current={pe.atual} max={pe.max} label="PE" color="var(--aq-accent)" />}
               {sanidade && sanidade.max > 0 && <HPBar current={sanidade.atual} max={sanidade.max} label="Sanidade" color="#c084fc" />}
             </div>
 
-            <div style={{ borderTop: "1px solid #1a2b4c" }} />
-
-            <div>
-              <p className="mb-2 text-[9px] font-black uppercase tracking-widest" style={{ color: "#6b7b94" }}>
-                <Swords size={9} className="mr-1 inline" />
-                Efeito de Combate
+            <div className="border-t border-[var(--aq-border)] pt-4">
+              <p className="aq-kicker mb-3">
+                <Swords size={12} className="mr-1.5 inline" />
+                Dano & Efeitos
               </p>
               <div className="space-y-3">
                 <DamageControl value={danoValor} onChange={setDanoValor} onDamage={() => modificarVida(-danoValor)} onHeal={() => modificarVida(+danoValor)} disabled={loading || !vida} />
                 <div className="grid grid-cols-2 gap-2">
-                  <button onClick={() => alterarStatus("pe", -1)} disabled={loading || !pe} className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] disabled:opacity-40">-1 PE</button>
-                  <button onClick={() => alterarStatus("pe", 1)} disabled={loading || !pe} className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-accent)] disabled:opacity-40">+1 PE</button>
-                  <button onClick={() => alterarStatus("sanidade", -1)} disabled={loading || !sanidade} className="rounded-lg border border-[rgba(192,132,252,0.25)] bg-[rgba(192,132,252,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b4fe] disabled:opacity-40">-1 SAN</button>
-                  <button onClick={() => alterarStatus("sanidade", 1)} disabled={loading || !sanidade} className="rounded-lg border border-[rgba(192,132,252,0.25)] bg-[rgba(192,132,252,0.08)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b4fe] disabled:opacity-40">+1 SAN</button>
+                  <button onClick={() => alterarStatus("pe", -1)} disabled={loading || !pe} className="aq-button-secondary aq-button-compact disabled:opacity-40">-1 PE</button>
+                  <button onClick={() => alterarStatus("pe", 1)} disabled={loading || !pe} className="aq-button-secondary aq-button-compact disabled:opacity-40">+1 PE</button>
+                  <button onClick={() => alterarStatus("sanidade", -1)} disabled={loading || !sanidade} className="aq-button-secondary aq-button-compact !border-[#d8b4fe]/50 !text-[#d8b4fe] hover:!bg-[#d8b4fe]/10 disabled:opacity-40">-1 SAN</button>
+                  <button onClick={() => alterarStatus("sanidade", 1)} disabled={loading || !sanidade} className="aq-button-secondary aq-button-compact !border-[#d8b4fe]/50 !text-[#d8b4fe] hover:!bg-[#d8b4fe]/10 disabled:opacity-40">+1 SAN</button>
                 </div>
               </div>
             </div>
           </div>
         ) : token.ficha_id ? (
-          <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-4 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/10 text-amber-200 ring-1 ring-amber-400/20">
-              <AlertTriangle size={20} />
+          <div className="rounded-[0.5rem] border border-amber-500/30 bg-amber-500/10 px-4 py-5 text-center shadow-[0_0_15px_rgba(245,158,11,0.1)]">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-[0.4rem] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40">
+              <AlertTriangle size={24} />
             </div>
-            <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-amber-100">Ficha nao carregou</p>
-            <p className="mb-4 text-[10px] leading-relaxed text-amber-100/70">
-              O token tem ficha vinculada, mas a mesa nao conseguiu ler essa ficha agora.
-              {fichaLoadError ? ` Erro: ${fichaLoadError}` : " Tentando sincronizar..."}
+            <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-amber-200">Runa Quebrada</p>
+            <p className="mb-5 text-[11px] leading-relaxed text-amber-100/80">
+              O token tem um elo com uma ficha, mas a mesa não conseguiu ler as runas agora.
+              {fichaLoadError ? ` Erro: ${fichaLoadError}` : " Tentando reconectar..."}
             </p>
-            <div className="grid gap-2">
-              <button onClick={() => router.push(fichaHref(token.ficha_id!))} className="rounded-lg border border-amber-300/30 bg-amber-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-amber-100">Abrir ficha vinculada</button>
-              <button onClick={desvincularFicha} disabled={loading} className="rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-red-200 disabled:opacity-40">Desvincular ficha</button>
+            <div className="grid gap-2.5">
+              <button onClick={() => router.push(fichaHref(token.ficha_id!))} className="aq-button-secondary !border-amber-400/50 !text-amber-200 hover:!bg-amber-400/20 w-full">Abrir ficha na fonte</button>
+              <button onClick={desvincularFicha} disabled={loading} className="aq-button-secondary !border-[var(--aq-danger)]/50 !text-[var(--aq-danger)] hover:!bg-[var(--aq-danger)]/20 w-full disabled:opacity-40">Romper elo</button>
             </div>
           </div>
         ) : (
-          <div className="py-5 text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-[#1a2b4c] bg-[rgba(26,43,76,0.34)]">
-              <Link2 size={20} style={{ color: "#6b7b94" }} />
+          <div className="py-6 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-[0.4rem] border border-[var(--aq-border)] bg-[var(--aq-surface)] shadow-[0_0_15px_rgba(0,0,0,0.5)]">
+              <Link2 size={24} className="text-[var(--aq-text-muted)]" />
             </div>
-            <p className="mb-1 text-[10px] font-black uppercase tracking-widest" style={{ color: "#8b9bb4" }}>Token sem ficha</p>
-            <p className="mb-4 text-[10px]" style={{ color: "#6b7b94" }}>
-              Vincule uma ficha para ativar
+            <p className="aq-kicker mb-2">Token vazio</p>
+            <p className="mb-6 text-[11px] text-[var(--aq-text)]">
+              Vincule uma ficha para despertar
               <br />
-              HP bar e sincronizacao Realtime.
+              a barra de vida e sincronia vital.
             </p>
-            <button onClick={() => setShowVincular((v) => !v)} className="rounded-lg border border-[rgba(74,217,217,0.25)] bg-[rgba(74,217,217,0.08)] px-5 py-2 text-[10px] font-black uppercase tracking-widest text-[#4ad9d9] transition-all hover:bg-[rgba(74,217,217,0.15)]">
-              <Sparkles size={11} className="mr-1 inline" />
-              Vincular Ficha
+            <button onClick={() => setShowVincular((v) => !v)} className="aq-button-primary">
+              <Sparkles size={14} className="mr-2 inline" />
+              Forjar Elo
             </button>
           </div>
         )}
 
         {showVincular ? (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between pb-2" style={{ borderBottom: "1px solid #1a2b4c" }}>
-              <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: "#4ad9d9" }}>Selecionar Ficha</span>
-              <button onClick={() => setShowVincular(false)} className="text-[#6b7b94] hover:text-white"><X size={12} /></button>
+          <div className="space-y-3 mt-4 border-t border-[var(--aq-border)] pt-4">
+            <div className="flex items-center justify-between pb-2">
+              <span className="aq-kicker !mb-0">Selecionar Ficha</span>
+              <button onClick={() => setShowVincular(false)} className="text-[var(--aq-text-muted)] hover:text-[var(--aq-title)]"><X size={14} /></button>
             </div>
 
-            <div className="max-h-44 space-y-1 overflow-y-auto pr-0.5" style={{ scrollbarWidth: "thin", scrollbarColor: "#1a2b4c transparent" }}>
+            <div className="max-h-48 space-y-1.5 overflow-y-auto pr-1" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--aq-border) transparent" }}>
               {fichasList.length === 0 ? (
-                <p className="py-4 text-center text-[10px] uppercase tracking-widest" style={{ color: "#6b7b94" }}>Nenhuma ficha encontrada</p>
+                <p className="py-4 text-center text-[10px] uppercase tracking-widest text-[var(--aq-text-muted)]">Nenhuma ficha no cofre</p>
               ) : (
                 fichasList.map((f) => (
-                  <button key={f.id} onClick={() => vincularFicha(f.id)} disabled={loading} className="group w-full rounded-lg border border-[#1a2b4c] bg-[rgba(5,10,16,0.8)] px-3 py-2.5 text-left transition-all hover:border-[rgba(74,217,217,0.25)] hover:bg-[rgba(74,217,217,0.06)] disabled:opacity-40">
-                    <p className="text-[11px] font-bold text-white">{f.nome_personagem}</p>
-                    <p className="mt-0.5 text-[9px] uppercase tracking-wider" style={{ color: "#6b7b94" }}>{f.sistema_preset?.replace("_", " ")}</p>
+                  <button key={f.id} onClick={() => vincularFicha(f.id)} disabled={loading} className="group w-full rounded-[0.4rem] border border-[var(--aq-border)] bg-[var(--aq-surface)] px-4 py-3 text-left transition-all hover:border-[var(--aq-accent)] hover:bg-[var(--aq-accent-soft)] hover:shadow-[0_0_12px_var(--aq-accent-soft)] disabled:opacity-40">
+                    <p className="text-[12px] font-bold text-[var(--aq-title)]">{f.nome_personagem}</p>
+                    <p className="mt-1 text-[9px] uppercase tracking-wider text-[var(--aq-text-muted)] group-hover:text-[var(--aq-text)]">{f.sistema_preset?.replace("_", " ")}</p>
                   </button>
                 ))
               )}
@@ -456,16 +450,16 @@ export default function TokenPanel({ token, fichaData, salaId, onClose, onTokenU
         <button
           onClick={removerToken}
           disabled={loading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/35 bg-red-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-200 transition-all hover:bg-red-500/18 disabled:opacity-40"
+          className="flex w-full items-center justify-center gap-2 rounded-[0.35rem] border border-[var(--aq-danger)]/40 bg-[var(--aq-danger)]/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.1em] text-[var(--aq-danger)] transition-all hover:bg-[var(--aq-danger)]/20 hover:shadow-[0_0_12px_rgba(239,68,68,0.2)] disabled:opacity-40 mt-6"
         >
-          <Trash2 size={13} />
-          {loading ? "Processando" : "Remover token do mapa"}
+          <Trash2 size={14} />
+          {loading ? "Desfazendo..." : "Remover do Mapa"}
         </button>
       </div>
 
-      <div className="px-4 py-2.5" style={{ borderTop: "1px solid #1a2b4c", background: "rgba(5,10,16,0.72)" }}>
-        <p className="text-center text-[8px] uppercase tracking-widest" style={{ color: "#41556f" }}>
-          Supabase Realtime - Sync bidirecional
+      <div className="border-t border-[var(--aq-border)] bg-[var(--aq-surface)] px-4 py-3">
+        <p className="text-center text-[8px] uppercase tracking-widest text-[var(--aq-text-subtle)]">
+          Sincronia Astral Bidirecional
         </p>
       </div>
     </div>
