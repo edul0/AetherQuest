@@ -128,6 +128,39 @@ export interface Token {
   initiative?: number | null;
 }
 
+export interface MapItem {
+  id: string;
+  sala_id: string | null;
+  cena_id: string;
+  nome: string;
+  tipo: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation?: number | null;
+  z_index?: number | null;
+  image_url?: string | null;
+  visible_to_players?: boolean | null;
+  interactive?: boolean | null;
+  revealed?: boolean | null;
+  payload?: Record<string, any> | null;
+  notas_mestre?: string | null;
+}
+
+export interface Handout {
+  id: string;
+  sala_id: string | null;
+  cena_id?: string | null;
+  titulo: string;
+  tipo: string;
+  content?: string | null;
+  image_url?: string | null;
+  image_back_url?: string | null;
+  visible_to_players?: boolean | null;
+  created_at?: string | null;
+}
+
 export interface FichaVTTSnapshot {
   id: string;
   user_id?: string | null;
