@@ -43,6 +43,15 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
   { id: "map", label: "Mover mapa", icon: Move },
 ];
 
+function previewUrl(file: File | null) {
+  return file ? URL.createObjectURL(file) : null;
+}
+
+function hasMissingTable(error: unknown, tableName: string) {
+  const message = String((error as { message?: string } | null)?.message ?? "").toLowerCase();
+  return message.includes(`public.${tableName}`.toLowerCase()) || message.includes(`relation \"public.${tableName}\"`.toLowerCase());
+}
+
 export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange, onMapUrlChange }: VTTControlsProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [handoutTitle, setHandoutTitle] = useState("");
@@ -54,6 +63,8 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
   const runtimeToolMode = useVTTStore(selectVTTToolMode);
   const setGrid = useVTTStore((state) => state.setGrid);
   const setToolMode = useVTTStore((state) => state.setToolMode);
+  const handoutFrontPreview = handoutFront ? previewUrl(handoutFront) : null;
+  const handoutBackPreview = handoutBack ? previewUrl(handoutBack) : null;
 
   const mergedPreferences: SceneViewPreferences = {
     ...preferences,
@@ -70,6 +81,13 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     });
     setToolMode(preferences.toolMode);
   }, [preferences.gridOpacity, preferences.gridSize, preferences.showGrid, preferences.snapToGrid, preferences.toolMode, setGrid, setToolMode]);
+
+  useEffect(() => {
+    return () => {
+      if (handoutFrontPreview) URL.revokeObjectURL(handoutFrontPreview);
+      if (handoutBackPreview) URL.revokeObjectURL(handoutBackPreview);
+    };
+  }, [handoutBackPreview, handoutFrontPreview]);
 
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -167,6 +185,10 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     ]);
 
     if (error) {
+      if (hasMissingTable(error, "map_items")) {
+        alert("A tabela map_items ainda nao existe no Supabase. Rode o SQL de reparo VTT Director Tools antes de criar props da cena.");
+        return;
+      }
       alert(`Falha ao criar item da cena: ${error.message}`);
       return;
     }
@@ -184,7 +206,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       setSavingHandout(true);
       const imageUrl = handoutFront ? await uploadAsset(handoutFront, "handouts/front") : null;
       const imageBackUrl = handoutBack ? await uploadAsset(handoutBack, "handouts/back") : null;
-      const { error } = await supabase.from("handouts").insert([
+      const { data: createdHandout, error } = await supabase.from("handouts").insert([
         {
           sala_id: salaId,
           cena_id: cenaId,
@@ -195,11 +217,42 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
           image_back_url: imageBackUrl,
           visible_to_players: true,
         },
-      ]);
+      ]).select("id, titulo, image_url").single();
 
       if (error) {
+        if (hasMissingTable(error, "handouts")) {
+          alert("A tabela handouts ainda nao existe no Supabase. Rode o SQL de reparo VTT Director Tools antes de criar itens de inspecao.");
+          return;
+        }
         alert(`Falha ao criar item de inspecao: ${error.message}`);
         return;
+      }
+
+      if (createdHandout?.id) {
+        const { error: mapItemError } = await supabase.from("map_items").insert([
+          {
+            cena_id: cenaId,
+            sala_id: salaId,
+            nome: createdHandout.titulo,
+            tipo: "item_inspecao",
+            x: 0,
+            y: 0,
+            width: 82,
+            height: 82,
+            z_index: -6,
+            image_url: createdHandout.image_url,
+            visible_to_players: true,
+            interactive: true,
+            payload: { handout_id: createdHandout.id },
+          },
+        ]);
+
+        if (mapItemError && !hasMissingTable(mapItemError, "map_items")) {
+          alert(`Item criado, mas a peca do mapa falhou: ${mapItemError.message}`);
+        }
+        if (mapItemError && hasMissingTable(mapItemError, "map_items")) {
+          alert("O item foi criado, mas a tabela map_items ainda nao existe no Supabase. Rode o SQL de reparo para ele aparecer fisicamente no mapa.");
+        }
       }
 
       setHandoutTitle("");
@@ -309,7 +362,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
         <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
           <div className="mb-3 flex items-center gap-2 text-[var(--aq-title)]">
             <Text size={15} className="text-[var(--aq-accent)]" />
-            <span className="text-xs font-black uppercase tracking-[0.18em]">Item de inspecao</span>
+            <span className="text-xs font-black uppercase tracking-[0.18em]">Reliquia de inspecao</span>
           </div>
 
           <div className="grid gap-3">
@@ -325,14 +378,45 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
               placeholder="Texto do item, puzzle, anotacao ou lore"
               className="min-h-[120px] rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-sm text-[var(--aq-text)] outline-none"
             />
-            <label className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text)]">
-              Frente {handoutFront ? `- ${handoutFront.name}` : ""}
-              <input type="file" className="mt-2 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutFront(event.target.files?.[0] ?? null)} />
-            </label>
-            <label className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text)]">
-              Verso {handoutBack ? `- ${handoutBack.name}` : ""}
-              <input type="file" className="mt-2 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutBack(event.target.files?.[0] ?? null)} />
-            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="overflow-hidden rounded-[24px] border border-[var(--aq-border)] bg-[linear-gradient(180deg,rgba(18,27,38,0.96),rgba(7,10,16,0.96))]">
+                <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-title)]">
+                  <span>Frente</span>
+                  <span className="text-[8px] text-[var(--aq-accent)]">{handoutFront ? "Pronta" : "Enviar"}</span>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="mb-3 flex h-28 items-center justify-center overflow-hidden rounded-[18px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(74,217,217,0.16),transparent_48%),rgba(255,255,255,0.03)]">
+                    {handoutFrontPreview ? (
+                      <img src={handoutFrontPreview} alt="Preview da frente" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="px-3 text-center text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Preview da face frontal</div>
+                    )}
+                  </div>
+                  <div className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">{handoutFront?.name || "Sem arquivo"}</div>
+                  <input type="file" className="mt-3 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutFront(event.target.files?.[0] ?? null)} />
+                </div>
+              </label>
+              <label className="overflow-hidden rounded-[24px] border border-[var(--aq-border)] bg-[linear-gradient(180deg,rgba(18,27,38,0.96),rgba(7,10,16,0.96))]">
+                <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-title)]">
+                  <span>Verso</span>
+                  <span className="text-[8px] text-[var(--aq-accent)]">{handoutBack ? "Pronto" : "Opcional"}</span>
+                </div>
+                <div className="px-4 py-3">
+                  <div className="mb-3 flex h-28 items-center justify-center overflow-hidden rounded-[18px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(74,217,217,0.16),transparent_48%),rgba(255,255,255,0.03)]">
+                    {handoutBackPreview ? (
+                      <img src={handoutBackPreview} alt="Preview do verso" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="px-3 text-center text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Preview da face traseira</div>
+                    )}
+                  </div>
+                  <div className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">{handoutBack?.name || "Sem arquivo"}</div>
+                  <input type="file" className="mt-3 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutBack(event.target.files?.[0] ?? null)} />
+                </div>
+              </label>
+            </div>
+            <div className="rounded-[22px] border border-[rgba(74,217,217,0.14)] bg-[rgba(74,217,217,0.06)] px-4 py-3 text-[11px] leading-relaxed text-[var(--aq-text-muted)]">
+              Use esse bloco para pistas, documentos, cartas, chaves, fotos ou qualquer item narrativo que abre em tela cheia com frente, verso e texto.
+            </div>
             <button onClick={createHandout} disabled={savingHandout || !salaId} className="aq-button-primary w-full justify-center disabled:opacity-40">
               <Plus size={14} />
               {savingHandout ? "Salvando item" : "Criar item estilo RE"}
