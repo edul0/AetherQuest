@@ -5,6 +5,7 @@ import { Minus, Plus, RotateCcw } from "lucide-react";
 import { supabase, withFreshSession } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
+import { DEFAULT_VTT_CAMERA, selectVTTCamera, selectVTTGrid, selectVTTTokens, selectVTTToolMode, useVTTStore } from "@/src/store/useVTTStore";
 
 type Point = { x: number; y: number };
 type Camera = { x: number; y: number; zoom: number };
@@ -27,7 +28,7 @@ interface VTTCanvasProps {
   scenePreferences: SceneViewPreferences;
 }
 
-const DEFAULT_CAMERA: Camera = { x: 0, y: 0, zoom: 1 };
+const DEFAULT_CAMERA: Camera = DEFAULT_VTT_CAMERA;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const center = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -56,10 +57,12 @@ function shouldCutoutWhite(token: Token, ficha?: FichaVTTSnapshot | null) {
 
 function tokenVisual(token: Token, ficha?: FichaVTTSnapshot | null) {
   const images = ficha?.dados?.token_images;
+  const activeFichaImage = ficha?.dados?.avatar_url || ficha?.avatar_url || "";
+  const staleTokenImage = token.avatar_url || "";
   const mode = tokenVisualMode(token, ficha);
-  if (mode === "standee") return images?.side || images?.portrait || images?.top || token.avatar_url || ficha?.avatar_url || ficha?.dados?.avatar_url || "";
-  if (mode === "top") return images?.top || images?.portrait || token.avatar_url || ficha?.avatar_url || ficha?.dados?.avatar_url || "";
-  return token.avatar_url || images?.portrait || ficha?.avatar_url || ficha?.dados?.avatar_url || images?.top || images?.side || "";
+  if (mode === "standee") return images?.side || activeFichaImage || images?.portrait || images?.top || staleTokenImage || "";
+  if (mode === "top") return images?.top || activeFichaImage || images?.portrait || staleTokenImage || "";
+  return activeFichaImage || images?.portrait || images?.top || images?.side || staleTokenImage || "";
 }
 
 function tokenName(token: Token, ficha?: FichaVTTSnapshot | null) {
@@ -70,10 +73,10 @@ function initials(token: Token, ficha?: FichaVTTSnapshot | null) {
   return tokenName(token, ficha).slice(0, 2).toUpperCase();
 }
 
-function snapPoint(point: Point, prefs: SceneViewPreferences) {
-  if (!prefs.snapToGrid) return point;
-  const grid = prefs.gridSize || 50;
-  return { x: Math.round(point.x / grid) * grid, y: Math.round(point.y / grid) * grid };
+function snapPoint(point: Point, gridSize: number, snapToGrid: boolean) {
+  if (!snapToGrid) return point;
+  const nextGrid = gridSize || 50;
+  return { x: Math.round(point.x / nextGrid) * nextGrid, y: Math.round(point.y / nextGrid) * nextGrid };
 }
 
 export default function PixiVTTCanvas({
@@ -96,8 +99,18 @@ export default function PixiVTTCanvas({
   const dragRef = useRef<DragState>(null);
   const latestTokensRef = useRef<Token[]>([]);
 
-  const [tokens, setTokens] = useState<Token[]>([]);
-  const [camera, setCamera] = useState<Camera>(DEFAULT_CAMERA);
+  const tokens = useVTTStore(selectVTTTokens);
+  const camera = useVTTStore(selectVTTCamera);
+  const runtimeGrid = useVTTStore(selectVTTGrid);
+  const toolMode = useVTTStore(selectVTTToolMode);
+  const setStoreTokens = useVTTStore((state) => state.setTokens);
+  const addStoreToken = useVTTStore((state) => state.addToken);
+  const patchStoreToken = useVTTStore((state) => state.patchToken);
+  const moveStoreToken = useVTTStore((state) => state.moveToken);
+  const removeStoreToken = useVTTStore((state) => state.removeToken);
+  const setCamera = useVTTStore((state) => state.setCamera);
+  const hydrateSceneRuntime = useVTTStore((state) => state.hydrateSceneRuntime);
+  const resetRuntime = useVTTStore((state) => state.resetRuntime);
   const [size, setSize] = useState({ width: 1, height: 1 });
   const [mapSize, setMapSize] = useState<{ width: number; height: number } | null>(null);
   const [canvasError, setCanvasError] = useState("");
@@ -186,6 +199,14 @@ export default function PixiVTTCanvas({
       })
       .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
   }, [camera.x, camera.y, camera.zoom, cutoutImages, fichasMap, imageSizes, size.width, tokens]);
+
+  useEffect(() => {
+    hydrateSceneRuntime(scenePreferences);
+  }, [hydrateSceneRuntime, scenePreferences]);
+
+  useEffect(() => {
+    resetRuntime();
+  }, [cenaId, resetRuntime]);
 
   useEffect(() => {
     const urls = tokens
@@ -366,22 +387,22 @@ export default function PixiVTTCanvas({
         return;
       }
       setCanvasError("");
-      setTokens((data ?? []) as Token[]);
+      setStoreTokens((data ?? []) as Token[]);
     };
     void loadTokens();
     const channel = supabase
       .channel(`pixi_vtt_tokens_${cenaId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "tokens", filter: `cena_id=eq.${cenaId}` }, (payload) => {
-        if (payload.eventType === "INSERT") setTokens((current) => [...current.filter((token) => token.id !== payload.new.id), payload.new as Token]);
-        if (payload.eventType === "UPDATE") setTokens((current) => current.map((token) => (token.id === payload.new.id ? (payload.new as Token) : token)));
-        if (payload.eventType === "DELETE") setTokens((current) => current.filter((token) => token.id !== payload.old.id));
+        if (payload.eventType === "INSERT") addStoreToken(payload.new as Token);
+        if (payload.eventType === "UPDATE") patchStoreToken(payload.new.id, payload.new as Token);
+        if (payload.eventType === "DELETE") removeStoreToken(payload.old.id);
       })
       .subscribe();
     return () => {
       active = false;
       supabase.removeChannel(channel);
     };
-  }, [cenaId]);
+  }, [addStoreToken, cenaId, patchStoreToken, removeStoreToken, setStoreTokens]);
 
   const persistToken = useCallback(async (tokenId: string, point: Point) => {
     const { error } = await withFreshSession(() => supabase.from("tokens").update({ x: point.x, y: point.y }).eq("id", tokenId));
@@ -417,7 +438,7 @@ export default function PixiVTTCanvas({
   };
 
   const beginTokenDrag = (event: any, token: Token) => {
-    if (scenePreferences.toolMode !== "select") return;
+    if (toolMode !== "select") return;
     const nativeEvent = event?.nativeEvent ?? event;
     nativeEvent.preventDefault?.();
     nativeEvent.stopPropagation?.();
@@ -432,12 +453,12 @@ export default function PixiVTTCanvas({
     event.currentTarget.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, point);
     if (updatePinchIfNeeded(pointersRef.current)) return;
-    if (scenePreferences.toolMode === "map") {
+    if (toolMode === "map") {
       dragRef.current = { type: "map", startPointer: point, startOffset: { x: scenePreferences.mapOffsetX, y: scenePreferences.mapOffsetY } };
       onSelectToken(null);
       return;
     }
-    if (scenePreferences.toolMode === "pan") {
+    if (toolMode === "pan") {
       dragRef.current = { type: "camera", startPointer: point, startCamera: camera };
       onSelectToken(null);
     }
@@ -455,10 +476,11 @@ export default function PixiVTTCanvas({
           x: drag.startToken.x + (point.x - drag.startPointer.x) / camera.zoom,
           y: drag.startToken.y + (point.y - drag.startPointer.y) / camera.zoom,
         },
-        scenePreferences,
+        runtimeGrid.gridSize,
+        runtimeGrid.snapToGrid,
       );
       dragRef.current = { ...drag, moved: true };
-      setTokens((current) => current.map((token) => (token.id === drag.tokenId ? { ...token, ...next } : token)));
+      moveStoreToken(drag.tokenId, next.x, next.y);
       return;
     }
     if (drag.type === "camera") {
@@ -495,29 +517,29 @@ export default function PixiVTTCanvas({
   useEffect(() => {
     const PIXI = pixiRef.current;
     const world = worldRef.current;
-    const grid = gridRef.current;
+    const pixiGrid = gridRef.current;
     const tokenLayer = tokenLayerRef.current;
-    if (!PIXI || !world || !grid || !tokenLayer) return;
+    if (!PIXI || !world || !pixiGrid || !tokenLayer) return;
 
     world.position.set(-camera.x * camera.zoom, -camera.y * camera.zoom);
     world.scale.set(camera.zoom);
 
-    grid.clear();
-    if (scenePreferences.showGrid) {
-      const gridSize = scenePreferences.gridSize || 50;
+    pixiGrid.clear();
+    if (runtimeGrid.showGrid) {
+      const gridSize = runtimeGrid.gridSize || 50;
       const startX = Math.floor(camera.x / gridSize) * gridSize - gridSize * 2;
       const startY = Math.floor(camera.y / gridSize) * gridSize - gridSize * 2;
       const endX = camera.x + size.width / camera.zoom + gridSize * 2;
       const endY = camera.y + size.height / camera.zoom + gridSize * 2;
       for (let x = startX; x <= endX; x += gridSize) {
-        grid.moveTo(x, startY);
-        grid.lineTo(x, endY);
+        pixiGrid.moveTo(x, startY);
+        pixiGrid.lineTo(x, endY);
       }
       for (let y = startY; y <= endY; y += gridSize) {
-        grid.moveTo(startX, y);
-        grid.lineTo(endX, y);
+        pixiGrid.moveTo(startX, y);
+        pixiGrid.lineTo(endX, y);
       }
-      grid.stroke({ width: 1 / camera.zoom, color: 0x4ad9d9, alpha: scenePreferences.gridOpacity });
+      pixiGrid.stroke({ width: 1 / camera.zoom, color: 0x4ad9d9, alpha: runtimeGrid.gridOpacity });
     }
 
     tokenLayer.removeChildren();
@@ -529,8 +551,8 @@ export default function PixiVTTCanvas({
       wrapper.y = token.y;
       wrapper.rotation = ((token.rotation ?? 0) * Math.PI) / 180;
       wrapper.zIndex = token.z_index ?? 0;
-      wrapper.eventMode = scenePreferences.toolMode === "select" ? "static" : "none";
-      wrapper.cursor = scenePreferences.toolMode === "select" ? "grab" : "default";
+      wrapper.eventMode = toolMode === "select" ? "static" : "none";
+      wrapper.cursor = toolMode === "select" ? "grab" : "default";
       wrapper.on("pointerdown", (event: any) => beginTokenDrag(event, token));
 
       const shadow = new PIXI.Graphics();
@@ -569,7 +591,7 @@ export default function PixiVTTCanvas({
       tokenLayer.addChild(wrapper);
     });
     tokenLayer.sortChildren();
-  }, [camera, fichasMap, scenePreferences.gridOpacity, scenePreferences.gridSize, scenePreferences.showGrid, scenePreferences.toolMode, selectedTokenId, size.height, size.width, tokens]);
+  }, [camera, fichasMap, runtimeGrid.gridOpacity, runtimeGrid.gridSize, runtimeGrid.showGrid, selectedTokenId, size.height, size.width, tokens, toolMode]);
 
   return (
     <div
@@ -611,7 +633,7 @@ export default function PixiVTTCanvas({
         </div>
         <div className="text-right">
           <div className="text-xs font-black uppercase tracking-[0.2em] text-white">Zoom {Math.round(camera.zoom * 100)}%</div>
-          <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-slate-400">{scenePreferences.toolMode === "map" ? "Reposicionando cena" : scenePreferences.toolMode === "pan" ? "Camera livre" : "Tokens cinematicos"}</div>
+          <div className="mt-1 text-[9px] uppercase tracking-[0.16em] text-slate-400">{toolMode === "map" ? "Reposicionando cena" : toolMode === "pan" ? "Camera livre" : "Tokens cinematicos"}</div>
         </div>
       </div>
       {mapaUrl && !domMapStyle && !canvasError ? (
