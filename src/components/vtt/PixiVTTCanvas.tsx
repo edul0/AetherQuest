@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
-import { supabase, withFreshSession } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
+import { useVTTSync } from "@/src/hooks/useVTTSync";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
 import { DEFAULT_VTT_CAMERA, selectVTTCamera, selectVTTGrid, selectVTTTokens, selectVTTToolMode, useVTTStore } from "@/src/store/useVTTStore";
 
@@ -103,11 +103,7 @@ export default function PixiVTTCanvas({
   const camera = useVTTStore(selectVTTCamera);
   const runtimeGrid = useVTTStore(selectVTTGrid);
   const toolMode = useVTTStore(selectVTTToolMode);
-  const setStoreTokens = useVTTStore((state) => state.setTokens);
-  const addStoreToken = useVTTStore((state) => state.addToken);
-  const patchStoreToken = useVTTStore((state) => state.patchToken);
   const moveStoreToken = useVTTStore((state) => state.moveToken);
-  const removeStoreToken = useVTTStore((state) => state.removeToken);
   const setCamera = useVTTStore((state) => state.setCamera);
   const hydrateSceneRuntime = useVTTStore((state) => state.hydrateSceneRuntime);
   const resetRuntime = useVTTStore((state) => state.resetRuntime);
@@ -116,6 +112,7 @@ export default function PixiVTTCanvas({
   const [canvasError, setCanvasError] = useState("");
   const [cutoutImages, setCutoutImages] = useState<Record<string, string>>({});
   const [imageSizes, setImageSizes] = useState<Record<string, { width: number; height: number }>>({});
+  const { broadcastTokenMove, persistTokenMove } = useVTTSync(cenaId);
 
   const fichaIds = useMemo(() => tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id)), [tokens]);
   const fichasMap = useTokenFichaSync(fichaIds);
@@ -376,39 +373,6 @@ export default function PixiVTTCanvas({
     };
   }, [mapaUrl]);
 
-  useEffect(() => {
-    let active = true;
-    const loadTokens = async () => {
-      const { data, error } = await withFreshSession<Token[]>(() => supabase.from("tokens").select("*").eq("cena_id", cenaId));
-      if (!active) return;
-      if (error) {
-        console.error("[PixiVTTCanvas] erro ao carregar tokens:", error);
-        setCanvasError("Nao foi possivel carregar tokens desta cena.");
-        return;
-      }
-      setCanvasError("");
-      setStoreTokens((data ?? []) as Token[]);
-    };
-    void loadTokens();
-    const channel = supabase
-      .channel(`pixi_vtt_tokens_${cenaId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "tokens", filter: `cena_id=eq.${cenaId}` }, (payload) => {
-        if (payload.eventType === "INSERT") addStoreToken(payload.new as Token);
-        if (payload.eventType === "UPDATE") patchStoreToken(payload.new.id, payload.new as Token);
-        if (payload.eventType === "DELETE") removeStoreToken(payload.old.id);
-      })
-      .subscribe();
-    return () => {
-      active = false;
-      supabase.removeChannel(channel);
-    };
-  }, [addStoreToken, cenaId, patchStoreToken, removeStoreToken, setStoreTokens]);
-
-  const persistToken = useCallback(async (tokenId: string, point: Point) => {
-    const { error } = await withFreshSession(() => supabase.from("tokens").update({ x: point.x, y: point.y }).eq("id", tokenId));
-    if (error) console.error("[PixiVTTCanvas] erro ao mover token:", error);
-  }, []);
-
   const zoomAt = useCallback(
     (screenPoint: Point, targetZoom: number, baseCamera = camera, baseScreenPoint = screenPoint) => {
       const nextZoom = clamp(targetZoom, 0.35, 3.6);
@@ -481,6 +445,7 @@ export default function PixiVTTCanvas({
       );
       dragRef.current = { ...drag, moved: true };
       moveStoreToken(drag.tokenId, next.x, next.y);
+      broadcastTokenMove(drag.tokenId, next);
       return;
     }
     if (drag.type === "camera") {
@@ -508,7 +473,7 @@ export default function PixiVTTCanvas({
     const drag = dragRef.current;
     if (drag?.type === "token") {
       const token = latestTokensRef.current.find((entry) => entry.id === drag.tokenId);
-      if (token && drag.moved) void persistToken(drag.tokenId, { x: token.x, y: token.y });
+      if (token && drag.moved) void persistTokenMove(drag.tokenId, { x: token.x, y: token.y });
       if (token && !drag.moved) onSelectToken(selectedTokenId === token.id ? null : token);
     }
     if (pointersRef.current.size === 0) dragRef.current = null;
