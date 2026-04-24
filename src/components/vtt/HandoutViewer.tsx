@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { BookOpen, ChevronRight, FileText, RotateCcw, X } from "lucide-react";
 import { Handout } from "@/src/lib/types";
 
+const SHEIKAH_PANEL_STYLE = {
+  clipPath: "polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px)",
+} as const;
+
 type HandoutViewerProps = {
   handout: Handout | null;
   onClose: () => void;
@@ -36,7 +40,7 @@ export default function HandoutViewer({ handout, onClose }: HandoutViewerProps) 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(2,6,12,0.88)] px-2 py-2 backdrop-blur-md md:px-4 md:py-4">
       <button className="absolute inset-0" onClick={onClose} aria-label="Fechar item" />
-      <div className="relative z-10 grid h-[96svh] w-full max-w-6xl grid-rows-[minmax(0,1fr)_auto] overflow-hidden rounded-[30px] border border-cyan-300/16 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(4,8,14,0.98))] shadow-[0_24px_90px_rgba(0,0,0,0.62)] md:h-[92vh] md:grid-cols-[minmax(0,1.2fr)_380px] md:grid-rows-1">
+      <div className="relative z-10 grid h-[96svh] w-full max-w-6xl grid-rows-[minmax(0,1fr)_auto] overflow-hidden border border-cyan-300/16 bg-[linear-gradient(180deg,rgba(8,12,18,0.98),rgba(4,8,14,0.98))] shadow-[0_24px_90px_rgba(0,0,0,0.62)] md:h-[92vh] md:grid-cols-[minmax(0,1.2fr)_380px] md:grid-rows-1" style={SHEIKAH_PANEL_STYLE}>
         <div className="relative flex min-h-0 items-center justify-center overflow-hidden border-b border-cyan-300/10 bg-[radial-gradient(circle_at_top,rgba(74,217,217,0.16),transparent_34%),linear-gradient(180deg,rgba(9,14,21,0.96),rgba(4,8,14,0.98))] px-4 pb-20 pt-14 md:border-b-0 md:border-r md:px-8 md:py-8">
           <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-cyan-300/20 bg-[rgba(74,217,217,0.08)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200 md:left-6 md:top-6">
             Documento Encontrado
@@ -50,7 +54,7 @@ export default function HandoutViewer({ handout, onClose }: HandoutViewerProps) 
 
           {panel === "text" ? (
             <div className="relative flex h-full w-full items-center justify-center">
-              <div className="w-full max-w-2xl rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(245,238,224,0.98),rgba(224,215,198,0.96))] p-6 text-[#16120f] shadow-[0_24px_40px_rgba(0,0,0,0.42)] md:p-10">
+              <div className="w-full max-w-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(245,238,224,0.98),rgba(224,215,198,0.96))] p-6 text-[#16120f] shadow-[0_24px_40px_rgba(0,0,0,0.42)] md:p-10" style={SHEIKAH_PANEL_STYLE}>
                 <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#5b5248]">Arquivo Lido</div>
                 <div className="mt-3 text-2xl font-black uppercase tracking-[0.06em] md:text-3xl">{handout.titulo}</div>
                 <div className="mt-6 whitespace-pre-wrap text-sm leading-7 md:text-[15px]">
@@ -76,7 +80,7 @@ export default function HandoutViewer({ handout, onClose }: HandoutViewerProps) 
           )}
 
           <div className="pointer-events-none absolute inset-x-4 bottom-4 flex items-center justify-center md:bottom-6">
-            <div className="rounded-full border border-white/10 bg-[rgba(8,12,18,0.82)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-title)] shadow-[0_12px_36px_rgba(0,0,0,0.4)] backdrop-blur-md">
+            <div className="border border-white/10 bg-[rgba(8,12,18,0.82)] px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-title)] shadow-[0_12px_36px_rgba(0,0,0,0.4)] backdrop-blur-md" style={SHEIKAH_PANEL_STYLE}>
               {panel === "front" ? "Foto Frente" : panel === "back" ? "Foto Verso" : "Texto"}
             </div>
           </div>
@@ -97,11 +101,12 @@ export default function HandoutViewer({ handout, onClose }: HandoutViewerProps) 
               {hasFront ? (
                 <button
                   onClick={() => setPanel("front")}
-                  className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left transition ${
+                  className={`flex w-full items-center justify-between border px-4 py-3 text-left transition ${
                     panel === "front"
                       ? "border-cyan-300/24 bg-cyan-400/10 text-cyan-100"
                       : "border-white/10 bg-white/[0.03] text-[var(--aq-title)] hover:border-white/20"
                   }`}
+                  style={SHEIKAH_PANEL_STYLE}
                 >
                   <span className="flex items-center gap-3">
                     <BookOpen size={15} />
@@ -114,11 +119,12 @@ export default function HandoutViewer({ handout, onClose }: HandoutViewerProps) 
               {hasBack ? (
                 <button
                   onClick={() => setPanel("back")}
-                  className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left transition ${
+                  className={`flex w-full items-center justify-between border px-4 py-3 text-left transition ${
                     panel === "back"
                       ? "border-cyan-300/24 bg-cyan-400/10 text-cyan-100"
                       : "border-white/10 bg-white/[0.03] text-[var(--aq-title)] hover:border-white/20"
                   }`}
+                  style={SHEIKAH_PANEL_STYLE}
                 >
                   <span className="flex items-center gap-3">
                     <RotateCcw size={15} />
@@ -131,11 +137,12 @@ export default function HandoutViewer({ handout, onClose }: HandoutViewerProps) 
               {hasText ? (
                 <button
                   onClick={() => setPanel("text")}
-                  className={`flex w-full items-center justify-between rounded-[20px] border px-4 py-3 text-left transition ${
+                  className={`flex w-full items-center justify-between border px-4 py-3 text-left transition ${
                     panel === "text"
                       ? "border-cyan-300/24 bg-cyan-400/10 text-cyan-100"
                       : "border-white/10 bg-white/[0.03] text-[var(--aq-title)] hover:border-white/20"
                   }`}
+                  style={SHEIKAH_PANEL_STYLE}
                 >
                   <span className="flex items-center gap-3">
                     <FileText size={15} />
