@@ -91,6 +91,7 @@ body {
 .aq-panel {
   border: 1px solid rgba(26, 43, 76, 0.92);
   border-radius: 1.5rem;
+  border-radius: 1rem;
   background: linear-gradient(180deg, rgba(10, 15, 24, 0.96), rgba(5, 10, 16, 0.94));
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(74, 217, 217, 0.02);
 }
@@ -98,255 +99,136 @@ body {
 .aq-command-card {
   border: 1px solid rgba(26, 43, 76, 0.92);
   border-radius: 1.25rem;
+  border-radius: 1rem;
   background:
     linear-gradient(180deg, rgba(10, 15, 24, 0.94), rgba(5, 10, 16, 0.88)),
     radial-gradient(circle at top left, rgba(74, 217, 217, 0.08), transparent 40%);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.02);
-}
 
 .aq-stat-card {
   border: 1px solid rgba(26, 43, 76, 0.88);
   border-radius: 1.1rem;
+  border-radius: 0.85rem;
   background: linear-gradient(180deg, rgba(8, 13, 22, 0.92), rgba(5, 10, 16, 0.8));
   padding: 0.95rem 1rem;
 }
-
-.aq-segmented {
   display: inline-flex;
   gap: 0.35rem;
   border: 1px solid rgba(26, 43, 76, 0.92);
   border-radius: 9999px;
+  border-radius: 0.9rem;
   background: rgba(5, 10, 16, 0.78);
   padding: 0.3rem;
 }
-
-.aq-segmented-button {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
   border-radius: 9999px;
+  border-radius: 0.75rem;
   padding: 0.62rem 0.9rem;
   font-size: 0.62rem;
   font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--aq-text-muted);
-  transition:
-    background-color 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease,
-    transform 140ms ease;
-}
-
-.aq-segmented-button:hover {
-  color: var(--aq-title);
-}
-
-.aq-segmented-button[data-active="true"] {
-  background: linear-gradient(135deg, rgba(74, 217, 217, 0.94), rgba(35, 114, 114, 0.9));
-  color: #021317;
-  box-shadow: 0 0 18px rgba(74, 217, 217, 0.24);
-}
-
-.aq-button-primary,
-.aq-button-secondary {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
   border-radius: 9999px;
+  border-radius: 0.8rem;
   padding: 0.68rem 1rem;
   font-size: 0.66rem;
   font-weight: 800;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  transition:
-    transform 140ms ease,
-    background-color 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.aq-button-primary {
-  border: 1px solid rgba(74, 217, 217, 0.28);
-  background: linear-gradient(135deg, rgba(74, 217, 217, 0.92), rgba(30, 107, 107, 0.9));
-  color: #021317;
-  box-shadow: 0 0 24px rgba(74, 217, 217, 0.2);
-}
-
-.aq-button-compact {
-  gap: 0.4rem;
-  padding: 0.5rem 0.8rem;
-  font-size: 0.58rem;
-  letter-spacing: 0.18em;
-}
-
-.aq-button-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 0 34px rgba(74, 217, 217, 0.34);
-}
-
-.aq-button-secondary {
-  border: 1px solid rgba(26, 43, 76, 0.94);
-  background: rgba(10, 15, 24, 0.66);
-  color: var(--aq-text);
-}
-
-.aq-button-secondary:hover {
-  border-color: var(--aq-border-strong);
-  color: var(--aq-accent);
-  background: rgba(74, 217, 217, 0.08);
-}
-
 .aq-input {
   width: 100%;
   border: 1px solid rgba(26, 43, 76, 0.94);
   border-radius: 1rem;
+  border-radius: 0.85rem;
   background: rgba(5, 10, 16, 0.78);
   padding: 0.78rem 0.95rem;
   color: var(--aq-title);
-  outline: none;
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.aq-input::placeholder {
-  color: var(--aq-text-subtle);
-}
-
-.aq-input:focus {
-  border-color: var(--aq-border-strong);
-  box-shadow: 0 0 0 1px rgba(74, 217, 217, 0.16);
-}
-
-.aq-kicker {
-  font-size: 0.64rem;
-  font-weight: 800;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: var(--aq-accent);
-}
-
-.aq-pill {
   display: inline-flex;
   align-items: center;
   border: 1px solid rgba(74, 217, 217, 0.22);
   border-radius: 9999px;
+  border-radius: 0.7rem;
   background: rgba(74, 217, 217, 0.1);
   padding: 0.28rem 0.65rem;
   font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--aq-accent);
-}
-
-.aq-pill-muted {
-  border-color: rgba(26, 43, 76, 0.92);
-  background: rgba(26, 43, 76, 0.26);
-  color: var(--aq-text);
-}
 
 .aq-empty-state {
   border: 1px dashed rgba(74, 217, 217, 0.2);
   border-radius: 1.5rem;
+  border-radius: 1rem;
   background: rgba(5, 10, 16, 0.52);
   padding: 3rem 1.5rem;
   text-align: center;
-  font-size: 0.8rem;
-  font-weight: 700;
+  background-clip: padding-box;
+}
+
+.aq-vtt-surface {
+  border: 1px solid rgba(74, 217, 217, 0.16);
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(180deg, rgba(8, 12, 18, 0.96), rgba(4, 8, 14, 0.92)),
+    radial-gradient(circle at top left, rgba(74, 217, 217, 0.06), transparent 42%);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.aq-vtt-strip {
+  border: 1px solid rgba(74, 217, 217, 0.14);
+  border-radius: 0.85rem;
+  background: rgba(5, 10, 16, 0.82);
+  backdrop-filter: blur(16px);
+}
+
+.aq-vtt-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(74, 217, 217, 0.12);
+  border-radius: 0.7rem;
+  background: rgba(8, 13, 20, 0.9);
+  padding: 0.48rem 0.72rem;
+  font-size: 0.58rem;
+  font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--aq-text-muted);
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
 }
 
-.aq-scrollbar::-webkit-scrollbar {
-  width: 10px;
+.aq-vtt-chip:hover {
+  border-color: rgba(74, 217, 217, 0.3);
+  color: var(--aq-title);
 }
 
-.aq-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+.aq-vtt-chip[data-active="true"] {
+  border-color: rgba(74, 217, 217, 0.34);
+  background: rgba(74, 217, 217, 0.14);
+  color: var(--aq-accent);
+  box-shadow: 0 0 18px rgba(74, 217, 217, 0.14);
 }
 
-.aq-scrollbar::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 9999px;
-  background: linear-gradient(180deg, rgba(26, 43, 76, 0.95), rgba(74, 217, 217, 0.22));
-  background-clip: padding-box;
+.aq-vtt-section {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 0.9rem;
+}
+
+.aq-vtt-section summary {
+  list-style: none;
+}
+
+.aq-vtt-section summary::-webkit-details-marker {
+  display: none;
 }
 
 .aq-orb {
   pointer-events: none;
   position: absolute;
-  inset: auto;
-  border-radius: 9999px;
-  filter: blur(120px);
-  opacity: 0.4;
-}
-
-.aq-orb-cyan {
-  top: 4rem;
-  left: 10%;
-  height: 22rem;
-  width: 22rem;
-  background: rgba(74, 217, 217, 0.12);
-}
-
-.aq-orb-indigo {
-  right: 8%;
-  bottom: 3rem;
-  height: 18rem;
-  width: 18rem;
-  background: rgba(26, 43, 76, 0.22);
-}
-
-@media (min-width: 768px) {
-  :root {
-    --aq-shell-gutter: 1.5rem;
-  }
-
-  html {
-    font-size: 15px;
-  }
-}
-
-@media (min-width: 1280px) {
-  :root {
-    --aq-shell-gutter: 2rem;
-  }
-
-  html {
-    font-size: 16px;
-  }
-}
-
-@media (min-width: 1680px) {
-  html {
-    font-size: 17px;
-  }
-}
-
-/* VTT live roster: keep portraits useful without stealing the map, especially on mobile. */
-.aq-page > .fixed.bottom-0.left-0.right-0.z-40 {
-  left: 1rem !important;
-  right: auto !important;
-  bottom: 1rem !important;
-  width: min(520px, calc(100vw - 2rem)) !important;
-  border: 1px solid rgba(74, 217, 217, 0.16) !important;
-  border-radius: 1.5rem !important;
-  background: rgba(5, 10, 16, 0.8) !important;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38) !important;
-  padding: 0.6rem 0.75rem !important;
-  backdrop-filter: blur(18px);
-}
-
-.aq-page > .fixed.bottom-0.left-0.right-0.z-40 > div:first-child {
-  margin-bottom: 0.45rem !important;
   padding-bottom: 0 !important;
 }
 
