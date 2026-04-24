@@ -10,9 +10,11 @@ interface VTTCanvasProps {
   mapaUrl?: string;
   selectedTokenId: string | null;
   onSelectToken: (token: Token | null) => void;
+  onInspectHandout?: (handoutId: string) => void;
   onFichasMapChange?: (map: Record<string, FichaVTTSnapshot>) => void;
   onTokensChange?: (tokens: Token[]) => void;
   scenePreferences: SceneViewPreferences;
+  canEditScene?: boolean;
 }
 
 export default function VTTCanvas(props: VTTCanvasProps) {
