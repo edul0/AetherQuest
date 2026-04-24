@@ -5,18 +5,39 @@ import { Inter } from "next/font/google";
 import { Map, Plus } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "800"] });
 
-export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
-  const [cenas, setCenas] = useState<any[]>([]);
+// 1. O Fim do "any": Tipagem estrita da Cena
+export interface Cena {
+  id: string;
+  sala_id: string;
+  nome: string;
+  mapa_url?: string;
+}
+
+interface SceneNavProps {
+  salaId: string;
+  onSelectCena: (cena: Cena) => void;
+  cenaAtivaId: string | null;
+}
+
+export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: SceneNavProps) {
+  const [cenas, setCenas] = useState<Cena[]>([]);
 
   useEffect(() => {
     const carregarCenas = async () => {
-      const { data } = await supabase.from("cenas").select("*").eq("sala_id", salaId);
+      const { data, error } = await supabase.from("cenas").select("*").eq("sala_id", salaId).order('created_at', { ascending: true });
+      
+      if (error) {
+        console.error("[SceneNav] Erro ao carregar cenas:", error);
+        return;
+      }
+
       if (data && data.length > 0) {
-        setCenas(data);
+        setCenas(data as Cena[]);
+        // Auto-seleciona a primeira cena se nenhuma estiver ativa
         if (!cenaAtivaId) {
-          onSelectCena(data[0]);
+          onSelectCena(data[0] as Cena);
         }
       } else {
         setCenas([]);
@@ -45,34 +66,35 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
   };
 
   return (
-    <div className="fixed left-3 top-[142px] z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto rounded-full border border-[var(--aq-border)] bg-[rgba(5,10,16,0.84)] px-2 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-xl md:left-4 md:top-4 md:max-w-[calc(100vw-720px)] md:px-3">
-      <div className="flex shrink-0 items-center gap-2 rounded-full border border-[rgba(74,217,217,0.14)] bg-[rgba(74,217,217,0.06)] px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)] md:text-[11px]">
-        <Map size={14} />
+    <div className={`fixed left-3 top-[142px] z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto aq-vtt-strip px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] md:left-4 md:top-4 md:max-w-[calc(100vw-720px)] md:px-4 ${inter.className}`}>
+      
+      {/* Label "Locais" - Estilo entalhe Sheikah */}
+      <div className="flex shrink-0 items-center gap-2 border-r border-[var(--aq-border)] pr-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)] md:text-[11px]">
+        <Map size={16} strokeWidth={1.5} />
         <span className="hidden sm:inline">Locais</span>
       </div>
 
-      <div className={`aq-scrollbar flex items-center gap-1 overflow-x-auto ${inter.className}`}>
+      {/* Lista de Cenas - Usando aq-vtt-chip do globals.css */}
+      <div className="aq-scrollbar flex items-center gap-1.5 overflow-x-auto px-1">
         {cenas.map((cena) => (
           <button
             key={cena.id}
             onClick={() => onSelectCena(cena)}
-            className={`whitespace-nowrap rounded-full px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition-all md:px-4 md:text-[11px] ${
-              cenaAtivaId === cena.id
-                ? "border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.1)] text-[var(--aq-accent)] shadow-[0_0_15px_rgba(74,217,217,0.14)]"
-                : "border border-transparent bg-transparent text-[var(--aq-text-muted)] hover:border-[rgba(74,217,217,0.1)] hover:bg-[rgba(26,43,76,0.22)] hover:text-[var(--aq-title)]"
-            }`}
+            data-active={cenaAtivaId === cena.id}
+            className="aq-vtt-chip whitespace-nowrap"
           >
             {cena.nome}
           </button>
         ))}
       </div>
 
+      {/* Botão de Nova Cena - Acento ancestral */}
       <button
         onClick={criarNovaCena}
-        className="ml-1 shrink-0 rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.78)] p-2 text-[var(--aq-accent)] transition-colors hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.12)]"
+        className="ml-1 shrink-0 rounded-[0.35rem] border border-[var(--aq-border)] bg-[rgba(3,8,14,0.6)] p-2 text-[var(--aq-text)] transition-all hover:border-[var(--aq-accent)] hover:bg-[var(--aq-accent-soft)] hover:text-[var(--aq-accent)] hover:shadow-[0_0_12px_var(--aq-accent-soft)]"
         title="Criar Novo Local"
       >
-        <Plus size={14} />
+        <Plus size={16} strokeWidth={2} />
       </button>
     </div>
   );
