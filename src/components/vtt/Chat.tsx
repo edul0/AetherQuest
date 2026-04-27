@@ -128,7 +128,7 @@ export default function Chat({ salaId }: { salaId: string }) {
     <>
       <button
         onClick={() => setPanelOpen(true)}
-        className="fixed bottom-[118px] left-3 z-50 flex items-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:bottom-5 md:left-4"
+        className="fixed bottom-[92px] left-3 z-50 flex h-11 items-center gap-2 rounded-[0.85rem] border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.88)] px-3 text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md lg:bottom-4 lg:left-4"
       >
         <MessageSquareText size={15} />
         Chat
@@ -136,20 +136,20 @@ export default function Chat({ salaId }: { salaId: string }) {
 
       {panelOpen ? <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.35)]" onClick={() => setPanelOpen(false)} aria-label="Fechar chat" /> : null}
 
-      <div className={`${panelOpen ? "block" : "hidden"} fixed inset-x-3 bottom-[110px] z-50 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.9)] p-4 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-md md:inset-x-auto md:bottom-20 md:left-4 md:w-[320px]`}>
+      <div className={`${panelOpen ? "block" : "hidden"} aq-vtt-surface fixed inset-x-3 bottom-[86px] z-50 p-3 shadow-[0_16px_48px_rgba(0,0,0,0.45)] backdrop-blur-md lg:inset-x-auto lg:bottom-20 lg:left-4 lg:w-[320px]`}>
         <div className="mb-3 flex items-center justify-between gap-2 text-[var(--aq-accent)]">
           <div className="flex items-center gap-2">
             <MessageSquareText size={16} />
             <span className="aq-kicker">Canal da Mesa</span>
           </div>
-          <button onClick={() => setPanelOpen(false)} className="rounded-xl border border-[var(--aq-border)] p-2 text-[var(--aq-text-muted)]">
+          <button onClick={() => setPanelOpen(false)} className="rounded-[0.75rem] border border-[var(--aq-border)] p-2 text-[var(--aq-text-muted)]">
             <X size={15} />
           </button>
         </div>
 
         <div className="mb-3 grid gap-2">
           <div className="flex gap-2">
-            <input value={diceFormula} onChange={(event) => setDiceFormula(event.target.value)} placeholder="1d20, 2d6+3..." className="aq-input !rounded-xl !px-3 !py-2 text-sm" />
+            <input value={diceFormula} onChange={(event) => setDiceFormula(event.target.value)} placeholder="1d20, 2d6+3..." className="aq-input !rounded-[0.75rem] !px-3 !py-2 text-sm" />
             <button onClick={() => rollDice(diceFormula)} className="aq-button-primary !px-3 !py-2" disabled={sending}>
               <Dice5 size={12} />
               Rolar
@@ -176,7 +176,7 @@ export default function Chat({ salaId }: { salaId: string }) {
               }
             }}
             placeholder="Anotacao, narracao ou resultado manual"
-            className="aq-input !rounded-xl !px-3 !py-2 text-sm"
+            className="aq-input !rounded-[0.75rem] !px-3 !py-2 text-sm"
           />
           <button onClick={sendManualMessage} className="aq-button-primary !px-3 !py-2" disabled={sending}>
             <Send size={12} />
@@ -189,7 +189,7 @@ export default function Chat({ salaId }: { salaId: string }) {
             <div className="text-xs uppercase tracking-[0.22em] text-[var(--aq-text-muted)]">Sem mensagens ainda.</div>
           ) : (
             messages.map((message, index) => (
-              <div key={`${message.id ?? "msg"}-${index}`} className="rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.88)] px-3 py-2 text-sm text-[var(--aq-title)]">
+              <div key={`${message.id ?? "msg"}-${index}`} className="rounded-[0.75rem] border border-[var(--aq-border)] bg-[rgba(10,15,24,0.88)] px-3 py-2 text-sm text-[var(--aq-title)]">
                 <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
                 <div className="mt-2 text-[10px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">{formatTimestamp(message.created_at)}</div>
               </div>
