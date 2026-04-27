@@ -3,20 +3,32 @@
 @tailwind utilities;
 
 :root {
-  --aq-bg: #050a10;
-  --aq-bg-deep: #02060b;
-  --aq-surface: #0a0f18;
-  --aq-surface-soft: rgba(10, 15, 24, 0.84);
-  --aq-border: #1a2b4c;
-  --aq-border-strong: rgba(74, 217, 217, 0.34);
-  --aq-accent: #4ad9d9;
-  --aq-accent-soft: rgba(74, 217, 217, 0.14);
-  --aq-title: #f0ebd8;
-  --aq-text: #8b9bb4;
-  --aq-text-muted: #6b7b94;
-  --aq-text-subtle: #41556f;
-  --aq-danger: #ef4444;
-  --aq-success: #22c55e;
+  --aq-bg: #0b1f33;
+  --aq-bg-deep: #061522;
+  --aq-bg-sky: #123650;
+  --aq-surface: rgba(26, 64, 86, 0.72);
+  --aq-surface-soft: rgba(33, 79, 101, 0.56);
+  --aq-surface-glass: rgba(31, 76, 99, 0.46);
+  --aq-panel: rgba(18, 48, 68, 0.62);
+  --aq-border: rgba(174, 224, 232, 0.2);
+  --aq-border-strong: rgba(174, 224, 232, 0.42);
+  --aq-accent: #9de2ea;
+  --aq-accent-soft: rgba(157, 226, 234, 0.14);
+  --aq-accent-strong: #78ccda;
+  --aq-nature: #79b994;
+  --aq-gold: #d8bd78;
+  --aq-title: #eaf4f6;
+  --aq-text: #c5d9df;
+  --aq-text-muted: #8fa8b5;
+  --aq-text-subtle: #5f7a8a;
+  --aq-danger: #d46a6a;
+  --aq-success: #6faf8a;
+  --aq-radius-sm: 12px;
+  --aq-radius-md: 16px;
+  --aq-radius-lg: 18px;
+  --aq-shadow-soft: 0 16px 38px rgba(2, 13, 24, 0.2);
+  --aq-shadow-float: 0 20px 56px rgba(2, 13, 24, 0.24);
+  --aq-blur: blur(20px) saturate(115%);
   --aq-shell-max: 1680px;
   --aq-shell-gutter: 1rem;
 }
@@ -39,9 +51,10 @@ body {
   margin: 0;
   color: var(--aq-text);
   background:
-    radial-gradient(circle at top left, rgba(74, 217, 217, 0.08), transparent 32%),
-    radial-gradient(circle at bottom right, rgba(26, 43, 76, 0.2), transparent 30%),
-    linear-gradient(180deg, rgba(2, 6, 11, 0.96), rgba(5, 10, 16, 1));
+    radial-gradient(circle at 12% -4%, rgba(157, 226, 234, 0.2), transparent 30%),
+    radial-gradient(circle at 82% 8%, rgba(121, 185, 148, 0.16), transparent 28%),
+    radial-gradient(circle at 50% 105%, rgba(216, 189, 120, 0.1), transparent 34%),
+    linear-gradient(180deg, #123650 0%, #0b1f33 46%, #061522 100%);
   overflow-x: hidden;
   overflow-y: visible;
   touch-action: auto;
@@ -55,7 +68,7 @@ body {
 }
 
 ::selection {
-  background: rgba(74, 217, 217, 0.28);
+  background: rgba(157, 226, 234, 0.28);
   color: white;
 }
 
@@ -66,8 +79,9 @@ body {
   overflow: visible;
   touch-action: pan-y;
   background:
-    radial-gradient(circle at 20% 10%, rgba(74, 217, 217, 0.08), transparent 26%),
-    radial-gradient(circle at 80% 85%, rgba(26, 43, 76, 0.2), transparent 28%),
+    radial-gradient(circle at 20% 10%, rgba(157, 226, 234, 0.13), transparent 30%),
+    radial-gradient(circle at 82% 78%, rgba(121, 185, 148, 0.11), transparent 30%),
+    linear-gradient(135deg, rgba(234, 244, 246, 0.04), transparent 36%),
     var(--aq-bg);
   color: var(--aq-text);
 }
@@ -88,37 +102,30 @@ body {
   width: min(calc(100% - (var(--aq-shell-gutter) * 2)), var(--aq-shell-max));
 }
 
-.aq-panel {
-  border: 1px solid rgba(26, 43, 76, 0.92);
-  border-radius: 1rem;
-  background: linear-gradient(180deg, rgba(10, 15, 24, 0.96), rgba(5, 10, 16, 0.94));
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(74, 217, 217, 0.02);
-}
-
+.aq-panel,
 .aq-command-card {
-  border: 1px solid rgba(26, 43, 76, 0.92);
-  border-radius: 1rem;
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-lg);
   background:
-    linear-gradient(180deg, rgba(10, 15, 24, 0.94), rgba(5, 10, 16, 0.88)),
-    radial-gradient(circle at top left, rgba(74, 217, 217, 0.08), transparent 40%);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    linear-gradient(180deg, rgba(35, 82, 106, 0.64), rgba(16, 44, 63, 0.52)),
+    radial-gradient(circle at top left, rgba(157, 226, 234, 0.1), transparent 44%);
+  box-shadow: var(--aq-shadow-soft), inset 0 1px 0 rgba(234, 244, 246, 0.1);
+  backdrop-filter: var(--aq-blur);
 }
 
 .aq-stat-card {
-  border: 1px solid rgba(26, 43, 76, 0.88);
-  border-radius: 0.85rem;
-  background: linear-gradient(180deg, rgba(8, 13, 22, 0.92), rgba(5, 10, 16, 0.8));
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-md);
+  background: rgba(35, 82, 106, 0.38);
   padding: 0.95rem 1rem;
 }
 
 .aq-segmented {
   display: inline-flex;
   gap: 0.35rem;
-  border: 1px solid rgba(26, 43, 76, 0.92);
-  border-radius: 0.9rem;
-  background: rgba(5, 10, 16, 0.78);
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-md);
+  background: rgba(18, 48, 68, 0.46);
   padding: 0.3rem;
 }
 
@@ -127,18 +134,14 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  border-radius: 0.75rem;
+  border-radius: 12px;
   padding: 0.62rem 0.9rem;
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--aq-text-muted);
-  transition:
-    background-color 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease,
-    transform 140ms ease;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .aq-segmented-button:hover {
@@ -146,9 +149,9 @@ body {
 }
 
 .aq-segmented-button[data-active="true"] {
-  background: linear-gradient(135deg, rgba(74, 217, 217, 0.94), rgba(35, 114, 114, 0.9));
-  color: #021317;
-  box-shadow: 0 0 18px rgba(74, 217, 217, 0.24);
+  background: linear-gradient(135deg, rgba(157, 226, 234, 0.94), rgba(121, 185, 148, 0.88));
+  color: #071827;
+  box-shadow: 0 0 18px rgba(157, 226, 234, 0.14);
 }
 
 .aq-button-primary,
@@ -157,25 +160,20 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
-  border-radius: 0.8rem;
+  border-radius: 14px;
   padding: 0.68rem 1rem;
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  transition:
-    transform 140ms ease,
-    background-color 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease,
-    box-shadow 140ms ease;
+  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
 
 .aq-button-primary {
-  border: 1px solid rgba(74, 217, 217, 0.28);
-  background: linear-gradient(135deg, rgba(74, 217, 217, 0.92), rgba(30, 107, 107, 0.9));
-  color: #021317;
-  box-shadow: 0 0 24px rgba(74, 217, 217, 0.2);
+  border: 1px solid rgba(157, 226, 234, 0.34);
+  background: linear-gradient(135deg, rgba(157, 226, 234, 0.94), rgba(121, 185, 148, 0.88));
+  color: #071827;
+  box-shadow: 0 10px 26px rgba(3, 10, 18, 0.2), 0 0 18px rgba(157, 226, 234, 0.12);
 }
 
 .aq-button-compact {
@@ -187,32 +185,31 @@ body {
 
 .aq-button-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 34px rgba(74, 217, 217, 0.34);
+  box-shadow: 0 14px 32px rgba(3, 10, 18, 0.24), 0 0 24px rgba(157, 226, 234, 0.18);
 }
 
 .aq-button-secondary {
-  border: 1px solid rgba(26, 43, 76, 0.94);
-  background: rgba(10, 15, 24, 0.66);
+  border: 1px solid var(--aq-border);
+  background: rgba(35, 82, 106, 0.38);
   color: var(--aq-text);
+  backdrop-filter: var(--aq-blur);
 }
 
 .aq-button-secondary:hover {
   border-color: var(--aq-border-strong);
   color: var(--aq-accent);
-  background: rgba(74, 217, 217, 0.08);
+  background: rgba(157, 226, 234, 0.1);
 }
 
 .aq-input {
   width: 100%;
-  border: 1px solid rgba(26, 43, 76, 0.94);
-  border-radius: 0.85rem;
-  background: rgba(5, 10, 16, 0.78);
+  border: 1px solid var(--aq-border);
+  border-radius: 14px;
+  background: rgba(12, 35, 53, 0.5);
   padding: 0.78rem 0.95rem;
   color: var(--aq-title);
   outline: none;
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
 .aq-input::placeholder {
@@ -221,13 +218,13 @@ body {
 
 .aq-input:focus {
   border-color: var(--aq-border-strong);
-  box-shadow: 0 0 0 1px rgba(74, 217, 217, 0.16);
+  box-shadow: 0 0 0 1px rgba(157, 226, 234, 0.14), 0 0 22px rgba(157, 226, 234, 0.08);
 }
 
 .aq-kicker {
   font-size: 0.64rem;
   font-weight: 800;
-  letter-spacing: 0.26em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--aq-accent);
 }
@@ -235,9 +232,9 @@ body {
 .aq-pill {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(74, 217, 217, 0.22);
-  border-radius: 0.7rem;
-  background: rgba(74, 217, 217, 0.1);
+  border: 1px solid rgba(157, 226, 234, 0.24);
+  border-radius: 999px;
+  background: rgba(157, 226, 234, 0.1);
   padding: 0.28rem 0.65rem;
   font-size: 0.64rem;
   font-weight: 700;
@@ -247,15 +244,15 @@ body {
 }
 
 .aq-pill-muted {
-  border-color: rgba(26, 43, 76, 0.92);
-  background: rgba(26, 43, 76, 0.26);
+  border-color: var(--aq-border);
+  background: rgba(35, 82, 106, 0.22);
   color: var(--aq-text);
 }
 
 .aq-empty-state {
-  border: 1px dashed rgba(74, 217, 217, 0.2);
-  border-radius: 1rem;
-  background: rgba(5, 10, 16, 0.52);
+  border: 1px dashed rgba(157, 226, 234, 0.24);
+  border-radius: var(--aq-radius-lg);
+  background: rgba(35, 82, 106, 0.28);
   padding: 3rem 1.5rem;
   text-align: center;
   font-size: 0.8rem;
@@ -276,26 +273,26 @@ body {
 .aq-scrollbar::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 9999px;
-  background: linear-gradient(180deg, rgba(26, 43, 76, 0.95), rgba(74, 217, 217, 0.22));
+  background: linear-gradient(180deg, rgba(31, 76, 99, 0.72), rgba(157, 226, 234, 0.22));
   background-clip: padding-box;
 }
 
 .aq-vtt-surface {
-  border: 1px solid rgba(74, 217, 217, 0.16);
-  border-radius: 0.9rem;
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-lg);
   background:
-    linear-gradient(180deg, rgba(8, 12, 18, 0.96), rgba(4, 8, 14, 0.92)),
-    radial-gradient(circle at top left, rgba(74, 217, 217, 0.06), transparent 42%);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.02);
+    linear-gradient(180deg, rgba(35, 82, 106, 0.68), rgba(12, 35, 53, 0.54)),
+    radial-gradient(circle at top left, rgba(157, 226, 234, 0.1), transparent 42%);
+  box-shadow: var(--aq-shadow-float), inset 0 1px 0 rgba(234, 244, 246, 0.1);
+  backdrop-filter: var(--aq-blur);
 }
 
 .aq-vtt-strip {
-  border: 1px solid rgba(74, 217, 217, 0.14);
-  border-radius: 0.85rem;
-  background: rgba(5, 10, 16, 0.82);
-  backdrop-filter: blur(16px);
+  border: 1px solid rgba(174, 224, 232, 0.24);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(31, 76, 99, 0.6), rgba(12, 35, 53, 0.46));
+  box-shadow: 0 12px 28px rgba(2, 13, 24, 0.18);
+  backdrop-filter: var(--aq-blur);
 }
 
 .aq-vtt-chip {
@@ -303,32 +300,29 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border: 1px solid rgba(74, 217, 217, 0.12);
-  border-radius: 0.7rem;
-  background: rgba(8, 13, 20, 0.9);
+  border: 1px solid rgba(174, 224, 232, 0.16);
+  border-radius: 14px;
+  background: rgba(35, 82, 106, 0.32);
   padding: 0.48rem 0.72rem;
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--aq-text-muted);
-  transition:
-    border-color 140ms ease,
-    color 140ms ease,
-    background-color 140ms ease,
-    transform 140ms ease;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease, transform 140ms ease;
 }
 
 .aq-vtt-chip:hover {
-  border-color: rgba(74, 217, 217, 0.3);
+  border-color: rgba(157, 226, 234, 0.36);
   color: var(--aq-title);
+  background: rgba(157, 226, 234, 0.08);
 }
 
 .aq-vtt-chip[data-active="true"] {
-  border-color: rgba(74, 217, 217, 0.34);
-  background: rgba(74, 217, 217, 0.14);
+  border-color: rgba(174, 224, 232, 0.44);
+  background: linear-gradient(135deg, rgba(157, 226, 234, 0.18), rgba(121, 185, 148, 0.12));
   color: var(--aq-accent);
-  box-shadow: 0 0 18px rgba(74, 217, 217, 0.14);
+  box-shadow: 0 0 18px rgba(157, 226, 234, 0.1);
 }
 
 .aq-vtt-section {
@@ -358,7 +352,7 @@ body {
   left: 10%;
   height: 22rem;
   width: 22rem;
-  background: rgba(74, 217, 217, 0.12);
+  background: rgba(157, 226, 234, 0.13);
 }
 
 .aq-orb-indigo {
@@ -366,7 +360,31 @@ body {
   bottom: 3rem;
   height: 18rem;
   width: 18rem;
-  background: rgba(26, 43, 76, 0.22);
+  background: rgba(121, 185, 148, 0.12);
+}
+
+.aq-fantasy-glass,
+.aq-fantasy-card {
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-lg);
+  background:
+    linear-gradient(180deg, rgba(35, 82, 106, 0.58), rgba(7, 24, 39, 0.46)),
+    radial-gradient(circle at top left, rgba(157, 226, 234, 0.07), transparent 44%);
+  box-shadow: var(--aq-shadow-soft);
+  backdrop-filter: var(--aq-blur);
+}
+
+.aq-fantasy-card:hover {
+  border-color: var(--aq-border-strong);
+  background: rgba(35, 82, 106, 0.58);
+}
+
+.aq-soft-gold {
+  color: var(--aq-gold);
+}
+
+.aq-soft-nature {
+  color: var(--aq-nature);
 }
 
 @media (min-width: 768px) {
@@ -395,18 +413,30 @@ body {
   }
 }
 
-/* VTT live roster: keep portraits useful without stealing the map, especially on mobile. */
+/* VTT live HUD: fantasy-clean overrides for the map, roster and discoveries tray. */
+.aq-page .fixed button,
+.aq-page .fixed input,
+.aq-page .fixed textarea,
+.aq-page .fixed select {
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.aq-page .fixed button:hover {
+  transform: translateY(-1px);
+}
+
+.aq-page .fixed.bottom-2.left-3.right-3.z-40,
 .aq-page > .fixed.bottom-0.left-0.right-0.z-40 {
   left: 1rem !important;
   right: auto !important;
   bottom: 1rem !important;
   width: min(520px, calc(100vw - 2rem)) !important;
-  border: 1px solid rgba(74, 217, 217, 0.16) !important;
-  border-radius: 1.5rem !important;
-  background: rgba(5, 10, 16, 0.8) !important;
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38) !important;
+  border: 1px solid var(--aq-border) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, rgba(35, 82, 106, 0.68), rgba(8, 28, 44, 0.66)) !important;
+  box-shadow: var(--aq-shadow-float) !important;
   padding: 0.6rem 0.75rem !important;
-  backdrop-filter: blur(18px);
+  backdrop-filter: var(--aq-blur);
 }
 
 .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > div:first-child {
@@ -427,8 +457,22 @@ body {
 
 .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button {
   min-width: 10rem !important;
-  border-radius: 1rem !important;
+  border-color: var(--aq-border) !important;
+  border-radius: 16px !important;
+  background: rgba(234, 244, 246, 0.055) !important;
   padding: 0.65rem !important;
+}
+
+.aq-page .fixed.bottom-2.left-3.right-3.z-40 button {
+  border-color: var(--aq-border) !important;
+  border-radius: 16px !important;
+  background: rgba(234, 244, 246, 0.055) !important;
+}
+
+.aq-page .fixed.bottom-2.left-3.right-3.z-40 button:hover,
+.aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button:hover {
+  border-color: var(--aq-border-strong) !important;
+  background: rgba(157, 226, 234, 0.1) !important;
 }
 
 .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button img,
@@ -479,10 +523,7 @@ body {
     height: 2.25rem !important;
   }
 
-  .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button > div:first-child .mt-2.flex {
-    display: none !important;
-  }
-
+  .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button > div:first-child .mt-2.flex,
   .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button .grid.grid-cols-2 {
     display: none !important;
   }
@@ -491,4 +532,41 @@ body {
   .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button .md\:text-base {
     font-size: 0.68rem !important;
   }
+}
+
+.aq-page .fixed.bottom-24.right-3.z-40,
+.aq-page .fixed.bottom-\[92px\].right-3.z-50 {
+  border-color: var(--aq-border) !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, rgba(35, 82, 106, 0.68), rgba(8, 28, 44, 0.64)) !important;
+  box-shadow: var(--aq-shadow-float) !important;
+  backdrop-filter: var(--aq-blur) !important;
+}
+
+.aq-page .fixed.bottom-24.right-3.z-40 button,
+.aq-page .aq-vtt-surface button:not(.aq-button-primary):not(.aq-button-secondary),
+.aq-page .aq-vtt-surface label {
+  border-color: var(--aq-border) !important;
+  border-radius: 14px !important;
+  background: rgba(234, 244, 246, 0.055) !important;
+}
+
+.aq-page .fixed.bottom-24.right-3.z-40 button:hover,
+.aq-page .aq-vtt-surface button:not(.aq-button-primary):not(.aq-button-secondary):hover,
+.aq-page .aq-vtt-surface label:hover {
+  border-color: var(--aq-border-strong) !important;
+  background: rgba(157, 226, 234, 0.1) !important;
+  color: var(--aq-title) !important;
+}
+
+.aq-page .aq-vtt-surface textarea,
+.aq-page .aq-vtt-surface input,
+.aq-page .aq-vtt-surface select {
+  border-color: var(--aq-border) !important;
+  background: rgba(7, 24, 39, 0.38) !important;
+}
+
+.aq-page .aq-kicker,
+.aq-page .fixed [class*="tracking-"] {
+  letter-spacing: 0.18em;
 }
