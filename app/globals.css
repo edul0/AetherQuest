@@ -68,7 +68,7 @@ body {
 }
 
 ::selection {
-  background: rgba(157, 226, 234, 0.28);
+  background: rgba(74, 217, 217, 0.28);
   color: white;
 }
 
@@ -102,12 +102,21 @@ body {
   width: min(calc(100% - (var(--aq-shell-gutter) * 2)), var(--aq-shell-max));
 }
 
-.aq-panel,
+.aq-panel {
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-lg);
+  background:
+    linear-gradient(180deg, rgba(35, 82, 106, 0.62), rgba(16, 44, 63, 0.5)),
+    rgba(18, 48, 68, 0.34);
+  box-shadow: var(--aq-shadow-soft), inset 0 1px 0 rgba(234, 244, 246, 0.1);
+  backdrop-filter: var(--aq-blur);
+}
+
 .aq-command-card {
   border: 1px solid var(--aq-border);
   border-radius: var(--aq-radius-lg);
   background:
-    linear-gradient(180deg, rgba(35, 82, 106, 0.64), rgba(16, 44, 63, 0.52)),
+    linear-gradient(180deg, rgba(35, 82, 106, 0.66), rgba(15, 40, 60, 0.54)),
     radial-gradient(circle at top left, rgba(157, 226, 234, 0.1), transparent 44%);
   box-shadow: var(--aq-shadow-soft), inset 0 1px 0 rgba(234, 244, 246, 0.1);
   backdrop-filter: var(--aq-blur);
@@ -141,7 +150,11 @@ body {
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--aq-text-muted);
-  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
 }
 
 .aq-segmented-button:hover {
@@ -149,9 +162,9 @@ body {
 }
 
 .aq-segmented-button[data-active="true"] {
-  background: linear-gradient(135deg, rgba(157, 226, 234, 0.94), rgba(121, 185, 148, 0.88));
+  background: linear-gradient(135deg, rgba(142, 218, 230, 0.92), rgba(111, 175, 138, 0.84));
   color: #071827;
-  box-shadow: 0 0 18px rgba(157, 226, 234, 0.14);
+  box-shadow: 0 0 18px rgba(142, 218, 230, 0.18);
 }
 
 .aq-button-primary,
@@ -166,14 +179,51 @@ body {
   font-weight: 800;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.aq-hud-button,
+.aq-hud-badge {
+  position: relative;
+  border: 1px solid var(--aq-border);
+  background:
+    linear-gradient(180deg, rgba(44, 96, 122, 0.68), rgba(16, 44, 63, 0.6)),
+    radial-gradient(circle at top, rgba(157, 226, 234, 0.12), transparent 56%);
+  box-shadow: var(--aq-shadow-soft), inset 0 1px 0 rgba(234, 244, 246, 0.12);
+  backdrop-filter: var(--aq-blur);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+}
+
+.aq-hud-button {
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.aq-hud-button:hover {
+  border-color: var(--aq-border-strong);
+  box-shadow: 0 16px 36px rgba(2, 13, 24, 0.22), 0 0 0 1px rgba(157, 226, 234, 0.12);
+}
+
+.aq-hud-badge {
+  border-color: rgba(216, 189, 120, 0.2);
+  background:
+    linear-gradient(180deg, rgba(35, 82, 106, 0.76), rgba(16, 44, 63, 0.62)),
+    radial-gradient(circle at top, rgba(216, 189, 120, 0.12), transparent 60%);
 }
 
 .aq-button-primary {
-  border: 1px solid rgba(157, 226, 234, 0.34);
+  border: 1px solid rgba(142, 218, 230, 0.34);
   background: linear-gradient(135deg, rgba(157, 226, 234, 0.94), rgba(121, 185, 148, 0.88));
   color: #071827;
-  box-shadow: 0 10px 26px rgba(3, 10, 18, 0.2), 0 0 18px rgba(157, 226, 234, 0.12);
+  box-shadow: 0 10px 26px rgba(3, 10, 18, 0.2), 0 0 18px rgba(142, 218, 230, 0.12);
 }
 
 .aq-button-compact {
@@ -185,7 +235,7 @@ body {
 
 .aq-button-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 32px rgba(3, 10, 18, 0.24), 0 0 24px rgba(157, 226, 234, 0.18);
+  box-shadow: 0 14px 32px rgba(3, 10, 18, 0.24), 0 0 24px rgba(142, 218, 230, 0.2);
 }
 
 .aq-button-secondary {
@@ -198,7 +248,7 @@ body {
 .aq-button-secondary:hover {
   border-color: var(--aq-border-strong);
   color: var(--aq-accent);
-  background: rgba(157, 226, 234, 0.1);
+  background: rgba(142, 218, 230, 0.1);
 }
 
 .aq-input {
@@ -209,7 +259,9 @@ body {
   padding: 0.78rem 0.95rem;
   color: var(--aq-title);
   outline: none;
-  transition: border-color 140ms ease, box-shadow 140ms ease;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .aq-input::placeholder {
@@ -218,13 +270,13 @@ body {
 
 .aq-input:focus {
   border-color: var(--aq-border-strong);
-  box-shadow: 0 0 0 1px rgba(157, 226, 234, 0.14), 0 0 22px rgba(157, 226, 234, 0.08);
+  box-shadow: 0 0 0 1px rgba(142, 218, 230, 0.14), 0 0 22px rgba(142, 218, 230, 0.08);
 }
 
 .aq-kicker {
   font-size: 0.64rem;
   font-weight: 800;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--aq-accent);
 }
@@ -232,9 +284,9 @@ body {
 .aq-pill {
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(157, 226, 234, 0.24);
+  border: 1px solid rgba(142, 218, 230, 0.24);
   border-radius: 999px;
-  background: rgba(157, 226, 234, 0.1);
+  background: rgba(142, 218, 230, 0.1);
   padding: 0.28rem 0.65rem;
   font-size: 0.64rem;
   font-weight: 700;
@@ -244,13 +296,13 @@ body {
 }
 
 .aq-pill-muted {
-  border-color: var(--aq-border);
-  background: rgba(35, 82, 106, 0.22);
+  border-color: rgba(26, 43, 76, 0.92);
+  background: rgba(26, 43, 76, 0.26);
   color: var(--aq-text);
 }
 
 .aq-empty-state {
-  border: 1px dashed rgba(157, 226, 234, 0.24);
+  border: 1px dashed rgba(142, 218, 230, 0.24);
   border-radius: var(--aq-radius-lg);
   background: rgba(35, 82, 106, 0.28);
   padding: 3rem 1.5rem;
@@ -273,7 +325,7 @@ body {
 .aq-scrollbar::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 9999px;
-  background: linear-gradient(180deg, rgba(31, 76, 99, 0.72), rgba(157, 226, 234, 0.22));
+  background: linear-gradient(180deg, rgba(26, 43, 76, 0.95), rgba(74, 217, 217, 0.22));
   background-clip: padding-box;
 }
 
@@ -289,9 +341,11 @@ body {
 
 .aq-vtt-strip {
   border: 1px solid rgba(174, 224, 232, 0.24);
-  border-radius: 18px;
-  background: linear-gradient(180deg, rgba(31, 76, 99, 0.6), rgba(12, 35, 53, 0.46));
-  box-shadow: 0 12px 28px rgba(2, 13, 24, 0.18);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(31, 76, 99, 0.62), rgba(12, 35, 53, 0.48)),
+    radial-gradient(circle at top, rgba(157, 226, 234, 0.08), transparent 58%);
+  box-shadow: 0 14px 32px rgba(2, 13, 24, 0.18);
   backdrop-filter: var(--aq-blur);
 }
 
@@ -301,21 +355,27 @@ body {
   justify-content: center;
   gap: 0.4rem;
   border: 1px solid rgba(174, 224, 232, 0.16);
-  border-radius: 14px;
-  background: rgba(35, 82, 106, 0.32);
-  padding: 0.48rem 0.72rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(41, 90, 114, 0.34), rgba(20, 52, 72, 0.28));
+  padding: 0.55rem 0.9rem;
   font-size: 0.58rem;
   font-weight: 800;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--aq-text-muted);
-  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease, transform 140ms ease;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
 }
 
 .aq-vtt-chip:hover {
-  border-color: rgba(157, 226, 234, 0.36);
+  border-color: rgba(142, 218, 230, 0.36);
   color: var(--aq-title);
-  background: rgba(157, 226, 234, 0.08);
+  background: rgba(142, 218, 230, 0.08);
 }
 
 .aq-vtt-chip[data-active="true"] {
@@ -323,6 +383,10 @@ body {
   background: linear-gradient(135deg, rgba(157, 226, 234, 0.18), rgba(121, 185, 148, 0.12));
   color: var(--aq-accent);
   box-shadow: 0 0 18px rgba(157, 226, 234, 0.1);
+}
+
+.aq-compact-roster {
+  max-width: min(420px, calc(100vw - 2rem));
 }
 
 .aq-vtt-section {
@@ -352,7 +416,7 @@ body {
   left: 10%;
   height: 22rem;
   width: 22rem;
-  background: rgba(157, 226, 234, 0.13);
+  background: rgba(142, 218, 230, 0.13);
 }
 
 .aq-orb-indigo {
@@ -360,23 +424,30 @@ body {
   bottom: 3rem;
   height: 18rem;
   width: 18rem;
-  background: rgba(121, 185, 148, 0.12);
+  background: rgba(111, 175, 138, 0.12);
 }
 
-.aq-fantasy-glass,
-.aq-fantasy-card {
+.aq-fantasy-glass {
   border: 1px solid var(--aq-border);
   border-radius: var(--aq-radius-lg);
   background:
-    linear-gradient(180deg, rgba(35, 82, 106, 0.58), rgba(7, 24, 39, 0.46)),
-    radial-gradient(circle at top left, rgba(157, 226, 234, 0.07), transparent 44%);
+    linear-gradient(180deg, rgba(22, 56, 79, 0.58), rgba(7, 24, 39, 0.46)),
+    radial-gradient(circle at top left, rgba(142, 218, 230, 0.07), transparent 44%);
   box-shadow: var(--aq-shadow-soft);
+  backdrop-filter: var(--aq-blur);
+}
+
+.aq-fantasy-card {
+  border: 1px solid var(--aq-border);
+  border-radius: var(--aq-radius-md);
+  background: rgba(16, 44, 63, 0.48);
+  box-shadow: 0 12px 30px rgba(3, 10, 18, 0.18);
   backdrop-filter: var(--aq-blur);
 }
 
 .aq-fantasy-card:hover {
   border-color: var(--aq-border-strong);
-  background: rgba(35, 82, 106, 0.58);
+  background: rgba(22, 56, 79, 0.58);
 }
 
 .aq-soft-gold {
@@ -418,7 +489,12 @@ body {
 .aq-page .fixed input,
 .aq-page .fixed textarea,
 .aq-page .fixed select {
-  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .aq-page .fixed button:hover {
@@ -430,10 +506,12 @@ body {
   left: 1rem !important;
   right: auto !important;
   bottom: 1rem !important;
-  width: min(520px, calc(100vw - 2rem)) !important;
+  width: auto !important;
+  max-width: min(440px, calc(100vw - 2rem)) !important;
   border: 1px solid var(--aq-border) !important;
-  border-radius: 18px !important;
-  background: linear-gradient(180deg, rgba(35, 82, 106, 0.68), rgba(8, 28, 44, 0.66)) !important;
+  border-radius: 22px !important;
+  background:
+    linear-gradient(180deg, rgba(35, 82, 106, 0.68), rgba(8, 28, 44, 0.66)) !important;
   box-shadow: var(--aq-shadow-float) !important;
   padding: 0.6rem 0.75rem !important;
   backdrop-filter: var(--aq-blur);
@@ -465,7 +543,7 @@ body {
 
 .aq-page .fixed.bottom-2.left-3.right-3.z-40 button {
   border-color: var(--aq-border) !important;
-  border-radius: 16px !important;
+  border-radius: 18px !important;
   background: rgba(234, 244, 246, 0.055) !important;
 }
 
@@ -523,7 +601,10 @@ body {
     height: 2.25rem !important;
   }
 
-  .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button > div:first-child .mt-2.flex,
+  .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button > div:first-child .mt-2.flex {
+    display: none !important;
+  }
+
   .aq-page > .fixed.bottom-0.left-0.right-0.z-40 > .aq-scrollbar > button .grid.grid-cols-2 {
     display: none !important;
   }
@@ -535,15 +616,18 @@ body {
 }
 
 .aq-page .fixed.bottom-24.right-3.z-40,
+.aq-page .fixed.bottom-24.right-4.z-40,
 .aq-page .fixed.bottom-\[92px\].right-3.z-50 {
   border-color: var(--aq-border) !important;
-  border-radius: 18px !important;
-  background: linear-gradient(180deg, rgba(35, 82, 106, 0.68), rgba(8, 28, 44, 0.64)) !important;
+  border-radius: 22px !important;
+  background:
+    linear-gradient(180deg, rgba(35, 82, 106, 0.68), rgba(8, 28, 44, 0.64)) !important;
   box-shadow: var(--aq-shadow-float) !important;
   backdrop-filter: var(--aq-blur) !important;
 }
 
 .aq-page .fixed.bottom-24.right-3.z-40 button,
+.aq-page .fixed.bottom-24.right-4.z-40 button,
 .aq-page .aq-vtt-surface button:not(.aq-button-primary):not(.aq-button-secondary),
 .aq-page .aq-vtt-surface label {
   border-color: var(--aq-border) !important;
@@ -552,6 +636,7 @@ body {
 }
 
 .aq-page .fixed.bottom-24.right-3.z-40 button:hover,
+.aq-page .fixed.bottom-24.right-4.z-40 button:hover,
 .aq-page .aq-vtt-surface button:not(.aq-button-primary):not(.aq-button-secondary):hover,
 .aq-page .aq-vtt-surface label:hover {
   border-color: var(--aq-border-strong) !important;
