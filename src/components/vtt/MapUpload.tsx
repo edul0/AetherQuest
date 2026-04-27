@@ -2,7 +2,7 @@
 
 import type { ChangeEvent } from "react";
 import { Image as ImageIcon } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/src/lib/supabase";
 
 export default function MapUpload({ salaId }: { salaId: string }) {
   const uploadMap = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -12,15 +12,15 @@ export default function MapUpload({ salaId }: { salaId: string }) {
         return;
       }
 
-      // 1. Checa a sessão antes de encostar no Storage (Trava Anti-Anon)
+      // 1. Checa a sessÃ£o antes de encostar no Storage (Trava Anti-Anon)
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        alert("Sessão inválida. Faça login novamente para alterar o mapa.");
+        alert("SessÃ£o invÃ¡lida. FaÃ§a login novamente para alterar o mapa.");
         return;
       }
 
-      // Opcional: Se a sua policy do Supabase Storage exigir que a pasta tenha o ID do usuário,
-      // você deve trocar a const filePath para: `${session.user.id}/${fileName}`
+      // Opcional: Se a sua policy do Supabase Storage exigir que a pasta tenha o ID do usuÃ¡rio,
+      // vocÃª deve trocar a const filePath para: `${session.user.id}/${fileName}`
       const fileExt = file.name.split(".").pop() || "png";
       const fileName = `${salaId}-${Math.random().toString(36).slice(2)}.${fileExt}`;
       const filePath = `cenarios/${fileName}`;
@@ -36,7 +36,7 @@ export default function MapUpload({ salaId }: { salaId: string }) {
         return;
       }
 
-      // 3. Captura a URL Pública
+      // 3. Captura a URL PÃºblica
       const {
         data: { publicUrl },
       } = supabase.storage.from("mapas").getPublicUrl(filePath);
