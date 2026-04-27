@@ -45,8 +45,8 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
   };
 
   return (
-    <div className="aq-vtt-strip fixed left-3 right-3 top-[60px] z-40 flex items-center gap-1 overflow-x-auto px-1.5 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.32)] lg:left-4 lg:right-auto lg:top-3 lg:max-w-[calc(100vw-760px)]">
-      <div className="flex h-9 shrink-0 items-center gap-2 border-r border-white/10 px-2 text-[9px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)]">
+    <div className="aq-vtt-strip fixed left-3 right-3 top-[64px] z-40 flex items-center gap-1 overflow-x-auto px-2 py-2 lg:left-4 lg:right-auto lg:top-4 lg:max-w-[calc(100vw-760px)]">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-r border-white/10 px-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--aq-accent)]">
         <Map size={14} />
         <span className="hidden sm:inline">Locais</span>
       </div>
@@ -58,7 +58,7 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
             onClick={() => onSelectCena(cena)}
             className={`aq-vtt-chip h-9 whitespace-nowrap px-3 py-0 ${
               cenaAtivaId === cena.id
-                ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)] shadow-[0_0_15px_rgba(74,217,217,0.12)]"
+                ? "border-[var(--aq-border-strong)] bg-[rgba(157,226,234,0.13)] text-[var(--aq-title)] shadow-[0_0_16px_rgba(157,226,234,0.1)]"
                 : ""
             }`}
           >
@@ -69,7 +69,7 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
 
       <button
         onClick={criarNovaCena}
-        className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.7rem] border border-[var(--aq-border)] bg-[rgba(10,15,24,0.78)] text-[var(--aq-accent)] transition-colors hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.12)]"
+        className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] border border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] text-[var(--aq-accent)] transition-colors hover:border-[var(--aq-border-strong)] hover:bg-[rgba(157,226,234,0.12)]"
         title="Criar Novo Local"
       >
         <Plus size={14} />
