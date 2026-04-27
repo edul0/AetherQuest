@@ -2,7 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
-import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
+import { FichaVTTSnapshot, MapItem, SceneViewPreferences, Token } from "@/src/lib/types";
+import { useMapItemsSync } from "@/src/hooks/useMapItemsSync";
 import { useVTTSync } from "@/src/hooks/useVTTSync";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
 import { DEFAULT_VTT_CAMERA, selectVTTCamera, selectVTTGrid, selectVTTTokens, selectVTTToolMode, useVTTStore } from "@/src/store/useVTTStore";
@@ -13,6 +14,7 @@ type PixiModule = typeof import("pixi.js");
 type TokenVisualMode = "portrait" | "top" | "standee";
 type DragState =
   | { type: "token"; tokenId: string; startPointer: Point; startToken: Point; moved: boolean }
+  | { type: "item"; itemId: string; startPointer: Point; startItem: Point; moved: boolean }
   | { type: "camera"; startPointer: Point; startCamera: Camera }
   | { type: "map"; startPointer: Point; startOffset: Point }
   | { type: "pinch"; distance: number; center: Point; camera: Camera }
@@ -23,9 +25,11 @@ interface VTTCanvasProps {
   mapaUrl?: string;
   selectedTokenId: string | null;
   onSelectToken: (token: Token | null) => void;
+  onInspectHandout?: (handoutId: string) => void;
   onFichasMapChange?: (map: Record<string, FichaVTTSnapshot>) => void;
   onTokensChange?: (tokens: Token[]) => void;
   scenePreferences: SceneViewPreferences;
+  canEditScene?: boolean;
 }
 
 const DEFAULT_CAMERA: Camera = DEFAULT_VTT_CAMERA;
@@ -84,9 +88,11 @@ export default function PixiVTTCanvas({
   mapaUrl,
   selectedTokenId,
   onSelectToken,
+  onInspectHandout,
   onFichasMapChange,
   onTokensChange,
   scenePreferences,
+  canEditScene = false,
 }: VTTCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const pixiRef = useRef<PixiModule | null>(null);
@@ -112,7 +118,18 @@ export default function PixiVTTCanvas({
   const [canvasError, setCanvasError] = useState("");
   const [cutoutImages, setCutoutImages] = useState<Record<string, string>>({});
   const [imageSizes, setImageSizes] = useState<Record<string, { width: number; height: number }>>({});
+  const [mapItems, setMapItems] = useState<MapItem[]>([]);
   const { broadcastTokenMove, persistTokenMove } = useVTTSync(cenaId);
+  const updateMapItem = useCallback((itemId: string, patch: Partial<MapItem>) => {
+    setMapItems((current) => current.map((entry) => (entry.id === itemId ? { ...entry, ...patch } : entry)));
+  }, []);
+  const { broadcastMove: broadcastMapItemMove, persistMove: persistMapItemMove } = useMapItemsSync(cenaId, {
+    onLoad: useCallback((items) => setMapItems(items), []),
+    onInsert: useCallback((item) => setMapItems((current) => [...current.filter((entry) => entry.id !== item.id), item]), []),
+    onUpdate: useCallback((item) => setMapItems((current) => current.map((entry) => (entry.id === item.id ? item : entry))), []),
+    onDelete: useCallback((id) => setMapItems((current) => current.filter((entry) => entry.id !== id)), []),
+    onMoveBroadcast: useCallback((payload) => updateMapItem(payload.id, { x: payload.x, y: payload.y }), [updateMapItem]),
+  });
 
   const fichaIds = useMemo(() => tokens.map((token) => token.ficha_id).filter((id): id is string => Boolean(id)), [tokens]);
   const fichasMap = useTokenFichaSync(fichaIds);
@@ -184,7 +201,7 @@ export default function PixiVTTCanvas({
             height,
             transform: `translate3d(${(token.x - camera.x) * camera.zoom - width / 2}px, ${(token.y - camera.y) * camera.zoom - height * yAnchor}px, 0)`,
             zIndex: 4 + (token.z_index ?? 0),
-            border: mode === "standee" ? "none" : "1px solid var(--aq-border-strong)",
+            border: mode === "standee" ? "none" : "1px solid rgba(165, 243, 252, 0.35)",
             borderRadius: mode === "portrait" ? "9999px" : mode === "top" ? "30%" : "0px",
             objectFit: mode === "portrait" ? "cover" : "contain",
             objectPosition: mode === "standee" ? "center bottom" : "center center",
@@ -365,7 +382,7 @@ export default function PixiVTTCanvas({
     img.onerror = () => {
       if (cancelled) return;
       setMapSize(null);
-      setCanvasError("Mapa ancestral inacessível. Reenvie o artefato no repositório de mapas.");
+      setCanvasError("Mapa encontrado, mas a imagem nao abriu. Reenvie o arquivo no bucket publico de mapas.");
     };
     img.src = mapaUrl;
     return () => {
@@ -379,7 +396,7 @@ export default function PixiVTTCanvas({
       const world = screenToWorld(baseScreenPoint, baseCamera);
       setCamera({ x: world.x - screenPoint.x / nextZoom, y: world.y - screenPoint.y / nextZoom, zoom: nextZoom });
     },
-    [camera, screenToWorld, setCamera],
+    [camera, screenToWorld],
   );
 
   const pointerFromEvent = (event: PointerEvent): Point => {
@@ -410,6 +427,17 @@ export default function PixiVTTCanvas({
     pointersRef.current.set(nativeEvent.pointerId ?? 1, point);
     dragRef.current = { type: "token", tokenId: token.id, startPointer: point, startToken: { x: token.x, y: token.y }, moved: false };
     onSelectToken(token);
+  };
+
+  const beginItemDrag = (event: any, item: MapItem) => {
+    if (toolMode !== "select" || !canEditScene) return;
+    const nativeEvent = event?.nativeEvent ?? event;
+    nativeEvent.preventDefault?.();
+    nativeEvent.stopPropagation?.();
+    const point = pointerFromEvent(nativeEvent as PointerEvent);
+    pointersRef.current.set(nativeEvent.pointerId ?? 1, point);
+    dragRef.current = { type: "item", itemId: item.id, startPointer: point, startItem: { x: item.x, y: item.y }, moved: false };
+    onSelectToken(null);
   };
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -448,6 +476,16 @@ export default function PixiVTTCanvas({
       broadcastTokenMove(drag.tokenId, next);
       return;
     }
+    if (drag.type === "item") {
+      const next = {
+        x: drag.startItem.x + (point.x - drag.startPointer.x) / camera.zoom,
+        y: drag.startItem.y + (point.y - drag.startPointer.y) / camera.zoom,
+      };
+      dragRef.current = { ...drag, moved: true };
+      updateMapItem(drag.itemId, next);
+      broadcastMapItemMove(drag.itemId, next);
+      return;
+    }
     if (drag.type === "camera") {
       setCamera({
         ...drag.startCamera,
@@ -475,6 +513,11 @@ export default function PixiVTTCanvas({
       const token = latestTokensRef.current.find((entry) => entry.id === drag.tokenId);
       if (token && drag.moved) void persistTokenMove(drag.tokenId, { x: token.x, y: token.y });
       if (token && !drag.moved) onSelectToken(selectedTokenId === token.id ? null : token);
+    }
+    if (drag?.type === "item") {
+      const item = mapItems.find((entry) => entry.id === drag.itemId);
+      if (item && drag.moved) void persistMapItemMove(drag.itemId, { x: item.x, y: item.y });
+      if (item && !drag.moved && item.payload?.handout_id && onInspectHandout) onInspectHandout(String(item.payload.handout_id));
     }
     if (pointersRef.current.size === 0) dragRef.current = null;
   };
@@ -504,11 +547,63 @@ export default function PixiVTTCanvas({
         pixiGrid.moveTo(startX, y);
         pixiGrid.lineTo(endX, y);
       }
-      // Cor de grade atualizada para a estética cyan Sheikah
       pixiGrid.stroke({ width: 1 / camera.zoom, color: 0x4ad9d9, alpha: runtimeGrid.gridOpacity });
     }
 
     tokenLayer.removeChildren();
+    mapItems.forEach((item) => {
+      const width = Math.max(32, item.width || 80);
+      const height = Math.max(32, item.height || 80);
+      const wrapper = new PIXI.Container();
+      wrapper.x = item.x;
+      wrapper.y = item.y;
+      wrapper.rotation = (((item.rotation ?? 0) || 0) * Math.PI) / 180;
+      wrapper.zIndex = item.z_index ?? -10;
+      wrapper.eventMode = toolMode === "select" ? "static" : "none";
+      wrapper.cursor = toolMode === "select" ? (canEditScene ? "grab" : "pointer") : "default";
+      wrapper.on("pointerdown", (event: any) => {
+        if (canEditScene) beginItemDrag(event, item);
+        else {
+          const nativeEvent = event?.nativeEvent ?? event;
+          nativeEvent.preventDefault?.();
+          nativeEvent.stopPropagation?.();
+          if (item.payload?.handout_id && onInspectHandout) onInspectHandout(String(item.payload.handout_id));
+        }
+      });
+
+      const color = item.visible_to_players === false ? 0xf59e0b : 0x4ad9d9;
+      if (item.image_url) {
+        const sprite = PIXI.Sprite.from(item.image_url);
+        sprite.anchor.set(0.5);
+        sprite.width = width;
+        sprite.height = height;
+        wrapper.addChild(sprite);
+
+        const frame = new PIXI.Graphics();
+        frame.roundRect(-width / 2, -height / 2, width, height, Math.min(18, width * 0.16)).stroke({ color, alpha: 0.72, width: 2 });
+        wrapper.addChild(frame);
+      } else {
+        const body = new PIXI.Graphics();
+        body.roundRect(-width / 2, -height / 2, width, height, Math.min(18, width * 0.16)).fill({ color: 0x050a10, alpha: 0.72 });
+        body.roundRect(-width / 2, -height / 2, width, height, Math.min(18, width * 0.16)).stroke({ color, alpha: 0.85, width: 2 });
+        wrapper.addChild(body);
+
+        const title = new PIXI.Text({
+          text: item.nome || "Prop",
+          style: {
+            fill: 0xf0ebd8,
+            fontSize: Math.max(10, Math.min(16, width * 0.16)),
+            fontWeight: "900",
+            align: "center",
+          },
+        });
+        title.anchor.set(0.5);
+        wrapper.addChild(title);
+      }
+
+      tokenLayer.addChild(wrapper);
+    });
+
     tokens.forEach((token) => {
       const ficha = token.ficha_id ? fichasMap[token.ficha_id] : null;
       const tokenPx = resolveTokenSize(token, size.width);
@@ -527,8 +622,7 @@ export default function PixiVTTCanvas({
 
       const imageUrl = tokenVisual(token, ficha);
       const ring = new PIXI.Graphics();
-      // Anel base no tom da pedra escurecida
-      ring.circle(0, 0, tokenPx * 0.45).fill({ color: selectedTokenId === token.id ? 0x4ad9d9 : 0x030a14, alpha: imageUrl ? (selectedTokenId === token.id ? 0.2 : 0.08) : selectedTokenId === token.id ? 0.42 : 0.78 });
+      ring.circle(0, 0, tokenPx * 0.45).fill({ color: selectedTokenId === token.id ? 0x4ad9d9 : 0x050a10, alpha: imageUrl ? (selectedTokenId === token.id ? 0.2 : 0.08) : selectedTokenId === token.id ? 0.42 : 0.78 });
       ring.circle(0, 0, tokenPx * 0.41).stroke({ color: token.visible_to_players === false ? 0xf59e0b : 0x4ad9d9, alpha: selectedTokenId === token.id ? 1 : 0.55, width: 3 });
       wrapper.addChild(ring);
 
@@ -541,8 +635,7 @@ export default function PixiVTTCanvas({
         wrapper.addChild(label);
       }
 
-      // Nome do token alinhado com var(--aq-title)
-      const name = new PIXI.Text({ text: tokenName(token, ficha), style: { fill: 0xe2e8f0, fontSize: Math.max(10, tokenPx * 0.13), fontWeight: "900", align: "center" } });
+      const name = new PIXI.Text({ text: tokenName(token, ficha), style: { fill: 0xf0ebd8, fontSize: Math.max(10, tokenPx * 0.13), fontWeight: "900", align: "center" } });
       name.anchor.set(0.5, 0);
       name.y = tokenPx * 0.46;
       wrapper.addChild(name);
@@ -559,12 +652,12 @@ export default function PixiVTTCanvas({
       tokenLayer.addChild(wrapper);
     });
     tokenLayer.sortChildren();
-  }, [camera, fichasMap, runtimeGrid.gridOpacity, runtimeGrid.gridSize, runtimeGrid.showGrid, selectedTokenId, size.height, size.width, tokens, toolMode]);
+  }, [camera, fichasMap, mapItems, runtimeGrid.gridOpacity, runtimeGrid.gridSize, runtimeGrid.showGrid, selectedTokenId, size.height, size.width, tokens, toolMode]);
 
   return (
     <div
       ref={hostRef}
-      className="fixed inset-0 overflow-hidden touch-none select-none bg-[var(--aq-bg)]"
+      className="fixed inset-0 overflow-hidden touch-none select-none bg-[#050a10]"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -586,41 +679,30 @@ export default function PixiVTTCanvas({
           style={tokenImage.style}
         />
       ))}
-      
-      {/* Glow de fundo - Energia Sheikah sutil */}
-      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_20%,var(--aq-accent-soft),transparent_38%),linear-gradient(to_bottom,rgba(0,0,0,0.02),rgba(0,0,0,0.22))]" />
-      
-      {/* HUD da Câmera (Refatorado para as Tabuletas do globals.css) */}
-      <div className="fixed left-1/2 top-[92px] z-40 flex w-[min(calc(100vw-1rem),560px)] -translate-x-1/2 items-center justify-between gap-4 aq-panel px-4 py-2 backdrop-blur-xl md:top-4">
-        <div className="flex gap-2">
-          <button className="aq-button-secondary aq-button-compact" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.12)}>
+      <div className="pointer-events-none fixed inset-0 z-10 bg-[radial-gradient(circle_at_50%_20%,rgba(157,226,234,0.09),transparent_40%),linear-gradient(to_bottom,rgba(7,24,39,0.02),rgba(7,24,39,0.16))]" />
+      <div className="aq-vtt-surface fixed left-1/2 top-[126px] z-40 flex w-[min(calc(100vw-1.5rem),500px)] -translate-x-1/2 items-center justify-between gap-5 px-3.5 py-2.5 lg:top-4 lg:w-[min(30vw,470px)]">
+        <div className="flex rounded-[20px] border border-white/10 bg-[rgba(255,255,255,0.03)] p-1.5">
+          <button className="aq-hud-button flex h-10 w-10 items-center justify-center text-[var(--aq-title)]" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 1.12)}>
             <Plus size={16} />
           </button>
-          <button className="aq-button-secondary aq-button-compact" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 0.88)}>
+          <button className="aq-hud-button ml-1.5 flex h-10 w-10 items-center justify-center text-[var(--aq-title)]" onClick={() => zoomAt({ x: size.width / 2, y: size.height / 2 }, camera.zoom * 0.88)}>
             <Minus size={16} />
           </button>
-          <button className="aq-button-secondary aq-button-compact" onClick={() => setCamera(DEFAULT_CAMERA)}>
+          <button className="aq-hud-button ml-1.5 flex h-10 w-10 items-center justify-center text-[var(--aq-title)]" onClick={() => setCamera(DEFAULT_CAMERA)}>
             <RotateCcw size={16} />
           </button>
         </div>
-        <div className="text-right flex flex-col items-end">
-          <div className="aq-kicker !mb-0">Zoom {Math.round(camera.zoom * 100)}%</div>
-          <div className="mt-1 text-[10px] uppercase tracking-widest text-[var(--aq-text-muted)]">
-            {toolMode === "map" ? "Reposicionando cena" : toolMode === "pan" ? "Câmera livre" : "Tokens cinemáticos"}
-          </div>
+        <div className="min-w-0 flex-1 text-right">
+          <div className="text-[12px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)]">Zoom {Math.round(camera.zoom * 100)}%</div>
+          <div className="mt-1 text-[9px] uppercase tracking-[0.2em] text-[var(--aq-text-muted)]">{toolMode === "map" ? "Reposicionando cena" : toolMode === "pan" ? "Camera livre" : "Tokens cinematicos"}</div>
         </div>
       </div>
-
       {mapaUrl && !domMapStyle && !canvasError ? (
-        <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 aq-panel px-6 py-4 text-center text-[var(--aq-accent)] border border-[var(--aq-accent)] shadow-[0_0_15px_var(--aq-accent-soft)]">
-          <span className="aq-kicker !mb-0">Acessando memória ancestral...</span>
+        <div className="aq-vtt-surface fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 px-5 py-4 text-center text-xs font-black uppercase tracking-[0.24em] text-[var(--aq-accent)]">
+          Carregando mapa...
         </div>
       ) : null}
-      {canvasError ? (
-        <div className="fixed left-1/2 top-1/2 z-50 max-w-[84vw] -translate-x-1/2 -translate-y-1/2 aq-panel px-6 py-4 text-center text-sm text-[var(--aq-danger)] border border-[var(--aq-danger)]">
-          {canvasError}
-        </div>
-      ) : null}
+      {canvasError ? <div className="fixed left-1/2 top-1/2 z-50 max-w-[84vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-red-500/30 bg-red-950/80 px-5 py-4 text-center text-sm text-red-100">{canvasError}</div> : null}
     </div>
   );
 }
