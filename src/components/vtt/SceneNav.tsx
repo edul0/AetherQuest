@@ -5,39 +5,18 @@ import { Inter } from "next/font/google";
 import { Map, Plus } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
 
-const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "800"] });
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 
-// 1. O Fim do "any": Tipagem estrita da Cena
-export interface Cena {
-  id: string;
-  sala_id: string;
-  nome: string;
-  mapa_url?: string;
-}
-
-interface SceneNavProps {
-  salaId: string;
-  onSelectCena: (cena: Cena) => void;
-  cenaAtivaId: string | null;
-}
-
-export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: SceneNavProps) {
-  const [cenas, setCenas] = useState<Cena[]>([]);
+export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
+  const [cenas, setCenas] = useState<any[]>([]);
 
   useEffect(() => {
     const carregarCenas = async () => {
-      const { data, error } = await supabase.from("cenas").select("*").eq("sala_id", salaId).order('created_at', { ascending: true });
-      
-      if (error) {
-        console.error("[SceneNav] Erro ao carregar cenas:", error);
-        return;
-      }
-
+      const { data } = await supabase.from("cenas").select("*").eq("sala_id", salaId);
       if (data && data.length > 0) {
-        setCenas(data as Cena[]);
-        // Auto-seleciona a primeira cena se nenhuma estiver ativa
+        setCenas(data);
         if (!cenaAtivaId) {
-          onSelectCena(data[0] as Cena);
+          onSelectCena(data[0]);
         }
       } else {
         setCenas([]);
@@ -66,35 +45,34 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: SceneNav
   };
 
   return (
-    <div className={`fixed left-3 top-[142px] z-40 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-x-auto aq-vtt-strip px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.5)] md:left-4 md:top-4 md:max-w-[calc(100vw-720px)] md:px-4 ${inter.className}`}>
-      
-      {/* Label "Locais" - Estilo entalhe Sheikah */}
-      <div className="flex shrink-0 items-center gap-2 border-r border-[var(--aq-border)] pr-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)] md:text-[11px]">
-        <Map size={16} strokeWidth={1.5} />
+    <div className="aq-vtt-strip fixed left-3 right-3 top-[60px] z-40 flex items-center gap-1 overflow-x-auto px-1.5 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.32)] lg:left-4 lg:right-auto lg:top-3 lg:max-w-[calc(100vw-760px)]">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-r border-white/10 px-2 text-[9px] font-black uppercase tracking-[0.2em] text-[var(--aq-accent)]">
+        <Map size={14} />
         <span className="hidden sm:inline">Locais</span>
       </div>
 
-      {/* Lista de Cenas - Usando aq-vtt-chip do globals.css */}
-      <div className="aq-scrollbar flex items-center gap-1.5 overflow-x-auto px-1">
+      <div className={`aq-scrollbar flex items-center gap-1 overflow-x-auto px-1 ${inter.className}`}>
         {cenas.map((cena) => (
           <button
             key={cena.id}
             onClick={() => onSelectCena(cena)}
-            data-active={cenaAtivaId === cena.id}
-            className="aq-vtt-chip whitespace-nowrap"
+            className={`aq-vtt-chip h-9 whitespace-nowrap px-3 py-0 ${
+              cenaAtivaId === cena.id
+                ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)] shadow-[0_0_15px_rgba(74,217,217,0.12)]"
+                : ""
+            }`}
           >
             {cena.nome}
           </button>
         ))}
       </div>
 
-      {/* Botão de Nova Cena - Acento ancestral */}
       <button
         onClick={criarNovaCena}
-        className="ml-1 shrink-0 rounded-[0.35rem] border border-[var(--aq-border)] bg-[rgba(3,8,14,0.6)] p-2 text-[var(--aq-text)] transition-all hover:border-[var(--aq-accent)] hover:bg-[var(--aq-accent-soft)] hover:text-[var(--aq-accent)] hover:shadow-[0_0_12px_var(--aq-accent-soft)]"
+        className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.7rem] border border-[var(--aq-border)] bg-[rgba(10,15,24,0.78)] text-[var(--aq-accent)] transition-colors hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.12)]"
         title="Criar Novo Local"
       >
-        <Plus size={16} strokeWidth={2} />
+        <Plus size={14} />
       </button>
     </div>
   );
