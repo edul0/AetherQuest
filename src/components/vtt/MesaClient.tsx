@@ -10,7 +10,7 @@ import { FichaVTTSnapshot, Handout, SceneViewPreferences, Token } from "@/src/li
 import { DEFAULT_SCENE_VIEW_PREFERENCES, normalizeScenePreferences } from "@/src/lib/vttScenePreferences";
 import { PRESETS } from "@/src/lib/constants";
 import { useHandoutsSync } from "@/src/hooks/useHandoutsSync";
-import { PageLayout, PageShell, Card, CardHeader, CardContent, Button, Input, Badge, Alert, Select, H1, H2, Body, Caption } from "@/src/components/ui";
+import { PageLayout, PageShell, Card, CardHeader, CardContent, Button, Input, Badge, Alert, Select, H1, H2, Body, Caption, StatCard, StatGrid, Separator, FormGroup } from "@/src/components/ui";
 import type { SelectOption } from "@/src/components/ui/Select";
 
 const VTTCanvas = dynamic(() => import("@/src/components/vtt/VTTCanvas"), { ssr: false });
@@ -695,13 +695,49 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
             </div>
           </div>
 
-          {mesaError ? <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">{mesaError}</div> : null}
-          {!hasSession && authReady ? <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(74,217,217,0.08)] px-4 py-3 text-sm text-[var(--aq-text)]">Entre com login para carregar sessoes da mesa.</div> : null}
+          {mesaError ? (
+            <Alert 
+              variant="error" 
+              title="Erro na Mesa" 
+              description={mesaError}
+              className="mt-4"
+            />
+          ) : null}
+          
+          {!hasSession && authReady ? (
+            <Alert 
+              variant="info" 
+              description="Entre com login para carregar sessões da mesa."
+              className="mt-4"
+            />
+          ) : null}
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <button onClick={() => { setRole("mestre"); setJoinedAsPlayer(false); }} className={role === "mestre" ? "aq-button-primary" : "aq-button-secondary"}><Eye size={14} /> Mestre</button>
-            <button onClick={() => setRole("jogador")} className={role === "jogador" ? "aq-button-primary" : "aq-button-secondary"}><Users size={14} /> Jogador</button>
-            {activeMesa ? <button onClick={sair} disabled={signingOut} className="aq-button-secondary ml-auto"><X size={14} />{signingOut ? "Saindo" : "Sair"}</button> : null}
+            <Button 
+              variant={role === "mestre" ? "primary" : "secondary"}
+              onClick={() => { setRole("mestre"); setJoinedAsPlayer(false); }}
+            >
+              <Eye size={14} className="mr-1" /> Mestre
+            </Button>
+            
+            <Button 
+              variant={role === "jogador" ? "primary" : "secondary"}
+              onClick={() => setRole("jogador")}
+            >
+              <Users size={14} className="mr-1" /> Jogador
+            </Button>
+            
+            {activeMesa ? (
+              <Button 
+                variant="danger" 
+                onClick={sair} 
+                disabled={signingOut}
+                className="ml-auto"
+              >
+                <X size={14} className="mr-1" />
+                {signingOut ? "Saindo..." : "Sair"}
+              </Button>
+            ) : null}
           </div>
 
           {role === "mestre" ? (
@@ -754,24 +790,85 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2"><div className="border border-[var(--aq-border)] p-2"><Layers3 className="text-[var(--aq-accent)]" size={14} /><div className="mt-1 text-lg font-black">{cenas.length}</div><div className="text-[8px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">Cenas</div></div><div className="border border-[var(--aq-border)] p-2"><Crosshair className="text-[var(--aq-accent)]" size={14} /><div className="mt-1 text-lg font-black">{tokens.length}</div><div className="text-[8px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">Tokens</div></div><div className="border border-[var(--aq-border)] p-2"><Sparkles className="text-[var(--aq-accent)]" size={14} /><div className="mt-1 text-[10px] font-black">{cenaAtiva?.mapa_url ? "Online" : "Sem mapa"}</div><div className="text-[8px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">Mapa</div></div></div>
+              <StatGrid columns={3}>
+                <StatCard
+                  icon={<Layers3 size={18} />}
+                  label="Cenas"
+                  value={cenas.length}
+                />
+                <StatCard
+                  icon={<Crosshair size={18} />}
+                  label="Tokens"
+                  value={tokens.length}
+                />
+                <StatCard
+                  icon={<Sparkles size={18} />}
+                  label="Mapa"
+                  value={cenaAtiva?.mapa_url ? "Online" : "Sem mapa"}
+                  variant={cenaAtiva?.mapa_url ? "success" : "secondary"}
+                />
+              </StatGrid>
 
-              <div className="border border-[var(--aq-border)] bg-[rgba(5,10,16,0.58)] p-3"><div className="aq-kicker">Controle</div><select value={fichaParaTokenId} onChange={(event) => setFichaParaTokenId(event.target.value)} className="aq-input mt-3"><option value="">Escolha uma ficha</option>{fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}</select><input value={tokenLabel} onChange={(event) => setTokenLabel(event.target.value)} className="aq-input mt-2" placeholder="Nome no mapa" /><button onClick={criarTokenDaFicha} disabled={!fichaParaTokenId || !cenaAtiva} className="aq-button-primary mt-2 w-full justify-center disabled:opacity-50"><Plus size={14} /> Colocar ficha</button></div>
+              <Card>
+                <CardHeader className="border-b border-aq-strong/30">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider">Controle</h3>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-4">
+                  <Select
+                    label="Escolher Ficha"
+                    placeholder="Selecione uma ficha"
+                    options={fichas.map((ficha) => ({
+                      value: ficha.id,
+                      label: `${ficha.nome_personagem} (${ficha.sistema_preset})`,
+                    }))}
+                    value={fichaParaTokenId}
+                    onChange={(v) => setFichaParaTokenId(String(v))}
+                  />
+                  
+                  <Input
+                    label="Nome no Mapa"
+                    placeholder="Nome do token"
+                    value={tokenLabel}
+                    onChange={(e) => setTokenLabel(e.target.value)}
+                  />
+                  
+                  <Button 
+                    onClick={criarTokenDaFicha} 
+                    disabled={!fichaParaTokenId || !cenaAtiva}
+                    className="w-full"
+                  >
+                    <Plus size={14} className="mr-1" /> Colocar Ficha
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           ) : null}
 
           {role === "jogador" ? (
             <div className="mt-6 space-y-4">
-              <div className="border border-cyan-300/20 bg-stone-950/80 p-4">
-                <div className="aq-kicker">Entrada rapida</div>
-                <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Insira as runas de convite da mesa do mestre.</p>
-                <div className="mt-4 flex items-center gap-2 border border-cyan-300/20 bg-slate-950/80 px-4 py-3">
-                  <KeyRound size={16} className="text-[var(--aq-accent)]" />
-                  <input value={joinCode} onChange={(event) => setJoinCode(event.target.value.toUpperCase())} placeholder="Inserir runas de convite" className="w-full bg-transparent font-mono text-sm uppercase tracking-[0.18em] text-cyan-200 outline-none" />
-                </div>
-                <button onClick={entrarComoJogador} className="aq-button-primary mt-4 w-full justify-center"><Users size={14} /> Entrar</button>
-                {joinError ? <div className="mt-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{joinError}</div> : null}
-              </div>
+              <Card>
+                <CardHeader>
+                  <h3 className="text-sm font-semibold uppercase tracking-wider">Entrada Rápida</h3>
+                  <p className="text-xs text-aq-text-muted mt-1">Insira as runas de convite da mesa do mestre</p>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-4">
+                  <Input
+                    label="Código de Convite"
+                    placeholder="Ex: ABCD1234"
+                    icon={<KeyRound size={18} />}
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  />
+                  
+                  <Button onClick={entrarComoJogador} className="w-full">
+                    <Users size={14} className="mr-1" /> Entrar
+                  </Button>
+                  
+                  {joinError && (
+                    <Alert variant="error" description={joinError} />
+                  )}
+                </CardContent>
+              </Card>
               {recentSessions.length ? (
                 <div className="border border-white/10 bg-slate-950/70 p-4">
                   <div className="aq-kicker">Sessoes recentes</div>
@@ -789,19 +886,50 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
                 </div>
               ) : null}
               {joinedAsPlayer ? (
-                <div className="rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.62)] p-4">
-                  <div className="aq-kicker">Sua ficha</div>
-                  <p className="mt-2 text-sm text-[var(--aq-text-muted)]">Jogador escolhe apenas a propria ficha. Se ainda nao tiver uma, crie aqui e edite depois.</p>
-                  <select value={fichaEscolhidaId} onChange={(event) => setFichaEscolhidaId(event.target.value)} className="aq-input mt-3">
-                    <option value="">{fichas.length ? "Selecione uma ficha" : "Nenhuma ficha encontrada"}</option>
-                    {fichas.map((ficha) => <option key={ficha.id} value={ficha.id}>{ficha.nome_personagem} | {ficha.sistema_preset}</option>)}
-                  </select>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    <button onClick={vincularFichaComoJogador} disabled={!fichaEscolhidaId} className="aq-button-primary">Entrar com ficha</button>
-                    <button onClick={criarFichaJogadorRapida} className="aq-button-secondary"><Plus size={14} /> Criar ficha</button>
-                    {fichaEscolhidaId ? <button onClick={() => router.push(fichaHref(fichaEscolhidaId))} className="aq-button-secondary">Abrir ficha</button> : null}
-                  </div>
-                </div>
+                <Card>
+                  <CardHeader>
+                    <h3 className="text-sm font-semibold uppercase tracking-wider">Sua Ficha</h3>
+                    <p className="text-xs text-aq-text-muted mt-1">Escolha o personagem que vai jogar</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-4">
+                    <Select
+                      label="Personagem"
+                      placeholder={fichas.length ? "Selecione sua ficha" : "Nenhuma ficha encontrada"}
+                      options={fichas.map((ficha) => ({
+                        value: ficha.id,
+                        label: `${ficha.nome_personagem} (${ficha.sistema_preset})`,
+                      }))}
+                      value={fichaEscolhidaId}
+                      onChange={(v) => setFichaEscolhidaId(String(v))}
+                    />
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        variant="primary"
+                        onClick={vincularFichaComoJogador} 
+                        disabled={!fichaEscolhidaId}
+                      >
+                        Entrar com Ficha
+                      </Button>
+                      
+                      <Button 
+                        variant="secondary"
+                        onClick={criarFichaJogadorRapida}
+                      >
+                        <Plus size={14} className="mr-1" /> Criar Ficha
+                      </Button>
+                      
+                      {fichaEscolhidaId && (
+                        <Button 
+                          variant="secondary"
+                          onClick={() => router.push(fichaHref(fichaEscolhidaId))}
+                        >
+                          Abrir Ficha
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               ) : null}
             </div>
           ) : null}
