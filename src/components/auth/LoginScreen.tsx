@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, KeyRound, Mail, Shield, Sparkles } from "lucide-react";
 import { supabase } from "@/src/lib/supabase";
+import { PageLayout, PageShell, Card, CardContent, Button, Input, Alert, H1, Body } from "@/src/components/ui";
 
 type AuthMode = "signin" | "signup" | "recovery";
 
@@ -364,128 +365,168 @@ export default function LoginScreen({ nextPath = DEFAULT_AFTER_LOGIN_PATH, recov
   };
 
   return (
-    <main className="aq-page flex min-h-screen flex-col items-center justify-center px-6 py-10">
-      <div className="aq-orb aq-orb-cyan" />
-      <div className="aq-orb aq-orb-indigo" />
+    <PageLayout>
+      <PageShell>
+        <div className="min-h-screen flex items-center justify-center py-12 px-4">
+          <Card glass className="w-full max-w-md">
+            <CardContent className="p-8">
+              {/* Header */}
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 rounded-full border border-aq-strong bg-aq-accent-soft">
+                  <Shield size={16} className="text-aq-accent" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-aq-accent">
+                    {hasActiveSession ? "Sessão Validada" : "Acesso Protegido"}
+                  </span>
+                </div>
 
-      <div className="aq-panel relative z-10 flex w-full max-w-2xl flex-col px-8 py-10 text-center md:px-14 md:py-14">
-        <div className="mb-8 flex items-center justify-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.08)] px-4 py-2">
-          <Shield size={10} className="text-[var(--aq-accent)]" />
-          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[var(--aq-accent)]">
-            {hasActiveSession ? "Sessao Validada" : "Acesso Protegido"}
-          </span>
+                <H1 className="text-3xl mb-2">
+                  {mode === "recovery" ? "Nova Senha" : "AetherQuest"}
+                </H1>
+                <Body className="text-aq-text-muted">
+                  {mode === "recovery"
+                    ? "Defina sua nova senha"
+                    : mode === "signin"
+                    ? "Bem-vindo de volta"
+                    : "Crie sua conta"}
+                </Body>
+              </div>
+
+              {/* Alerts */}
+              {feedback && (
+                <Alert
+                  variant={
+                    feedback.includes("erro") || feedback.includes("invalido")
+                      ? "error"
+                      : feedback.includes("sucesso") || feedback.includes("realizado")
+                      ? "success"
+                      : "info"
+                  }
+                  title={
+                    feedback.includes("erro") || feedback.includes("invalido")
+                      ? "Erro"
+                      : "Info"
+                  }
+                  description={feedback}
+                  className="mb-6"
+                  onClose={() => setFeedback("")}
+                />
+              )}
+
+              {/* Mode Toggle */}
+              {mode !== "recovery" && (
+                <div className="flex gap-2 mb-6">
+                  <Button
+                    variant={mode === "signin" ? "primary" : "secondary"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setMode("signin")}
+                  >
+                    Entrar
+                  </Button>
+                  <Button
+                    variant={mode === "signup" ? "primary" : "secondary"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setMode("signup")}
+                  >
+                    Criar
+                  </Button>
+                </div>
+              )}
+
+              {/* Form Fields */}
+              <div className="space-y-4 mb-6">
+                {mode !== "recovery" && (
+                  <Input
+                    label="Email"
+                    type="email"
+                    icon={<Mail size={18} />}
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={sending}
+                  />
+                )}
+
+                <Input
+                  label={mode === "recovery" ? "Nova Senha" : "Senha"}
+                  type="password"
+                  icon={<KeyRound size={18} />}
+                  placeholder={mode === "signin" ? "Sua senha" : "Crie uma senha"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={sending}
+                />
+
+                {mode !== "signin" && (
+                  <Input
+                    label="Confirmar Senha"
+                    type="password"
+                    icon={<KeyRound size={18} />}
+                    placeholder="Confirme a senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={sending}
+                  />
+                )}
+              </div>
+
+              {/* Primary Action */}
+              <Button
+                variant="primary"
+                size="lg"
+                className="w-full"
+                loading={sending}
+                onClick={mode === "signin" ? signInWithPassword : mode === "signup" ? signUpWithPassword : redefinirSenha}
+              >
+                {sending
+                  ? "Processando..."
+                  : mode === "signin"
+                  ? "Entrar"
+                  : mode === "signup"
+                  ? "Criar Conta"
+                  : "Salvar Senha"}
+              </Button>
+
+              {/* Secondary Actions */}
+              {mode === "signin" && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="w-full mt-3"
+                    onClick={recuperarSenha}
+                    disabled={sending}
+                  >
+                    Esqueci a Senha
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="w-full mt-2"
+                    onClick={enviarLinkMagico}
+                    disabled={sending}
+                  >
+                    Usar Link Mágico
+                  </Button>
+                </>
+              )}
+
+              {mode === "recovery" && (
+                <Button
+                  variant="secondary"
+                  size="md"
+                  className="w-full mt-3"
+                  onClick={() => setMode("signin")}
+                  disabled={sending}
+                >
+                  Voltar ao Login
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
-
-        <h1 className="text-5xl font-black leading-none text-[var(--aq-title)] md:text-7xl" style={{ fontFamily: "var(--font-cinzel)" }}>
-          {mode === "recovery" ? "NOVA" : "ENTRAR"}
-          <br />
-          <span className="text-[var(--aq-accent)]">{mode === "recovery" ? "SENHA" : "AETHERQUEST"}</span>
-        </h1>
-
-        <div className="my-6 h-px w-24 self-center bg-[linear-gradient(90deg,transparent,#4ad9d9,transparent)]" />
-
-        <p className="mx-auto max-w-xl text-sm leading-relaxed text-[var(--aq-text)] md:text-base">
-          {mode === "recovery"
-            ? "O link de recuperacao foi aceito. Defina sua nova senha para voltar para a mesa."
-            : "Entre com email e senha. Se a sessao antiga expirar, limpamos ela antes de redirecionar."}
-        </p>
-
-        {mode !== "recovery" ? (
-          <div className="mt-8 flex justify-center gap-3">
-            <button onClick={() => setMode("signin")} className={mode === "signin" ? "aq-button-primary" : "aq-button-secondary"}>
-              Entrar
-            </button>
-            <button onClick={() => setMode("signup")} className={mode === "signup" ? "aq-button-primary" : "aq-button-secondary"}>
-              Criar Conta
-            </button>
-          </div>
-        ) : null}
-
-        <div className="mt-8 rounded-3xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.76)] p-5 text-left">
-          <div className="aq-kicker">{mode === "recovery" ? "Redefinir Senha" : "Credenciais"}</div>
-
-          {mode !== "recovery" ? (
-            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
-              <Mail size={16} className="text-[var(--aq-accent)]" />
-              <input
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="voce@email.com"
-                className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
-              />
-            </div>
-          ) : null}
-
-          <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
-            <KeyRound size={16} className="text-[var(--aq-accent)]" />
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder={mode === "signin" ? "Sua senha" : mode === "signup" ? "Crie uma senha" : "Nova senha"}
-              className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
-            />
-          </div>
-
-          {mode !== "signin" ? (
-            <div className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3">
-              <KeyRound size={16} className="text-[var(--aq-accent)]" />
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder={mode === "recovery" ? "Confirme a nova senha" : "Confirme a senha"}
-                className="w-full bg-transparent text-sm text-[var(--aq-title)] outline-none placeholder:text-[var(--aq-text-subtle)]"
-              />
-            </div>
-          ) : null}
-
-          <button
-            onClick={mode === "signin" ? signInWithPassword : mode === "signup" ? signUpWithPassword : redefinirSenha}
-            disabled={sending}
-            className="aq-button-primary mt-5 w-full justify-center disabled:opacity-60"
-          >
-            {sending ? "Processando..." : mode === "signin" ? "Entrar com Senha" : mode === "signup" ? "Criar Conta" : "Salvar Nova Senha"}
-            <ChevronRight size={16} />
-          </button>
-
-          {mode === "signin" ? (
-            <button onClick={recuperarSenha} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
-              Esqueci a Senha
-            </button>
-          ) : null}
-
-          {mode === "signin" ? (
-            <button onClick={enviarLinkMagico} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
-              Usar Link Magico
-            </button>
-          ) : null}
-
-          {mode === "recovery" ? (
-            <button onClick={() => setMode("signin")} disabled={sending} className="aq-button-secondary mt-3 w-full justify-center disabled:opacity-60">
-              Voltar ao Login
-            </button>
-          ) : null}
-
-          {feedback ? (
-            <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-4 py-3 text-sm text-[var(--aq-text)]">
-              {feedback}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="mt-8 flex flex-wrap justify-center gap-3">
-          {(mode === "recovery"
-            ? ["Senha redefinida na propria tela", "Sem voltar para localhost", "Fluxo pronto para celular"]
-            : ["Entrada por senha mais pratica", "Sessao validada antes do redirect", "Magic link fica opcional"]
-          ).map((label) => (
-            <div key={label} className="flex items-center gap-2 rounded-xl border border-[var(--aq-border)] bg-[rgba(10,15,24,0.84)] px-3 py-2">
-              <Sparkles size={11} className="text-[var(--aq-accent)]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--aq-text)]">{label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </main>
+      </PageShell>
+    </PageLayout>
   );
 }
