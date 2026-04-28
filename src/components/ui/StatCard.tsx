@@ -17,11 +17,11 @@ export interface StatCardProps {
 }
 
 const variantClasses = {
-  primary: "border-aq-accent/30 bg-aq-accent/5 hover:bg-aq-accent/10",
-  secondary: "border-aq-strong/30 bg-aq-bg-secondary/50 hover:bg-aq-strong/10",
-  success: "border-aq-success/30 bg-aq-success/5 hover:bg-aq-success/10",
-  danger: "border-aq-danger/30 bg-aq-danger/5 hover:bg-aq-danger/10",
-};
+  primary: "border-[rgba(142,218,230,0.24)] bg-[rgba(142,218,230,0.08)] hover:bg-[rgba(142,218,230,0.12)]",
+  secondary: "border-[rgba(143,168,181,0.18)] bg-[rgba(234,244,246,0.05)] hover:bg-[rgba(234,244,246,0.08)]",
+  success: "border-[rgba(111,175,138,0.22)] bg-[rgba(111,175,138,0.09)] hover:bg-[rgba(111,175,138,0.13)]",
+  danger: "border-[rgba(180,86,86,0.22)] bg-[rgba(180,86,86,0.09)] hover:bg-[rgba(180,86,86,0.13)]",
+} as const;
 
 export function StatCard({
   icon,
@@ -39,59 +39,31 @@ export function StatCard({
     <button
       onClick={onClick}
       disabled={!isClickable}
-      className={`
-        group w-full rounded-lg border p-4 text-left
-        transition-all duration-200
-        ${variantClasses[variant]}
-        ${isClickable ? "cursor-pointer hover:shadow-lg hover:-translate-y-0.5" : "cursor-default"}
-        ${className}
-      `}
+      className={`group w-full rounded-aq border p-4 text-left shadow-aq-soft transition-all duration-200 ease-aq-smooth ${variantClasses[variant]} ${
+        isClickable ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-lg" : "cursor-default"
+      } ${className}`}
     >
-      {/* Header with icon and label */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-aq-text-muted">
-            {label}
-          </h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-aq-text-muted">{label}</h3>
         </div>
-        {icon && (
-          <div className="flex-shrink-0 text-aq-accent opacity-70 group-hover:opacity-100 transition-opacity">
-            {icon}
-          </div>
-        )}
+        {icon ? <div className="flex-shrink-0 text-aq-accent opacity-70 transition-opacity group-hover:opacity-100">{icon}</div> : null}
       </div>
 
-      {/* Value */}
       <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-aq-text">
-          {value}
-        </span>
-        {trend && (
-          <span
-            className={`text-xs font-semibold ${
-              trend.direction === "up"
-                ? "text-aq-success"
-                : "text-aq-danger"
-            }`}
-          >
-            {trend.direction === "up" ? "↑" : "↓"} {trend.value}
+        <span className="text-2xl font-bold text-aq-text">{value}</span>
+        {trend ? (
+          <span className={`text-xs font-semibold ${trend.direction === "up" ? "text-aq-success" : "text-aq-danger"}`}>
+            {trend.direction === "up" ? "+" : "-"} {trend.value}
           </span>
-        )}
+        ) : null}
       </div>
 
-      {/* Description */}
-      {description && (
-        <p className="mt-2 text-xs text-aq-text-muted leading-relaxed">
-          {description}
-        </p>
-      )}
+      {description ? <p className="mt-2 text-xs leading-relaxed text-aq-text-muted">{description}</p> : null}
     </button>
   );
 }
 
-/**
- * Grid container for stat cards
- */
 export function StatGrid({
   children,
   columns = 3,
@@ -104,11 +76,7 @@ export function StatGrid({
     2: "grid-cols-1 md:grid-cols-2",
     3: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
     4: "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
-  };
+  } as const;
 
-  return (
-    <div className={`grid gap-4 ${colsMap[columns]}`}>
-      {children}
-    </div>
-  );
+  return <div className={`grid gap-4 ${colsMap[columns]}`}>{children}</div>;
 }
