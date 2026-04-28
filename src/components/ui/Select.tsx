@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { forwardRef, ReactNode, useCallback, useRef, useState } from "react";
+import { forwardRef, ReactNode, useCallback, useEffect, useRef, useState } from "react";
 
 export interface SelectOption {
   value: string | number;
@@ -27,7 +27,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
   (
     {
       label,
-      placeholder = "Selecione uma opção",
+      placeholder = "Selecione uma opcao",
       options,
       value,
       onChange,
@@ -58,105 +58,72 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
       }
     }, []);
 
-    // Add/remove click outside listener
-    if (typeof window !== "undefined") {
-      const handler = handleClickOutside;
-      if (isOpen) {
-        document.addEventListener("mousedown", handler);
-        return () => document.removeEventListener("mousedown", handler);
-      }
-    }
+    useEffect(() => {
+      if (!isOpen) return;
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [handleClickOutside, isOpen]);
 
     const sizeClasses = {
-      sm: "py-1.5 px-3 text-sm",
-      md: "py-2 px-3 text-base",
-      lg: "py-3 px-4 text-lg",
-    };
+      sm: "min-h-[2.25rem] px-3 py-1.5 text-sm",
+      md: "min-h-[2.85rem] px-3.5 py-2 text-sm",
+      lg: "min-h-[3.15rem] px-4 py-3 text-base",
+    } as const;
 
     const buttonBase =
       variant === "primary"
-        ? "aq-input-base border border-aq-strong bg-aq-bg hover:border-aq-accent"
-        : "border border-aq-strong bg-aq-bg-secondary hover:bg-aq-bg hover:border-aq-accent";
+        ? "border border-aq bg-aq-surface-glass shadow-aq-soft backdrop-blur-aq hover:border-aq-strong hover:bg-aq-surface-soft"
+        : "border border-aq bg-aq-panel shadow-aq-soft hover:border-aq-strong hover:bg-aq-surface-soft";
 
     return (
       <div ref={ref} className="w-full">
-        {label && (
-          <label className="block text-sm font-medium text-aq-text mb-2">
-            {label}
-          </label>
-        )}
+        {label ? <label className="mb-2 block text-sm font-medium text-aq-title">{label}</label> : null}
 
         <div ref={containerRef} className="relative">
-          {/* Button */}
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
             disabled={disabled}
-            className={`w-full flex items-center justify-between gap-2 rounded-lg transition-all ${sizeClasses[size]} ${buttonBase} ${
-              disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
-            } ${isOpen ? "border-aq-accent" : ""}`}
+            className={`flex w-full items-center justify-between gap-2 rounded-lg transition-all ${sizeClasses[size]} ${buttonBase} ${
+              disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+            } ${isOpen ? "border-aq-strong bg-aq-surface" : ""}`}
           >
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              {icon && <div className="flex-shrink-0 text-aq-accent">{icon}</div>}
-              <span
-                className={`truncate ${
-                  selectedOption
-                    ? "text-aq-text font-medium"
-                    : "text-aq-text-muted italic"
-                }`}
-              >
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              {icon ? <div className="flex-shrink-0 text-aq-accent">{icon}</div> : null}
+              <span className={`truncate ${selectedOption ? "font-medium text-aq-title" : "italic text-aq-text-muted"}`}>
                 {selectedOption?.label || placeholder}
               </span>
             </div>
-            <ChevronDown
-              size={18}
-              className={`flex-shrink-0 transition-transform ${
-                isOpen ? "rotate-180" : ""
-              }`}
-            />
+            <ChevronDown size={18} className={`flex-shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
           </button>
 
-          {/* Dropdown Menu */}
-          {isOpen && (
-            <div className="absolute z-50 top-full mt-1 w-full bg-aq-bg border border-aq-strong rounded-lg shadow-lg overflow-hidden">
-              <div className="max-h-64 overflow-y-auto">
+          {isOpen ? (
+            <div className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-aq border border-aq bg-aq-panel shadow-aq-float backdrop-blur-aq">
+              <div className="aq-scrollbar max-h-64 overflow-y-auto p-1.5">
                 {options.length === 0 ? (
-                  <div className="py-3 px-4 text-sm text-aq-text-muted italic text-center">
-                    Nenhuma opção disponível
-                  </div>
+                  <div className="px-4 py-3 text-center text-sm italic text-aq-text-muted">Nenhuma opcao disponivel</div>
                 ) : (
                   options.map((option) => (
                     <button
+                      type="button"
                       key={option.value}
-                      onClick={() =>
-                        !option.disabled && handleSelect(option.value)
-                      }
+                      onClick={() => !option.disabled && handleSelect(option.value)}
                       disabled={option.disabled}
-                      className={`w-full text-left px-4 py-2.5 flex items-center gap-2 transition-colors ${
-                        option.disabled
-                          ? "opacity-50 cursor-not-allowed"
-                          : "hover:bg-aq-accent-soft cursor-pointer"
-                      } ${
-                        value === option.value
-                          ? "bg-aq-accent text-aq-bg font-medium"
-                          : "text-aq-text"
-                      }`}
+                      className={`flex w-full items-center gap-2 rounded-[12px] px-4 py-2.5 text-left transition-colors ${
+                        option.disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-[rgba(142,218,230,0.12)]"
+                      } ${value === option.value ? "bg-[rgba(142,218,230,0.16)] font-medium text-aq-title" : "text-aq-text"}`}
                     >
-                      {option.icon && (
-                        <div className="flex-shrink-0">{option.icon}</div>
-                      )}
+                      {option.icon ? <div className="flex-shrink-0">{option.icon}</div> : null}
                       <span className="truncate">{option.label}</span>
                     </button>
                   ))
                 )}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <p className="mt-1 text-sm text-aq-danger">{error}</p>
-        )}
+        {error ? <p className="mt-1 text-sm text-aq-danger">{error}</p> : null}
       </div>
     );
   },
