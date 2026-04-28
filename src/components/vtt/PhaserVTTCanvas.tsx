@@ -6,15 +6,14 @@ import { supabase } from "@/src/lib/supabase";
 import { FichaVTTSnapshot, SceneViewPreferences, Token } from "@/src/lib/types";
 import { useTokenFichaSync } from "@/src/lib/hooks/useTokenFichaSync";
 
-// 1. PALETA SINCRONIZADA COM O TEMA ANCESTRAL (globals.css)
 const COLORS = {
-  bg: "#030a14",         // --aq-bg
-  grid: "#4ad9d9",       // --aq-accent (Cyan Sheikah)
-  tokenLabel: "#e2e8f0", // --aq-title
-  hpHigh: "#22c55e",     // --aq-success
+  bg: "#050a10",
+  grid: "#4ad9d9",
+  tokenLabel: "#f0ebd8",
+  hpHigh: "#22c55e",
   hpMid: "#f59e0b",
-  hpLow: "#ef4444",      // --aq-danger
-  hpBarBg: "#0a121e",    // --aq-surface
+  hpLow: "#ef4444",
+  hpBarBg: "#0a0f18",
   placeholderText: "#6b7b94",
 };
 
@@ -111,7 +110,7 @@ function createPhaserScene(
       selectedTokenId: null,
       preferences: {
         gridSize: 50,
-        gridOpacity: 0.12, // Glow sutil da grade
+        gridOpacity: 0.12,
         showGrid: true,
         mapScale: 1,
         mapOffsetX: 0,
@@ -431,9 +430,8 @@ function createPhaserScene(
       container.setPosition(token.x, token.y);
       container.removeAll(true);
 
-      // Aro do Token Selecionado: Cyan Glow
       if (selected) {
-        container.add(this.add.circle(size / 2, size / 2, radius + 8, 0x4ad9d9, 0.2).setStrokeStyle(2, 0x4ad9d9, 0.9));
+        container.add(this.add.circle(size / 2, size / 2, radius + 8, 0x4ad9d9, 0.14).setStrokeStyle(2, 0x4ad9d9, 0.9));
       }
 
       container.add(this.add.circle(size / 2, size / 2, radius, Phaser.Display.Color.HexStringToColor(token.cor || "#ef4444").color, 0.95));
@@ -481,17 +479,14 @@ function createPhaserScene(
       const distance = Math.hypot(end.x - start.x, end.y - start.y);
       const cells = distance / this.state.preferences.gridSize;
       const label = `${cells.toFixed(1)} qd - ${(cells * 1.5).toFixed(1)} m`;
-      
-      // Linha de Medição em Cyan Ancestral
-      const line = this.add.line(0, 0, start.x, start.y, end.x, end.y, 0x4ad9d9, 1).setOrigin(0, 0).setLineWidth(3 / camera.zoom);
+      const line = this.add.line(0, 0, start.x, start.y, end.x, end.y, 0xf59e0b, 1).setOrigin(0, 0).setLineWidth(3 / camera.zoom);
       const text = this.add.text((start.x + end.x) / 2, (start.y + end.y) / 2 - 24 / camera.zoom, label, {
-        color: "#030a14",
+        color: "#f8fafc",
         fontFamily: "monospace",
         fontSize: `${12 / camera.zoom}px`,
-        backgroundColor: "#4ad9d9",
+        backgroundColor: "rgba(5,10,16,0.85)",
         padding: { x: 6, y: 4 },
       }).setOrigin(0.5);
-      
       this.measurementLayer.add([line, text]);
     }
   };
@@ -666,7 +661,7 @@ export default function PhaserVTTCanvas({
         setTokens((data ?? []) as Token[]);
       } catch (error: any) {
         console.error("[PhaserVTTCanvas] erro ao carregar tokens:", error?.message ?? error);
-        setCanvasError("Memoria ancestral corrompida. Nao foi possivel carregar os tokens desta cena.");
+        setCanvasError("Nao foi possivel carregar os tokens desta cena.");
       }
     };
 
@@ -704,7 +699,7 @@ export default function PhaserVTTCanvas({
     if (scenePreferences.toolMode === "pan") return "Arraste a camera";
     if (scenePreferences.toolMode === "measure") return "Toque para medir";
     if (scenePreferences.toolMode === "map") return "Arraste apenas o mapa";
-    return "Arraste tokens. Dois dedos movem a camera.";
+    return "Arraste tokens. Dois dedos movem/zoomam a camera.";
   }, [scenePreferences.toolMode]);
 
   return (
@@ -729,61 +724,57 @@ export default function PhaserVTTCanvas({
       <div ref={parentRef} className="absolute inset-0 z-10 h-full w-full touch-none" />
 
       {canvasError ? (
-        <div className="pointer-events-none fixed left-1/2 top-1/2 z-40 max-w-[80vw] -translate-x-1/2 -translate-y-1/2 aq-panel px-6 py-4 text-center text-sm text-[var(--aq-danger)] border border-[var(--aq-danger)] backdrop-blur-xl">
+        <div className="pointer-events-none fixed left-1/2 top-1/2 z-40 max-w-[80vw] -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-center text-sm text-red-100 backdrop-blur-xl">
           {canvasError}
         </div>
       ) : null}
 
-      {/* HUD DE CÂMERA DO VTT (Refatorado para Ancient Tech) */}
       <div className="pointer-events-none fixed left-1/2 top-[82px] z-50 flex w-[calc(100vw-0.75rem)] max-w-[560px] -translate-x-1/2 flex-col gap-2 md:top-[18px] md:w-auto md:min-w-[500px]">
-        
-        <div className="pointer-events-auto aq-panel flex items-center justify-between gap-4 px-4 py-2 backdrop-blur-md">
-          <div className="flex items-center gap-2">
+        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-[26px] border border-[var(--aq-border)] bg-[rgba(5,10,16,0.86)] px-3 py-2.5 shadow-[0_14px_34px_rgba(0,0,0,0.3)] backdrop-blur-xl md:rounded-full md:px-4 md:py-2">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => sceneApiRef.current?.zoomBy(1.12)}
-              className="aq-button-secondary aq-button-compact"
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
               title="Aproximar"
             >
-              <Plus size={16} />
+              <Plus size={18} />
             </button>
             <button
               onClick={() => sceneApiRef.current?.zoomBy(0.88)}
-              className="aq-button-secondary aq-button-compact"
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
               title="Afastar"
             >
-              <Minus size={16} />
+              <Minus size={18} />
             </button>
             <button
               onClick={() => sceneApiRef.current?.resetCamera()}
-              className="aq-button-secondary aq-button-compact"
+              className="rounded-full border border-[var(--aq-border)] bg-[rgba(10,15,24,0.9)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:p-2.5"
               title="Recentralizar mapa"
             >
-              <RotateCcw size={16} />
+              <RotateCcw size={18} />
             </button>
           </div>
 
-          <div className="min-w-0 text-right flex flex-col items-end">
-            <div className="aq-kicker !mb-0">
+          <div className="min-w-0 text-right">
+            <div className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] md:text-xs">
               {`Zoom ${Math.round(camera.zoom * 100)}%`}
             </div>
-            <div className="text-[10px] uppercase tracking-widest text-[var(--aq-text-muted)] md:truncate mt-1">
+            <div className="mt-1 line-clamp-2 text-right text-[9px] uppercase leading-relaxed tracking-[0.14em] text-[var(--aq-text-muted)] md:truncate md:text-[10px]">
               {hudInstruction}
             </div>
           </div>
         </div>
 
         {scenePreferences.toolMode === "measure" ? (
-          <div className="flex justify-center mt-2">
-            <button
-              className="pointer-events-auto aq-button-primary bg-transparent border border-[var(--aq-accent)] text-[var(--aq-accent)] text-xs shadow-none backdrop-blur-md"
-              onClick={() => sceneApiRef.current?.setTool("measure")}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <span>Medição Ativa</span>
-                <X size={14} />
-              </div>
-            </button>
-          </div>
+          <button
+            className="pointer-events-auto rounded-2xl border border-[rgba(245,158,11,0.35)] bg-[rgba(15,10,2,0.9)] px-4 py-3 text-[10px] uppercase tracking-[0.14em] text-amber-200 backdrop-blur-md md:text-xs md:tracking-[0.16em]"
+            onClick={() => sceneApiRef.current?.setTool("measure")}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <span>Medicao Phaser ativa</span>
+              <X size={14} />
+            </div>
+          </button>
         ) : null}
       </div>
     </div>
