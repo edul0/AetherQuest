@@ -10,6 +10,8 @@ import { FichaVTTSnapshot, Handout, SceneViewPreferences, Token } from "@/src/li
 import { DEFAULT_SCENE_VIEW_PREFERENCES, normalizeScenePreferences } from "@/src/lib/vttScenePreferences";
 import { PRESETS } from "@/src/lib/constants";
 import { useHandoutsSync } from "@/src/hooks/useHandoutsSync";
+import { PageLayout, PageShell, Card, CardHeader, CardContent, Button, Input, Badge, Alert, Select, H1, H2, Body, Caption } from "@/src/components/ui";
+import type { SelectOption } from "@/src/components/ui/Select";
 
 const VTTCanvas = dynamic(() => import("@/src/components/vtt/VTTCanvas"), { ssr: false });
 const SceneNav = dynamic(() => import("@/src/components/vtt/SceneNav"), { ssr: false });
@@ -647,7 +649,17 @@ export default function MesaClient({ inviteCode }: MesaClientProps) {
   };
 
   if (loading) {
-    return <main className="aq-page flex items-center justify-center"><div className="animate-pulse font-mono text-xs uppercase tracking-[0.35em] text-[var(--aq-accent)]">Inicializando mesa...</div></main>;
+    return (
+      <PageLayout>
+        <PageShell>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="animate-pulse font-mono text-xs uppercase tracking-[0.35em] text-aq-accent">
+              Inicializando mesa...
+            </div>
+          </div>
+        </PageShell>
+      </PageLayout>
+    );
   }
 
   return (
