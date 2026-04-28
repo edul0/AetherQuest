@@ -7,12 +7,12 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Cloud,
   Crosshair,
   Dice5,
   Grid2x2,
   Hand,
   ImageMinus,
-  Layers3,
   Map as MapIcon,
   MousePointer2,
   Move,
@@ -20,7 +20,6 @@ import {
   RefreshCcw,
   Ruler,
   SlidersHorizontal,
-  Text,
   Users,
   X,
 } from "lucide-react";
@@ -33,7 +32,6 @@ type VTTControlsProps = {
   salaId?: string | null;
   preferences: SceneViewPreferences;
   onPreferencesChange: (patch: Partial<SceneViewPreferences>) => void;
-  onMapUrlChange?: (url: string | null) => void;
 };
 
 const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePointer2 }> = [
@@ -41,30 +39,15 @@ const TOOL_OPTIONS: Array<{ id: VTTToolMode; label: string; icon: typeof MousePo
   { id: "pan", label: "Pan", icon: Hand },
   { id: "measure", label: "Medir", icon: Ruler },
   { id: "map", label: "Mover mapa", icon: Move },
+  { id: "fog", label: "Névoa", icon: Cloud },
 ];
 
-function previewUrl(file: File | null) {
-  return file ? URL.createObjectURL(file) : null;
-}
-
-function hasMissingTable(error: unknown, tableName: string) {
-  const message = String((error as { message?: string } | null)?.message ?? "").toLowerCase();
-  return message.includes(`public.${tableName}`.toLowerCase()) || message.includes(`relation "public.${tableName}"`.toLowerCase());
-}
-
-export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange, onMapUrlChange }: VTTControlsProps) {
+export default function VTTControls({ cenaId, salaId, preferences, onPreferencesChange }: VTTControlsProps) {
   const [panelOpen, setPanelOpen] = useState(false);
-  const [handoutTitle, setHandoutTitle] = useState("");
-  const [handoutText, setHandoutText] = useState("");
-  const [handoutFront, setHandoutFront] = useState<File | null>(null);
-  const [handoutBack, setHandoutBack] = useState<File | null>(null);
-  const [savingHandout, setSavingHandout] = useState(false);
   const runtimeGrid = useVTTStore(selectVTTGrid);
   const runtimeToolMode = useVTTStore(selectVTTToolMode);
   const setGrid = useVTTStore((state) => state.setGrid);
   const setToolMode = useVTTStore((state) => state.setToolMode);
-  const handoutFrontPreview = handoutFront ? previewUrl(handoutFront) : null;
-  const handoutBackPreview = handoutBack ? previewUrl(handoutBack) : null;
 
   const mergedPreferences: SceneViewPreferences = {
     ...preferences,
@@ -82,13 +65,6 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     setToolMode(preferences.toolMode);
   }, [preferences.gridOpacity, preferences.gridSize, preferences.showGrid, preferences.snapToGrid, preferences.toolMode, setGrid, setToolMode]);
 
-  useEffect(() => {
-    return () => {
-      if (handoutFrontPreview) URL.revokeObjectURL(handoutFrontPreview);
-      if (handoutBackPreview) URL.revokeObjectURL(handoutBackPreview);
-    };
-  }, [handoutBackPreview, handoutFrontPreview]);
-
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !cenaId) {
@@ -97,7 +73,7 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
 
     const extension = file.name.split(".").pop() || "png";
     const path = `mapas/${cenaId}-${Date.now()}.${extension}`;
-    const { error } = await supabase.storage.from("mapas").upload(path, file);
+    const { error } = await supabase.storage.from("mapas").upload(path, file, { upsert: true });
     if (error) {
       alert(`Falha no upload do mapa: ${error.message}`);
       return;
@@ -110,7 +86,6 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       return;
     }
 
-    onMapUrlChange?.(data.publicUrl);
     setToolMode("map");
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "map" });
     setPanelOpen(false);
@@ -123,7 +98,6 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
       return;
     }
 
-    onMapUrlChange?.(null);
     setToolMode("select");
     onPreferencesChange({ mapScale: 1, mapOffsetX: 0, mapOffsetY: 0, toolMode: "select" });
     setPanelOpen(false);
@@ -155,116 +129,6 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     setPanelOpen(false);
   };
 
-  const uploadAsset = async (file: File, prefix: string) => {
-    const extension = file.name.split(".").pop() || "png";
-    const path = `${prefix}/${cenaId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${extension}`;
-    const { error } = await supabase.storage.from("mapas").upload(path, file);
-    if (error) throw error;
-    const { data } = supabase.storage.from("mapas").getPublicUrl(path);
-    return data.publicUrl;
-  };
-
-  const addMapItem = async () => {
-    if (!cenaId || !salaId) {
-      return;
-    }
-
-    const { error } = await supabase.from("map_items").insert([
-      {
-        cena_id: cenaId,
-        sala_id: salaId,
-        nome: "Prop",
-        tipo: "prop",
-        x: 0,
-        y: 0,
-        width: 88,
-        height: 88,
-        z_index: -10,
-        visible_to_players: true,
-      },
-    ]);
-
-    if (error) {
-      if (hasMissingTable(error, "map_items")) {
-        alert("A tabela map_items ainda nao existe no Supabase. Rode o SQL de reparo VTT Director Tools antes de criar props da cena.");
-        return;
-      }
-      alert(`Falha ao criar item da cena: ${error.message}`);
-      return;
-    }
-
-    setPanelOpen(false);
-  };
-
-  const createHandout = async () => {
-    if (!salaId || !handoutTitle.trim()) {
-      alert("Defina pelo menos um titulo para o item.");
-      return;
-    }
-
-    try {
-      setSavingHandout(true);
-      const imageUrl = handoutFront ? await uploadAsset(handoutFront, "handouts/front") : null;
-      const imageBackUrl = handoutBack ? await uploadAsset(handoutBack, "handouts/back") : null;
-      const { data: createdHandout, error } = await supabase.from("handouts").insert([
-        {
-          sala_id: salaId,
-          cena_id: cenaId,
-          titulo: handoutTitle.trim(),
-          tipo: "item_inspecao",
-          content: handoutText.trim() || null,
-          image_url: imageUrl,
-          image_back_url: imageBackUrl,
-          visible_to_players: true,
-        },
-      ]).select("id, titulo, image_url").single();
-
-      if (error) {
-        if (hasMissingTable(error, "handouts")) {
-          alert("A tabela handouts ainda nao existe no Supabase. Rode o SQL de reparo VTT Director Tools antes de criar itens de inspecao.");
-          return;
-        }
-        alert(`Falha ao criar item de inspecao: ${error.message}`);
-        return;
-      }
-
-      if (createdHandout?.id) {
-        const { error: mapItemError } = await supabase.from("map_items").insert([
-          {
-            cena_id: cenaId,
-            sala_id: salaId,
-            nome: createdHandout.titulo,
-            tipo: "item_inspecao",
-            x: 0,
-            y: 0,
-            width: 82,
-            height: 82,
-            z_index: -6,
-            image_url: createdHandout.image_url,
-            visible_to_players: true,
-            interactive: true,
-            payload: { handout_id: createdHandout.id },
-          },
-        ]);
-
-        if (mapItemError && !hasMissingTable(mapItemError, "map_items")) {
-          alert(`Item criado, mas a peca do mapa falhou: ${mapItemError.message}`);
-        }
-        if (mapItemError && hasMissingTable(mapItemError, "map_items")) {
-          alert("O item foi criado, mas a tabela map_items ainda nao existe no Supabase. Rode o SQL de reparo para ele aparecer fisicamente no mapa.");
-        }
-      }
-
-      setHandoutTitle("");
-      setHandoutText("");
-      setHandoutFront(null);
-      setHandoutBack(null);
-      setPanelOpen(false);
-    } finally {
-      setSavingHandout(false);
-    }
-  };
-
   const nudgeMap = (dx: number, dy: number) => {
     onPreferencesChange({
       mapOffsetX: mergedPreferences.mapOffsetX + dx,
@@ -282,167 +146,93 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
     <>
       <button
         onClick={() => setPanelOpen(true)}
-        className="aq-hud-button fixed bottom-[92px] right-3 z-50 flex h-11 items-center gap-2 px-4 text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] lg:bottom-4 lg:right-4"
+        className="fixed bottom-[104px] right-3 z-50 flex items-center gap-2 rounded-full border border-[var(--aq-border-strong)] bg-[rgba(5,10,16,0.92)] px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-title)] shadow-[0_8px_30px_rgba(0,0,0,0.35)] backdrop-blur-md md:bottom-5 md:right-4"
       >
         <SlidersHorizontal size={15} />
         Ferramentas
       </button>
 
       {panelOpen ? (
-        <button className="fixed inset-0 z-40 bg-[rgba(7,24,39,0.28)] backdrop-blur-[2px]" onClick={() => setPanelOpen(false)} aria-label="Fechar ferramentas" />
+        <button className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.35)]" onClick={() => setPanelOpen(false)} aria-label="Fechar ferramentas" />
       ) : null}
 
-      <div className={`${panelOpen ? "block" : "hidden"} aq-scrollbar aq-vtt-surface fixed inset-x-3 bottom-[86px] z-50 max-h-[66vh] overflow-y-auto p-4 lg:inset-x-auto lg:bottom-20 lg:right-4 lg:max-h-[76vh] lg:w-[316px]`}>
+      <div className={`${panelOpen ? "block" : "hidden"} aq-scrollbar fixed inset-x-3 bottom-[96px] z-50 max-h-[64vh] overflow-y-auto rounded-3xl border border-[var(--aq-border-strong)] bg-[rgba(10,15,24,0.96)] p-4 shadow-[0_0_28px_rgba(0,0,0,0.48)] backdrop-blur-md md:inset-x-auto md:bottom-20 md:right-4 md:max-h-[72vh] md:w-[340px]`}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="aq-kicker text-[0.54rem]">Diretivas</div>
-            <div className="mt-1 text-xs font-black uppercase tracking-[0.14em] text-[var(--aq-title)]">Ferramentas</div>
+            <div className="aq-kicker">Tactical Deck</div>
+            <div className="mt-1 text-sm font-black uppercase tracking-[0.16em] text-[var(--aq-title)]">Ferramentas da Cena</div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => alert(`D20: ${Math.floor(Math.random() * 20) + 1}`)}
-              className="aq-hud-button flex h-10 w-10 items-center justify-center text-[var(--aq-title)] transition-all active:scale-95"
+              className="rounded-xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] p-3 text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:bg-[rgba(74,217,217,0.14)] hover:text-[var(--aq-accent)] active:scale-95"
               title="Rolar D20"
             >
-              <Dice5 size={18} />
+              <Dice5 size={20} />
             </button>
-            <button onClick={() => setPanelOpen(false)} className="aq-hud-button flex h-10 w-10 items-center justify-center text-[var(--aq-text-muted)]">
-              <X size={16} />
+            <button onClick={() => setPanelOpen(false)} className="rounded-xl border border-[var(--aq-border)] p-3 text-[var(--aq-text-muted)]">
+              <X size={18} />
             </button>
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-4 gap-1.5">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           {TOOL_OPTIONS.map((tool) => {
             const Icon = tool.icon;
             const active = mergedPreferences.toolMode === tool.id;
-            const shortLabel = tool.id === "measure" ? "Medir" : tool.id === "map" ? "Mapa" : tool.label;
             return (
               <button
                 key={tool.id}
-                title={tool.label}
                 onClick={() => {
                   setToolMode(tool.id);
                   onPreferencesChange({ toolMode: tool.id });
                 }}
-                className={`flex h-[54px] flex-col items-center justify-center rounded-[0.85rem] border px-1.5 text-[8px] font-black uppercase tracking-[0.08em] transition-all ${
+                className={`rounded-2xl border px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition-all md:text-xs md:tracking-[0.18em] ${
                   active
-                    ? "border-[var(--aq-border-strong)] bg-[rgba(157,226,234,0.12)] text-[var(--aq-accent)]"
-                    : "border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] text-[var(--aq-text-muted)] hover:text-[var(--aq-title)]"
+                    ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.14)] text-[var(--aq-accent)]"
+                    : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] text-[var(--aq-text-muted)] hover:text-[var(--aq-title)]"
                 }`}
               >
-                <Icon size={15} className="mb-1" />
-                <span className="max-w-full truncate">{shortLabel}</span>
+                <Icon size={15} className="mx-auto mb-2" />
+                {tool.label}
               </button>
             );
           })}
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
-          <button onClick={addToken} className="flex h-11 items-center justify-center gap-1.5 rounded-[0.8rem] border border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] px-2 text-[9px] font-black uppercase tracking-[0.12em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button onClick={addToken} className="flex items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]">
             <Users size={15} />
             Token
           </button>
 
-          <button onClick={addMapItem} disabled={!salaId} className="flex h-11 items-center justify-center gap-1.5 rounded-[0.8rem] border border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] px-2 text-[9px] font-black uppercase tracking-[0.12em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] disabled:opacity-40">
-            <Layers3 size={15} />
-            Item
-          </button>
-
-          <label className="flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[0.8rem] border border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] px-2 text-[9px] font-black uppercase tracking-[0.12em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)]">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)] transition-all hover:border-[var(--aq-border-strong)] hover:text-[var(--aq-accent)] md:text-xs md:tracking-[0.18em]">
             <MapIcon size={15} />
-            Mapa
+            Enviar mapa
             <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
           </label>
         </div>
 
-        <button onClick={removeMap} className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-[0.8rem] border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 text-[9px] font-black uppercase tracking-[0.14em] text-red-300 transition-all hover:bg-[rgba(239,68,68,0.14)]">
+        <button onClick={removeMap} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[rgba(239,68,68,0.08)] px-3 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-red-300 transition-all hover:bg-[rgba(239,68,68,0.14)] md:text-xs">
           <ImageMinus size={15} />
-          Remover mapa
+          Remover mapa da cena
         </button>
 
-        <div className="mt-3 rounded-[0.85rem] border border-[var(--aq-border)] bg-[rgba(35,82,106,0.32)] p-3">
-          <div className="mb-3 flex items-center gap-2 text-[var(--aq-title)]">
-            <Text size={15} className="text-[var(--aq-accent)]" />
-            <span className="text-[10px] font-black uppercase tracking-[0.18em]">Inspecao</span>
-          </div>
-
-          <div className="grid gap-3">
-            <input
-              value={handoutTitle}
-              onChange={(event) => setHandoutTitle(event.target.value)}
-              placeholder="Titulo do item"
-              className="aq-input"
-            />
-            <textarea
-              value={handoutText}
-              onChange={(event) => setHandoutText(event.target.value)}
-              placeholder="Texto do item, puzzle, anotacao ou lore"
-              className="min-h-[84px] rounded-[0.85rem] border border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] px-4 py-3 text-sm text-[var(--aq-text)] outline-none"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <label className="overflow-hidden rounded-[0.85rem] border border-[var(--aq-border)] bg-[linear-gradient(180deg,rgba(18,27,38,0.96),rgba(7,10,16,0.96))]">
-                <div className="flex items-center justify-between border-b border-white/8 px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)]">
-                  <span>Frente</span>
-                  <span className="text-[8px] text-[var(--aq-accent)]">{handoutFront ? "Pronta" : "Enviar"}</span>
-                </div>
-                <div className="px-3 py-2">
-                  <div className="mb-2 flex h-20 items-center justify-center overflow-hidden rounded-[0.7rem] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(157,226,234,0.14),transparent_48%),rgba(255,255,255,0.03)]">
-                    {handoutFrontPreview ? (
-                      <img src={handoutFrontPreview} alt="Preview da frente" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="px-3 text-center text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Preview da face frontal</div>
-                    )}
-                  </div>
-                  <div className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">{handoutFront?.name || "Sem arquivo"}</div>
-                  <input type="file" className="mt-3 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutFront(event.target.files?.[0] ?? null)} />
-                </div>
-              </label>
-              <label className="overflow-hidden rounded-[0.85rem] border border-[var(--aq-border)] bg-[linear-gradient(180deg,rgba(18,27,38,0.96),rgba(7,10,16,0.96))]">
-                <div className="flex items-center justify-between border-b border-white/8 px-3 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-title)]">
-                  <span>Verso</span>
-                  <span className="text-[8px] text-[var(--aq-accent)]">{handoutBack ? "Pronto" : "Opcional"}</span>
-                </div>
-                <div className="px-3 py-2">
-                  <div className="mb-2 flex h-20 items-center justify-center overflow-hidden rounded-[0.7rem] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(157,226,234,0.14),transparent_48%),rgba(255,255,255,0.03)]">
-                    {handoutBackPreview ? (
-                      <img src={handoutBackPreview} alt="Preview do verso" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="px-3 text-center text-[9px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Preview da face traseira</div>
-                    )}
-                  </div>
-                  <div className="truncate text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">{handoutBack?.name || "Sem arquivo"}</div>
-                  <input type="file" className="mt-3 block w-full text-[11px]" accept="image/*" onChange={(event) => setHandoutBack(event.target.files?.[0] ?? null)} />
-                </div>
-              </label>
-            </div>
-            <button onClick={createHandout} disabled={savingHandout || !salaId} className="aq-button-primary w-full justify-center disabled:opacity-40">
-              <Plus size={14} />
-              {savingHandout ? "Salvando item" : "Criar item estilo RE"}
-            </button>
-          </div>
-        </div>
-
-        <details className="aq-vtt-section mt-3">
-          <summary className="flex cursor-pointer items-center justify-between gap-2 text-[var(--aq-title)]">
-            <span className="flex items-center gap-2">
-              <Grid2x2 size={14} className="text-[var(--aq-accent)]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.18em]">Grid</span>
-            </span>
-            <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">{mergedPreferences.gridSize}px</span>
-          </summary>
-          <div className="mt-3">
+        <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <div />
+            <div className="flex items-center gap-2 text-[var(--aq-title)]">
+              <Grid2x2 size={15} className="text-[var(--aq-accent)]" />
+              <span className="text-xs font-black uppercase tracking-[0.18em]">Grid</span>
+            </div>
             <button
               onClick={() => {
                 const next = !mergedPreferences.showGrid;
                 setGrid({ showGrid: next });
                 onPreferencesChange({ showGrid: next });
               }}
-              className={`rounded-[0.7rem] border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
+              className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
                 mergedPreferences.showGrid
-                  ? "border-[var(--aq-border-strong)] bg-[rgba(157,226,234,0.12)] text-[var(--aq-accent)]"
+                  ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)]"
                   : "border-[var(--aq-border)] text-[var(--aq-text-muted)]"
               }`}
             >
@@ -475,27 +265,19 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
               }}
               className={`rounded-2xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${
                 mergedPreferences.snapToGrid
-                  ? "border-[var(--aq-border-strong)] bg-[rgba(157,226,234,0.12)] text-[var(--aq-accent)]"
-                  : "border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] text-[var(--aq-text-muted)]"
+                  ? "border-[var(--aq-border-strong)] bg-[rgba(74,217,217,0.12)] text-[var(--aq-accent)]"
+                  : "border-[var(--aq-border)] bg-[rgba(5,10,16,0.72)] text-[var(--aq-text-muted)]"
               }`}
             >
               {mergedPreferences.snapToGrid ? "Snap ativo" : "Snap livre"}
             </button>
           </div>
-          </div>
-        </details>
+        </div>
 
-        <details className="aq-vtt-section mt-3">
-          <summary className="flex cursor-pointer items-center justify-between gap-2 text-[var(--aq-title)]">
-            <span className="flex items-center gap-2">
-              <Crosshair size={14} className="text-[var(--aq-accent)]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.18em]">Mapa</span>
-            </span>
-            <span className="text-[9px] font-black uppercase tracking-[0.16em] text-[var(--aq-text-muted)]">{mergedPreferences.mapScale.toFixed(2)}x</span>
-          </summary>
-          <div className="mt-3">
+        <div className="mt-4 rounded-2xl border border-[var(--aq-border)] bg-[rgba(5,10,16,0.68)] p-3">
           <div className="mb-3 flex items-center gap-2 text-[var(--aq-title)]">
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--aq-text-muted)]">Alinhamento fino</span>
+            <Crosshair size={15} className="text-[var(--aq-accent)]" />
+            <span className="text-xs font-black uppercase tracking-[0.18em]">Alinhamento do mapa</span>
           </div>
 
           <div className="mb-3 grid grid-cols-2 gap-2">
@@ -531,10 +313,8 @@ export default function VTTControls({ cenaId, salaId, preferences, onPreferences
             <div className="rounded-xl border border-[var(--aq-border)] px-3 py-2">Offset X: {mergedPreferences.mapOffsetX}</div>
             <div className="rounded-xl border border-[var(--aq-border)] px-3 py-2">Offset Y: {mergedPreferences.mapOffsetY}</div>
           </div>
-          </div>
-        </details>
+        </div>
       </div>
     </>
   );
 }
-
