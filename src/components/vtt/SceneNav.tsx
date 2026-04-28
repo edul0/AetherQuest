@@ -45,18 +45,18 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
   };
 
   return (
-    <div className="aq-vtt-strip fixed left-3 right-3 top-[64px] z-40 flex items-center gap-1 overflow-x-auto px-2 py-2 lg:left-4 lg:right-auto lg:top-4 lg:max-w-[calc(100vw-760px)]">
-      <div className="flex h-9 shrink-0 items-center gap-2 border-r border-white/10 px-2 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--aq-accent)]">
+    <div className="aq-vtt-strip fixed left-3 right-3 top-[72px] z-40 flex items-center gap-2 overflow-x-auto px-3 py-2.5 lg:left-20 lg:right-auto lg:top-4 lg:max-w-[min(38vw,620px)]">
+      <div className="flex h-10 shrink-0 items-center gap-2 border-r border-white/10 pr-3 text-[9px] font-semibold uppercase tracking-[0.18em] text-[var(--aq-accent)]">
         <Map size={14} />
         <span className="hidden sm:inline">Locais</span>
       </div>
 
-      <div className={`aq-scrollbar flex items-center gap-1 overflow-x-auto px-1 ${inter.className}`}>
+      <div className={`aq-scrollbar flex items-center gap-2 overflow-x-auto px-1 ${inter.className}`}>
         {cenas.map((cena) => (
           <button
             key={cena.id}
             onClick={() => onSelectCena(cena)}
-            className={`aq-vtt-chip h-9 whitespace-nowrap px-3 py-0 ${
+            className={`aq-vtt-chip h-10 whitespace-nowrap rounded-[16px] px-4 py-0 ${
               cenaAtivaId === cena.id
                 ? "border-[var(--aq-border-strong)] bg-[rgba(157,226,234,0.13)] text-[var(--aq-title)] shadow-[0_0_16px_rgba(157,226,234,0.1)]"
                 : ""
@@ -69,7 +69,7 @@ export default function SceneNav({ salaId, onSelectCena, cenaAtivaId }: any) {
 
       <button
         onClick={criarNovaCena}
-        className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] border border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] text-[var(--aq-accent)] transition-colors hover:border-[var(--aq-border-strong)] hover:bg-[rgba(157,226,234,0.12)]"
+        className="ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] border border-[var(--aq-border)] bg-[rgba(234,244,246,0.055)] text-[var(--aq-accent)] transition-colors hover:border-[var(--aq-border-strong)] hover:bg-[rgba(157,226,234,0.12)]"
         title="Criar Novo Local"
       >
         <Plus size={14} />
