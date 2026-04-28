@@ -3,26 +3,39 @@
 @tailwind utilities;
 
 :root {
+  /* Primary colors */
   --aq-bg: #0b1f33;
   --aq-bg-deep: #061522;
   --aq-bg-sky: #123650;
+  
+  /* Surface variants */
   --aq-surface: rgba(26, 64, 86, 0.72);
   --aq-surface-soft: rgba(33, 79, 101, 0.56);
   --aq-surface-glass: rgba(31, 76, 99, 0.46);
   --aq-panel: rgba(18, 48, 68, 0.62);
+  
+  /* Borders */
   --aq-border: rgba(174, 224, 232, 0.2);
   --aq-border-strong: rgba(174, 224, 232, 0.42);
+  
+  /* Accent colors */
   --aq-accent: #9de2ea;
   --aq-accent-soft: rgba(157, 226, 234, 0.14);
   --aq-accent-strong: #78ccda;
+  
+  /* Semantic colors */
   --aq-nature: #79b994;
   --aq-gold: #d8bd78;
+  --aq-danger: #d46a6a;
+  --aq-success: #6faf8a;
+  
+  /* Typography */
   --aq-title: #eaf4f6;
   --aq-text: #c5d9df;
   --aq-text-muted: #8fa8b5;
   --aq-text-subtle: #5f7a8a;
-  --aq-danger: #d46a6a;
-  --aq-success: #6faf8a;
+  
+  /* Spacing & Layout */
   --aq-radius-sm: 12px;
   --aq-radius-md: 16px;
   --aq-radius-lg: 18px;
@@ -31,6 +44,11 @@
   --aq-blur: blur(20px) saturate(115%);
   --aq-shell-max: 1680px;
   --aq-shell-gutter: 1rem;
+  
+  /* Transitions */
+  --aq-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --aq-transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --aq-transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 html {
@@ -92,6 +110,45 @@ body {
   .aq-page {
     overflow-x: hidden;
     overflow-y: auto;
+  }
+}
+
+/* Component utilities */
+@layer components {
+  .aq-card {
+    @apply rounded-aq shadow-aq-soft border border-aq bg-aq-panel;
+  }
+
+  .aq-card-glass {
+    @apply rounded-aq shadow-aq-soft border border-aq bg-aq-surface-glass backdrop-blur-aq;
+  }
+
+  .aq-button-base {
+    @apply inline-flex items-center justify-center gap-2 rounded-aq font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .aq-input-base {
+    @apply w-full px-4 py-2 rounded-aq bg-aq-surface border border-aq text-aq-title placeholder-aq-text-subtle transition-all duration-200 focus:outline-none focus:border-aq-accent focus:ring-2 focus:ring-aq-accent focus:ring-opacity-20;
+  }
+
+  .aq-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .aq-divider {
+    @apply border-t border-aq;
+  }
+
+  .aq-glass-panel {
+    @apply bg-aq-surface-glass backdrop-blur-aq border border-aq rounded-aq;
+  }
+
+  .aq-hover-lift {
+    @apply transition-all duration-300 hover:shadow-aq-float hover:translate-y-[-2px];
+  }
+
+  .aq-focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aq-accent focus-visible:ring-offset-2 focus-visible:ring-offset-aq-bg;
   }
 }
 
